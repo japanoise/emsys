@@ -1,4 +1,5 @@
 #include<errno.h>
+#include<signal.h>
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
@@ -130,6 +131,11 @@ void editorRefreshScreen() {
 	write(STDOUT_FILENO, CSI"H", 3);
 }
 
+void editorResizeScreen(int sig) {
+	if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
+	editorRefreshScreen();
+}
+
 /*** input ***/
 
 /* Where the magic happens */
@@ -152,6 +158,7 @@ void initEditor() {
 int main(int argc, char *argv[]) {
 	enableRawMode();
 	initEditor();
+	signal (SIGWINCH, editorResizeScreen);
 
 	char c;
 	while (1) {
