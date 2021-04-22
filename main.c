@@ -16,6 +16,13 @@
 #define CTRL_KEY(c) ((c)&0x1f)
 #define PANIC CTRL_KEY('p')
 
+enum editorKey {
+	ARROW_LEFT = 1000,
+	ARROW_RIGHT,
+	ARROW_UP,
+	ARROW_DOWN
+};
+
 void die(const char *s) {
 	write(STDOUT_FILENO, CSI"2J", 4);
 	write(STDOUT_FILENO, CSI"H", 3);
@@ -28,10 +35,16 @@ void die(const char *s) {
 
 /*** data ***/
 
+struct editorBuffer {
+	int cx, cy;
+	int scx, scy;
+};
+
 struct editorConfig {
 	int screenrows;
 	int screencols;
 	struct termios orig_termios;
+	struct editorBuffer buf;
 };
 
 struct editorConfig E;
@@ -78,6 +91,46 @@ int editorReadKey() {
 	if (c == PANIC) {
 		errno = EINTR;
 		die("Panic key");
+	}
+
+	if (c == 033) {
+		char seq[4];
+		if (read(STDIN_FILENO, &seq[0], 1) != 1) return 033;
+		if (read(STDIN_FILENO, &seq[1], 1) != 1) return 033;
+
+		if (seq[0] == '[') {
+			if (seq[1] >= '0' && seq[1] <= '9') {
+				if (read(STDIN_FILENO, &seq[2], 1) != 1) return '\x1b';
+				if (seq[2] == '~') {
+					switch (seq[1]) {
+					case '1': return HOME_KEY;
+					case '3': return DEL_KEY;
+					case '4': return END_KEY;
+					case '5': return PAGE_UP;
+					case '6': return PAGE_DOWN;
+					case '7': return HOME_KEY;
+					case '8': return END_KEY;
+					}
+				}
+			} else {
+				switch (seq[1]) {
+				case 'A': return ARROW_UP;
+				case 'B': return ARROW_DOWN;
+				case 'C': return ARROW_RIGHT;
+				case 'D': return ARROW_LEFT;
+				}
+			}
+		}
+
+		return 033;
+	} else if (c == CTRL_KEY('p')) {
+		return ARROW_UP;
+	} else if (c == CTRL_KEY('n')) {
+		return ARROW_DOWN;
+	} else if (c == CTRL_KEY('b')) {
+		return ARROW_LEFT;
+	} else if (c == CTRL_KEY('f')) {
+		return ARROW_RIGHT;
 	}
 	return c;
 }
@@ -144,6 +197,9 @@ void editorDrawRows(struct abuf *ab) {
 			abAppend(ab, CRLF, 2);
 		}
 	}
+	/* Eventually we'll do this on a line wrap */
+	E.buf.scx = E.buf.cx;
+	E.buf.scy = E.buf.cy;
 }
 
 void editorRefreshScreen() {
@@ -157,7 +213,10 @@ void editorRefreshScreen() {
 
 	abAppend(&ab, CSI"H", 3);
 
-	/* show cursor */
+	/* move to cy, cx; show cursor */
+	char buf[32];
+	snprintf(buf, sizeof(buf), CSI"%d;%dH", E.buf.cy + 1, E.buf.cx + 1);
+	abAppend(&ab, buf, strlen(buf));
 	abAppend(&ab, CSI"?25h", 6);
 
 	write(STDOUT_FILENO, ab.b, ab.len);
@@ -171,20 +230,50 @@ void editorResizeScreen(int sig) {
 
 /*** input ***/
 
+void editorMoveCursor(int key) {
+	switch (key) {
+	case ARROW_LEFT:
+		if (E.buf.cx > 0) {
+			E.buf.cx--;
+		}
+		break;
+	case ARROW_RIGHT:
+		E.buf.cx++;
+		break;
+	case ARROW_UP:
+		if (E.buf.cy > 0) {
+			E.buf.cy--;
+		}
+		break;
+	case ARROW_DOWN:
+		E.buf.cy++;
+		break;
+	}
+}
+
 /* Where the magic happens */
 void editorProcessKeypress() {
 	int c = editorReadKey();
 
 	switch (c) {
-		case CTRL('q'):
-			exit(0);
-			break;
+	case CTRL('q'):
+		exit(0);
+		break;
+	case ARROW_LEFT:
+	case ARROW_RIGHT:
+	case ARROW_UP:
+	case ARROW_DOWN:
+		editorMoveCursor(c);
+		break;
 	}
 }
 
 /*** init ***/
 
 void initEditor() {
+	E.buf.cx = 0;
+	E.buf.cy = 0;
+
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 }
 
