@@ -287,7 +287,6 @@ int main(int argc, char *argv[]) {
 	initEditor();
 	signal (SIGWINCH, editorResizeScreen);
 
-	char c;
 	while (1) {
 		editorRefreshScreen();
 		editorProcessKeypress();
