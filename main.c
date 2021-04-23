@@ -145,7 +145,7 @@ int editorReadKey() {
 		/* 2-byte UTF-8 sequence */
 		E.nunicode = 2;
 
-		E.unicode[0] = c
+		E.unicode[0] = c;
 		if (read(STDIN_FILENO, &E.unicode[1], 1) != 1)
 			return UNICODE_ERROR;
 		return UNICODE;
@@ -153,7 +153,7 @@ int editorReadKey() {
 		/* 3-byte UTF-8 sequence */
 		E.nunicode = 3;
 
-		E.unicode[0] = c
+		E.unicode[0] = c;
 		if (read(STDIN_FILENO, &E.unicode[1], 1) != 1)
 			return UNICODE_ERROR;
 		if (read(STDIN_FILENO, &E.unicode[2], 1) != 1)
@@ -163,7 +163,7 @@ int editorReadKey() {
 		/* 4-byte UTF-8 sequence */
 		E.nunicode = 4;
 
-		E.unicode[0] = c
+		E.unicode[0] = c;
 		if (read(STDIN_FILENO, &E.unicode[1], 1) != 1)
 			return UNICODE_ERROR;
 		if (read(STDIN_FILENO, &E.unicode[2], 1) != 1)
