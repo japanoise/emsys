@@ -1,5 +1,6 @@
 #include<errno.h>
 #include<signal.h>
+#include<stdint.h>
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
@@ -25,7 +26,9 @@ enum editorKey {
         DEL_KEY,
         END_KEY,
         PAGE_UP,
-        PAGE_DOWN
+        PAGE_DOWN,
+	UNICODE,
+	UNICODE_ERROR
 };
 
 void die(const char *s) {
@@ -48,6 +51,8 @@ struct editorBuffer {
 struct editorConfig {
 	int screenrows;
 	int screencols;
+	uint8_t unicode[4];
+	int nunicode;
 	struct termios orig_termios;
 	struct editorBuffer buf;
 };
@@ -89,7 +94,7 @@ void enableRawMode() {
 /* Raw reading a keypress */
 int editorReadKey() {
 	int nread;
-	char c;
+	uint8_t c;
 	while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
 		if (nread == -1 && errno != EAGAIN) die("read");
 	}
@@ -136,6 +141,36 @@ int editorReadKey() {
 		return ARROW_LEFT;
 	} else if (c == CTRL_KEY('f')) {
 		return ARROW_RIGHT;
+	} else if (0xC2 <= c && c <= 0xDF) {
+		/* 2-byte UTF-8 sequence */
+		E.nunicode = 2;
+
+		E.unicode[0] = c
+		if (read(STDIN_FILENO, &E.unicode[1], 1) != 1)
+			return UNICODE_ERROR;
+		return UNICODE;
+	} else if (0xE0 <= c && c <= 0xEF) {
+		/* 3-byte UTF-8 sequence */
+		E.nunicode = 3;
+
+		E.unicode[0] = c
+		if (read(STDIN_FILENO, &E.unicode[1], 1) != 1)
+			return UNICODE_ERROR;
+		if (read(STDIN_FILENO, &E.unicode[2], 1) != 1)
+			return UNICODE_ERROR;
+		return UNICODE;
+	} else if (0xF0 <= c && c <= 0xF4) {
+		/* 4-byte UTF-8 sequence */
+		E.nunicode = 4;
+
+		E.unicode[0] = c
+		if (read(STDIN_FILENO, &E.unicode[1], 1) != 1)
+			return UNICODE_ERROR;
+		if (read(STDIN_FILENO, &E.unicode[2], 1) != 1)
+			return UNICODE_ERROR;
+		if (read(STDIN_FILENO, &E.unicode[3], 1) != 1)
+			return UNICODE_ERROR;
+		return UNICODE;
 	}
 	return c;
 }
