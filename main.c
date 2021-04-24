@@ -19,8 +19,7 @@
 #define CSI ESC"["
 #define CRLF "\r\n"
 #define ISCTRL(c) ((0 < c && c < 0x20) || c == 0x7f)
-#define CTRL_KEY(c) ((c)&0x1f)
-#define PANIC CTRL_KEY('c')
+#define PANIC CTRL('c')
 
 enum editorKey {
 	ARROW_LEFT = 1000,
@@ -146,13 +145,13 @@ int editorReadKey() {
 		}
 
 		return 033;
-	} else if (c == CTRL_KEY('p')) {
+	} else if (c == CTRL('p')) {
 		return ARROW_UP;
-	} else if (c == CTRL_KEY('n')) {
+	} else if (c == CTRL('n')) {
 		return ARROW_DOWN;
-	} else if (c == CTRL_KEY('b')) {
+	} else if (c == CTRL('b')) {
 		return ARROW_LEFT;
-	} else if (c == CTRL_KEY('f')) {
+	} else if (c == CTRL('f')) {
 		return ARROW_RIGHT;
 	} else if (utf8_is2Char(c)) {
 		/* 2-byte UTF-8 sequence */
