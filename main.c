@@ -7,6 +7,7 @@
 #include<sys/ioctl.h>
 #include<termios.h>
 #include<unistd.h>
+#include"unicode.h"
 
 /*** util ***/
 
@@ -141,7 +142,7 @@ int editorReadKey() {
 		return ARROW_LEFT;
 	} else if (c == CTRL_KEY('f')) {
 		return ARROW_RIGHT;
-	} else if (0xC2 <= c && c <= 0xDF) {
+	} else if (utf8_is2Char(c)) {
 		/* 2-byte UTF-8 sequence */
 		E.nunicode = 2;
 
@@ -149,7 +150,7 @@ int editorReadKey() {
 		if (read(STDIN_FILENO, &E.unicode[1], 1) != 1)
 			return UNICODE_ERROR;
 		return UNICODE;
-	} else if (0xE0 <= c && c <= 0xEF) {
+	} else if (utf8_is3Char(c)) {
 		/* 3-byte UTF-8 sequence */
 		E.nunicode = 3;
 
@@ -159,7 +160,7 @@ int editorReadKey() {
 		if (read(STDIN_FILENO, &E.unicode[2], 1) != 1)
 			return UNICODE_ERROR;
 		return UNICODE;
-	} else if (0xF0 <= c && c <= 0xF4) {
+	} else if (utf8_is4Char(c)) {
 		/* 4-byte UTF-8 sequence */
 		E.nunicode = 4;
 

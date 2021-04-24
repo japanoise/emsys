@@ -111,3 +111,7 @@ int utf8_nBytes(uint8_t ch) {
 		return 1;
 	}
 }
+
+int utf8_isCont(uint8_t ch) {
+	return (0x80 <= ch && ch <= 0xBF);
+}
