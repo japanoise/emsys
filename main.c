@@ -1,3 +1,7 @@
+#define _DEFAULT_SOURCE
+#define _BSD_SOURCE
+#define _GNU_SOURCE
+
 #include<errno.h>
 #include<signal.h>
 #include<stdint.h>
@@ -16,7 +20,7 @@
 #define CRLF "\r\n"
 #define ISCTRL(c) ((0 < c && c < 0x20) || c == 0x7f)
 #define CTRL_KEY(c) ((c)&0x1f)
-#define PANIC CTRL_KEY('p')
+#define PANIC CTRL_KEY('c')
 
 enum editorKey {
 	ARROW_LEFT = 1000,
@@ -44,9 +48,17 @@ void die(const char *s) {
 
 /*** data ***/
 
+typedef struct erow {
+	int size;
+	uint8_t *chars;
+} erow;
+
 struct editorBuffer {
 	int cx, cy;
 	int scx, scy;
+	int numrows;
+	int rowoff;
+	erow *row;
 };
 
 struct editorConfig {
@@ -204,6 +216,38 @@ int getWindowSize(int *rows, int *cols) {
 	}
 }
 
+/*** row operations ***/
+
+void editorAppendRow(char *s, size_t len) {
+	E.buf.row = realloc(E.buf.row, sizeof(erow) * (E.buf.numrows + 1));
+
+	int at = E.buf.numrows;
+	E.buf.row[at].size = len;
+	E.buf.row[at].chars = malloc(len + 1);
+	memcpy(E.buf.row[at].chars, s, len);
+	E.buf.row[at].chars[len] = '\0';
+	E.buf.numrows++;
+}
+
+/*** file i/o ***/
+
+void editorOpen(char *filename) {
+	FILE *fp = fopen(filename, "r");
+	if (!fp) die("fopen");
+
+	char * line = NULL;
+	size_t linecap = 0;
+	ssize_t linelen;
+	while ((linelen = getline(&line, &linecap, fp)) != -1) {
+		while (linelen > 0 && (line[linelen - 1] == '\n' ||
+				       line[linelen - 1] == '\r'))
+			linelen--;
+		editorAppendRow(line, linelen);
+	}
+	free(line);
+	fclose(fp);
+}
+
 /*** append buffer ***/
 
 struct abuf {
@@ -228,35 +272,52 @@ void abFree(struct abuf *ab) {
 
 /*** output ***/
 
-void editorDrawRows(struct abuf *ab) {
-	int y;
-	for (y=0; y<E.screenrows; y++) {
-		abAppend(ab, CSI"34m~"CSI"0m", 10);
-
-		abAppend(ab, "\x1b[K", 3);
-		if (y<E.screenrows - 1) {
-			abAppend(ab, CRLF, 2);
-		}
+void editorScroll(int screenrows, int screencols) {
+	if (E.buf.cy < E.buf.rowoff) {
+		E.buf.rowoff = E.buf.cy;
+	}
+	if (E.buf.cy >= E.buf.rowoff + screenrows) {
+		E.buf.rowoff = E.buf.cy - screenrows + 1;
 	}
 	/* Eventually we'll do this on a line wrap */
 	E.buf.scx = E.buf.cx;
-	E.buf.scy = E.buf.cy;
+	E.buf.scy = E.buf.cy-E.buf.rowoff;
+}
+
+void editorDrawRows(struct abuf *ab, int screenrows, int screencols) {
+	int y;
+	for (y=0; y<screenrows; y++) {
+		int filerow = y + E.buf.rowoff;
+		if (filerow >= E.buf.numrows) {
+			abAppend(ab, CSI"34m~"CSI"0m", 10);
+		} else {
+			int len = E.buf.row[filerow].size;
+			if (len > screencols) len = screencols;
+			abAppend(ab, E.buf.row[filerow].chars, len);
+		}
+		abAppend(ab, "\x1b[K", 3);
+		if (y<screenrows - 1) {
+			abAppend(ab, CRLF, 2);
+		}
+	}
 }
 
 void editorRefreshScreen() {
+	editorScroll(E.screenrows, E.screencols);
+
 	struct abuf ab = ABUF_INIT;
 
 	/* Hide cursor and move to 1,1 */
 	abAppend(&ab, CSI"?25l", 6);
 	abAppend(&ab, CSI"H", 3);
 
-	editorDrawRows(&ab);
+	editorDrawRows(&ab, E.screenrows, E.screencols);
 
 	abAppend(&ab, CSI"H", 3);
 
-	/* move to cy, cx; show cursor */
+	/* move to scy, scx; show cursor */
 	char buf[32];
-	snprintf(buf, sizeof(buf), CSI"%d;%dH", E.buf.cy + 1, E.buf.cx + 1);
+	snprintf(buf, sizeof(buf), CSI"%d;%dH", E.buf.scy + 1, E.buf.scx + 1);
 	abAppend(&ab, buf, strlen(buf));
 	abAppend(&ab, CSI"?25h", 6);
 
@@ -272,14 +333,24 @@ void editorResizeScreen(int sig) {
 /*** input ***/
 
 void editorMoveCursor(int key) {
+	erow *row = (E.buf.cy >= E.buf.numrows) ? NULL : &E.buf.row[E.buf.cy];
+	
 	switch (key) {
 	case ARROW_LEFT:
-		if (E.buf.cx > 0) {
-			E.buf.cx--;
+		if (E.buf.cx != 0) {
+			do E.buf.cx--; while (E.buf.cx != 0 && utf8_isCont(row->chars[E.buf.cx]));
+		} else if (E.buf.cy > 0) {
+			E.buf.cy--;
+			E.buf.cx = E.buf.row[E.buf.cy].size;
 		}
 		break;
 	case ARROW_RIGHT:
-		E.buf.cx++;
+		if (row && E.buf.cx < row->size) {
+			E.buf.cx+=utf8_nBytes(row->chars[E.buf.cx]);
+		} else if (row && E.buf.cx == row -> size) {
+			E.buf.cy++;
+			E.buf.cx=0;
+		}
 		break;
 	case ARROW_UP:
 		if (E.buf.cy > 0) {
@@ -287,8 +358,16 @@ void editorMoveCursor(int key) {
 		}
 		break;
 	case ARROW_DOWN:
-		E.buf.cy++;
+		if (E.buf.cy < E.buf.numrows) {
+			E.buf.cy++;
+		}
 		break;
+	}
+
+	row = (E.buf.cy >= E.buf.numrows) ? NULL : &E.buf.row[E.buf.cy];
+	int rowlen = row ? row->size : 0;
+	if (E.buf.cx > rowlen) {
+		E.buf.cx = rowlen;
 	}
 }
 
@@ -324,6 +403,9 @@ void editorProcessKeypress() {
 void initEditor() {
 	E.buf.cx = 0;
 	E.buf.cy = 0;
+	E.buf.rowoff = 0;
+	E.buf.numrows = 0;
+	E.buf.row = NULL;
 
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 }
@@ -331,6 +413,10 @@ void initEditor() {
 int main(int argc, char *argv[]) {
 	enableRawMode();
 	initEditor();
+	if (argc >= 2) {
+		editorOpen(argv[1]);
+	}
+
 	signal (SIGWINCH, editorResizeScreen);
 
 	while (1) {
