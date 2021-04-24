@@ -305,6 +305,16 @@ void editorProcessKeypress() {
 	case ARROW_DOWN:
 		editorMoveCursor(c);
 		break;
+	case HOME_KEY:
+	case CTRL('a'):
+		E.buf.cx = 0;
+		break;
+	case END_KEY:
+	case CTRL('e'):
+		if (E.buf.row != NULL) {
+			E.buf.cx = E.buf.row[E.buf.cy].size;
+		}
+		break;
 	}
 }
 
