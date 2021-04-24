@@ -14,5 +14,6 @@ unicodetest: unicode.o unicodetest.o wcwidth.o
 
 clean:
 	rm -rf *.o
+	rm -rf *.exe
 	rm -rf $(PROGNAME)
-	rm -rf $(PROGNAME).exe
+	rm -rf unicodetest
