@@ -4,18 +4,21 @@
 
 #include<errno.h>
 #include<signal.h>
+#include<stdarg.h>
 #include<stdint.h>
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
 #include<sys/ioctl.h>
 #include<termios.h>
+#include<time.h>
 #include<unistd.h>
 #include"unicode.h"
 
 /*** util ***/
 
 #define EMSYS_TAB_STOP 8
+#define EMSYS_VERSION "git-main"
 
 #define ESC "\033"
 #define CSI ESC"["
@@ -64,7 +67,9 @@ struct editorBuffer {
 	int scx, scy;
 	int numrows;
 	int rowoff;
+	int end;
 	erow *row;
+	char *filename;
 };
 
 struct editorConfig {
@@ -72,6 +77,8 @@ struct editorConfig {
 	int screencols;
 	uint8_t unicode[4];
 	int nunicode;
+	char minibuffer[80];
+	time_t statusmsg_time;
 	struct termios orig_termios;
 	struct editorBuffer buf;
 };
@@ -323,6 +330,8 @@ void editorAppendRow(char *s, size_t len) {
 /*** file i/o ***/
 
 void editorOpen(char *filename) {
+	free(E.buf.filename);
+	E.buf.filename = strdup(filename);
 	FILE *fp = fopen(filename, "r");
 	if (!fp) die("fopen");
 
@@ -418,8 +427,10 @@ void editorScroll(int screenrows, int screencols) {
 void editorDrawRows(struct abuf *ab, int screenrows, int screencols) {
 	int y;
 	int filerow = E.buf.rowoff;
+	E.buf.end = 0;
 	for (y=0; y<screenrows; y++) {
 		if (filerow >= E.buf.numrows) {
+			E.buf.end = 1;
 			abAppend(ab, CSI"34m~"CSI"0m", 10);
 		} else {
 			y += (E.buf.row[filerow].renderwidth/screencols);
@@ -428,10 +439,67 @@ void editorDrawRows(struct abuf *ab, int screenrows, int screencols) {
 			filerow++;
 		}
 		abAppend(ab, "\x1b[K", 3);
-		if (y<screenrows - 1) {
-			abAppend(ab, CRLF, 2);
+		abAppend(ab, CRLF, 2);
+	}
+}
+
+void editorDrawStatusBar(struct abuf *ab, int line) {
+	/* XXX: It's actually possible for the status bar to end up
+	 * outside where it should be, so set it explicitly. */
+	char buf[32];
+	snprintf(buf, sizeof(buf), CSI"%d;%dH", line, 1);
+	abAppend(ab, buf, strlen(buf));
+
+	abAppend(ab, "\x1b[7m", 4);
+	char status[80];
+	int len = snprintf(status, sizeof(status), "-- %.20s -- %2d:%2d --",
+			   E.buf.filename ? E.buf.filename : "[untitled]",
+			   E.buf.cy+1, E.buf.cx);
+
+	char perc[8] = " xxx --";
+	if (E.buf.numrows == 0) {
+		perc[1] = 'E';
+		perc[2] = 'm';
+		perc[3] = 'p';
+	} else if (E.buf.end) {
+		if (E.buf.rowoff == 0) {
+			perc[1] = 'A';
+			perc[2] = 'l';
+			perc[3] = 'l';
+		} else {
+			perc[1] = 'B';
+			perc[2] = 'o';
+			perc[3] = 't';
+		}
+	} else if(E.buf.rowoff == 0) {
+		perc[1] = 'T';
+		perc[2] = 'o';
+		perc[3] = 'p';
+	} else {
+		snprintf(perc, sizeof(perc), " %2d%% --",
+			 (E.buf.rowoff*100)/E.buf.numrows);
+	}
+
+	if (len > E.screencols) len = E.screencols;
+	abAppend(ab, status, len);
+	while (len < E.screencols) {
+		if (E.screencols - len == 7) {
+			abAppend(ab, perc, 7);
+			break;
+		} else {
+			abAppend(ab, "-", 1);
+			len++;
 		}
 	}
+	abAppend(ab, "\x1b[m"CRLF, 5);
+}
+
+void editorDrawMinibuffer(struct abuf *ab) {
+	abAppend(ab, "\x1b[K", 3);
+	int msglen = strlen(E.minibuffer);
+	if (msglen > E.screencols) msglen = E.screencols;
+	if (msglen && time(NULL) - E.statusmsg_time < 5)
+		abAppend(ab, E.minibuffer, msglen);
 }
 
 void editorRefreshScreen() {
@@ -443,18 +511,8 @@ void editorRefreshScreen() {
 
 	editorScroll(E.screenrows-2, E.screencols);
 	editorDrawRows(&ab, E.screenrows-2, E.screencols);
-
-	/* Status line */
-	abAppend(&ab, CRLF, 2);
-	char statusBuf[32];
-	snprintf(statusBuf, sizeof(statusBuf), "cx %d cy %d scx %d scy %d", E.buf.cx, E.buf.cy, E.buf.scx, E.buf.scy);
-	abAppend(&ab, statusBuf, strlen(statusBuf));
-	abAppend(&ab, "\x1b[K", 3);
-	abAppend(&ab, CRLF, 2);
-	/* Minibuffer */
-	abAppend(&ab, "\x1b[K", 3);
-
-	abAppend(&ab, CSI"H", 3);
+	editorDrawStatusBar(&ab, E.screenrows-1);
+	editorDrawMinibuffer(&ab);
 
 	/* move to scy, scx; show cursor */
 	char buf[32];
@@ -464,6 +522,14 @@ void editorRefreshScreen() {
 
 	write(STDOUT_FILENO, ab.b, ab.len);
 	abFree(&ab);
+}
+
+void editorSetStatusMessage(const char *fmt, ...) {
+	va_list ap;
+	va_start(ap, fmt);
+	vsnprintf(E.minibuffer, sizeof(E.minibuffer), fmt, ap);
+	va_end(ap);
+	E.statusmsg_time = time(NULL);
 }
 
 void editorResizeScreen(int sig) {
@@ -549,6 +615,7 @@ void editorProcessKeypress() {
 		break;
 	case BEG_OF_FILE:
 		E.buf.cy = 0;
+		E.buf.cx = 0;
 		E.buf.rowoff = 0;
 		break;
 	case END_OF_FILE:
@@ -577,6 +644,8 @@ void initEditor() {
 	E.buf.rowoff = 0;
 	E.buf.numrows = 0;
 	E.buf.row = NULL;
+	E.buf.filename = NULL;
+	E.minibuffer[0] = 0;
 
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 }
@@ -588,6 +657,7 @@ int main(int argc, char *argv[]) {
 		editorOpen(argv[1]);
 	}
 
+	editorSetStatusMessage("emsys "EMSYS_VERSION" - C-x C-c to quit");
 	signal (SIGWINCH, editorResizeScreen);
 
 	while (1) {
