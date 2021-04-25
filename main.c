@@ -15,6 +15,8 @@
 
 /*** util ***/
 
+#define EMSYS_TAB_STOP 8
+
 #define ESC "\033"
 #define CSI ESC"["
 #define CRLF "\r\n"
@@ -49,7 +51,10 @@ void die(const char *s) {
 
 typedef struct erow {
 	int size;
+	int rsize;
+	int renderwidth;
 	uint8_t *chars;
+	uint8_t *render;
 } erow;
 
 struct editorBuffer {
@@ -217,6 +222,71 @@ int getWindowSize(int *rows, int *cols) {
 
 /*** row operations ***/
 
+void editorUpdateRow(erow *row) {
+	int tabs = 0;
+	int extra = 0;
+	int j;
+	for (j = 0; j < row->size; j++) {
+		if (row->chars[j] == '\t') {
+			tabs++;
+		} else if (ISCTRL(row->chars[j])) {
+			/* 
+			 * These need an extra few bytes to display
+			 * CSI 7 m - 4 bytes
+			 * CSI m - 3 bytes 
+			 * preceding ^ - 1 byte
+			 */
+			extra+=8;
+		}
+	}
+	
+	free(row->render);
+	row->render = malloc(row->size + tabs*(EMSYS_TAB_STOP - 1) + extra + 1);
+	row->renderwidth = 0;
+
+	int idx = 0;
+	for (j = 0; j < row->size; j++) {
+		if (row->chars[j] == '\t') {
+			row->renderwidth += EMSYS_TAB_STOP;
+			row->render[idx++] = ' ';
+			while (idx % EMSYS_TAB_STOP != 0) row->render[idx++] = ' ';
+		} else if (row->chars[j] == 0x7f) {
+			row->renderwidth += 2;
+			row->render[idx++] = 0x1b;
+			row->render[idx++] = '[';
+			row->render[idx++] = '7';
+			row->render[idx++] = 'm';
+			row->render[idx++] = '^';
+			row->render[idx++] = '?';
+			row->render[idx++] = 0x1b;
+			row->render[idx++] = '[';
+			row->render[idx++] = 'm';
+		} else if (ISCTRL(row->chars[j])) {
+			row->renderwidth += 2;
+			row->render[idx++] = 0x1b;
+			row->render[idx++] = '[';
+			row->render[idx++] = '7';
+			row->render[idx++] = 'm';
+			row->render[idx++] = '^';
+			row->render[idx++] = row->chars[j]|0x40;
+			row->render[idx++] = 0x1b;
+			row->render[idx++] = '[';
+			row->render[idx++] = 'm';
+		} else if (row->chars[j] > 0x7f) {
+			int width = charInStringWidth(row->chars, idx);
+			row->render[idx++] = row->chars[j];
+			row->renderwidth += width;
+		} else if (utf8_isCont(row->chars[j])) {
+			row->render[idx++] = row->chars[j];
+		} else {
+			row->renderwidth += 1;
+			row->render[idx++] = row->chars[j];
+		}
+	}
+	row->render[idx] = 0;
+	row->rsize=idx;
+}
+
 void editorAppendRow(char *s, size_t len) {
 	E.buf.row = realloc(E.buf.row, sizeof(erow) * (E.buf.numrows + 1));
 
@@ -225,6 +295,11 @@ void editorAppendRow(char *s, size_t len) {
 	E.buf.row[at].chars = malloc(len + 1);
 	memcpy(E.buf.row[at].chars, s, len);
 	E.buf.row[at].chars[len] = '\0';
+
+	E.buf.row[at].rsize = 0;
+	E.buf.row[at].render = NULL;
+	editorUpdateRow(&E.buf.row[at]);
+
 	E.buf.numrows++;
 }
 
@@ -237,6 +312,7 @@ void editorOpen(char *filename) {
 	char * line = NULL;
 	size_t linecap = 0;
 	ssize_t linelen;
+	/* Doesn't handle null bytes */
 	while ((linelen = getline(&line, &linecap, fp)) != -1) {
 		while (linelen > 0 && (line[linelen - 1] == '\n' ||
 				       line[linelen - 1] == '\r'))
@@ -271,6 +347,46 @@ void abFree(struct abuf *ab) {
 
 /*** output ***/
 
+void editorSetScxScy(int screenrows, int screencols) {
+	erow *row = &E.buf.row[E.buf.cy];
+	int i;
+
+start:
+	i = E.buf.rowoff;
+	E.buf.scy = 0;
+	E.buf.scx = 0;
+	while (i < E.buf.cy) {
+		E.buf.scy+=(E.buf.row[i].renderwidth / screencols);
+		E.buf.scy++;
+		i++;
+	}
+
+	if (E.buf.cy >= E.buf.numrows) {
+		goto end;
+	}
+
+	E.buf.scx = 0;
+	for (i = 0; i < E.buf.cx; i+=(utf8_nBytes(row->chars[i]))) {
+		if (row->chars[i] == '\t') {
+			E.buf.scx += (EMSYS_TAB_STOP - 1) - (E.buf.scx % EMSYS_TAB_STOP);
+			E.buf.scx++;
+		} else {
+			E.buf.scx+=charInStringWidth(row->chars, i);
+		}
+		if (E.buf.scx>=screencols) {
+			E.buf.scx = 0;
+			E.buf.scy++;
+		}
+	}
+
+end:
+	if (E.buf.scy >= screenrows) {
+		/* Dumb, but it should work */
+		E.buf.rowoff++;
+		goto start;
+	}
+}
+
 void editorScroll(int screenrows, int screencols) {
 	if (E.buf.cy < E.buf.rowoff) {
 		E.buf.rowoff = E.buf.cy;
@@ -278,21 +394,66 @@ void editorScroll(int screenrows, int screencols) {
 	if (E.buf.cy >= E.buf.rowoff + screenrows) {
 		E.buf.rowoff = E.buf.cy - screenrows + 1;
 	}
-	/* Eventually we'll do this on a line wrap */
-	E.buf.scx = E.buf.cx;
-	E.buf.scy = E.buf.cy-E.buf.rowoff;
+
+	editorSetScxScy(screenrows, screencols);
 }
 
 void editorDrawRows(struct abuf *ab, int screenrows, int screencols) {
 	int y;
+	int filerow = E.buf.rowoff;
 	for (y=0; y<screenrows; y++) {
-		int filerow = y + E.buf.rowoff;
 		if (filerow >= E.buf.numrows) {
 			abAppend(ab, CSI"34m~"CSI"0m", 10);
 		} else {
-			int len = E.buf.row[filerow].size;
-			if (len > screencols) len = screencols;
-			abAppend(ab, E.buf.row[filerow].chars, len);
+			if (E.buf.row[filerow].renderwidth > screencols) {
+				uint8_t *line = malloc(E.buf.row[filerow].rsize);
+				int i = 0;
+				int in_sgr = 0;
+				int curwidth = 0;
+				int idx = 0;
+				while (i < E.buf.row[filerow].rsize) {
+					if (in_sgr) {
+						if (E.buf.row[filerow].render[i]='m') {
+							in_sgr = 0;
+						}
+						line[idx++] = E.buf.row[filerow].render[i++];
+					} else if (E.buf.row[filerow].render[i]=='\033') {
+						line[idx++] = E.buf.row[filerow].render[i++];
+						in_sgr = 1;
+					} else if (utf8_is2Char(E.buf.row[filerow].render[i])) {
+						curwidth+=charInStringWidth(E.buf.row[filerow].render, i);
+						line[idx++] = E.buf.row[filerow].render[i++];
+						line[idx++] = E.buf.row[filerow].render[i++];
+					} else if (utf8_is3Char(E.buf.row[filerow].render[i])) {
+						curwidth+=charInStringWidth(E.buf.row[filerow].render, i);
+						line[idx++] = E.buf.row[filerow].render[i++];
+						line[idx++] = E.buf.row[filerow].render[i++];
+						line[idx++] = E.buf.row[filerow].render[i++];
+					} else if (utf8_is4Char(E.buf.row[filerow].render[i])) {
+						curwidth+=charInStringWidth(E.buf.row[filerow].render, i);
+						line[idx++] = E.buf.row[filerow].render[i++];
+						line[idx++] = E.buf.row[filerow].render[i++];
+						line[idx++] = E.buf.row[filerow].render[i++];
+						line[idx++] = E.buf.row[filerow].render[i++];
+					} else {
+						curwidth++;
+						line[idx++] = E.buf.row[filerow].render[i++];
+					}
+					if (curwidth >= screencols) {
+						abAppend(ab, line, idx);
+						abAppend(ab, CRLF, 2);
+						y++;
+						curwidth = 0;
+						idx = 0;
+					}
+				}
+				abAppend(ab, line, idx);
+				free(line);
+			} else {
+				abAppend(ab, E.buf.row[filerow].render,
+					 E.buf.row[filerow].rsize);
+			}
+			filerow++;
 		}
 		abAppend(ab, "\x1b[K", 3);
 		if (y<screenrows - 1) {
@@ -302,15 +463,24 @@ void editorDrawRows(struct abuf *ab, int screenrows, int screencols) {
 }
 
 void editorRefreshScreen() {
-	editorScroll(E.screenrows, E.screencols);
-
 	struct abuf ab = ABUF_INIT;
 
 	/* Hide cursor and move to 1,1 */
 	abAppend(&ab, CSI"?25l", 6);
 	abAppend(&ab, CSI"H", 3);
 
-	editorDrawRows(&ab, E.screenrows, E.screencols);
+	editorScroll(E.screenrows-2, E.screencols);
+	editorDrawRows(&ab, E.screenrows-2, E.screencols);
+
+	/* Status line */
+	abAppend(&ab, CRLF, 2);
+	char statusBuf[32];
+	snprintf(statusBuf, sizeof(statusBuf), "cx %d cy %d scx %d scy %d", E.buf.cx, E.buf.cy, E.buf.scx, E.buf.scy);
+	abAppend(&ab, statusBuf, strlen(statusBuf));
+	abAppend(&ab, "\x1b[K", 3);
+	abAppend(&ab, CRLF, 2);
+	/* Minibuffer */
+	abAppend(&ab, "\x1b[K", 3);
 
 	abAppend(&ab, CSI"H", 3);
 
@@ -354,11 +524,17 @@ void editorMoveCursor(int key) {
 	case ARROW_UP:
 		if (E.buf.cy > 0) {
 			E.buf.cy--;
+			while (utf8_isCont(E.buf.row[E.buf.cy].chars[E.buf.cx]))
+				E.buf.cx++;
 		}
 		break;
 	case ARROW_DOWN:
 		if (E.buf.cy < E.buf.numrows) {
 			E.buf.cy++;
+			if (E.buf.cy < E.buf.numrows) {
+				while (utf8_isCont(E.buf.row[E.buf.cy].chars[E.buf.cx]))
+					E.buf.cx++;
+			}
 		}
 		break;
 	}
@@ -402,6 +578,8 @@ void editorProcessKeypress() {
 void initEditor() {
 	E.buf.cx = 0;
 	E.buf.cy = 0;
+	E.buf.scx = 0;
+	E.buf.scy = 0;
 	E.buf.rowoff = 0;
 	E.buf.numrows = 0;
 	E.buf.row = NULL;
