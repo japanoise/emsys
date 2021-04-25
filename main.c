@@ -21,7 +21,6 @@
 #define CSI ESC"["
 #define CRLF "\r\n"
 #define ISCTRL(c) ((0 < c && c < 0x20) || c == 0x7f)
-#define PANIC CTRL('c')
 
 enum editorKey {
 	ARROW_LEFT = 1000,
@@ -34,7 +33,10 @@ enum editorKey {
         PAGE_UP,
         PAGE_DOWN,
 	UNICODE,
-	UNICODE_ERROR
+	UNICODE_ERROR,
+	END_OF_FILE,
+	BEG_OF_FILE,
+	QUIT
 };
 
 void die(const char *s) {
@@ -115,17 +117,13 @@ int editorReadKey() {
 	while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
 		if (nread == -1 && errno != EAGAIN) die("read");
 	}
-	if (c == PANIC) {
-		errno = EINTR;
-		die("Panic key");
-	}
 
 	if (c == 033) {
 		char seq[4];
 		if (read(STDIN_FILENO, &seq[0], 1) != 1) return 033;
-		if (read(STDIN_FILENO, &seq[1], 1) != 1) return 033;
 
 		if (seq[0] == '[') {
+			if (read(STDIN_FILENO, &seq[1], 1) != 1) return 033;
 			if (seq[1] >= '0' && seq[1] <= '9') {
 				if (read(STDIN_FILENO, &seq[2], 1) != 1) return '\x1b';
 				if (seq[2] == '~') {
@@ -138,6 +136,12 @@ int editorReadKey() {
 					case '7': return HOME_KEY;
 					case '8': return END_KEY;
 					}
+				} else if (seq[2] == '4') {
+					if (read(STDIN_FILENO, &seq[3], 1) != 1) return '\x1b';
+					if (seq[3] == '~') {
+						errno = EINTR;
+						die("Panic key");
+					}
 				}
 			} else {
 				switch (seq[1]) {
@@ -147,9 +151,22 @@ int editorReadKey() {
 				case 'D': return ARROW_LEFT;
 				}
 			}
+		} else if (seq[0]=='v' || seq[0] =='V') {
+			return PAGE_UP;
+		} else if (seq[0]=='<') {
+			return BEG_OF_FILE;
+		} else if (seq[0]=='>') {
+			return END_OF_FILE;
 		}
 
 		return 033;
+	} else if (c == CTRL('x')) {
+		/* Welcome to Emacs! */
+		char seq[4];
+		if (read(STDIN_FILENO, &seq[0], 1) != 1) return CTRL('x');
+		if (seq[0] == CTRL('c')) {
+			return QUIT;
+		}
 	} else if (c == CTRL('p')) {
 		return ARROW_UP;
 	} else if (c == CTRL('n')) {
@@ -506,7 +523,7 @@ void editorProcessKeypress() {
 	int c = editorReadKey();
 
 	switch (c) {
-	case CTRL('q'):
+	case QUIT:
 		exit(0);
 		break;
 	case ARROW_LEFT:
@@ -514,6 +531,28 @@ void editorProcessKeypress() {
 	case ARROW_UP:
 	case ARROW_DOWN:
 		editorMoveCursor(c);
+		break;
+	case PAGE_UP:
+	case CTRL('z'):
+		E.buf.cy = E.buf.rowoff;
+		int times = E.screenrows;
+		while (times--)
+			editorMoveCursor(ARROW_UP);
+		break;
+	case PAGE_DOWN:
+	case CTRL('v'):
+		E.buf.cy = E.buf.rowoff + E.screenrows - 1;
+		if (E.buf.cy > E.buf.numrows) E.buf.cy = E.buf.numrows;
+		times = E.screenrows;
+		while (times--)
+			editorMoveCursor(ARROW_DOWN);
+		break;
+	case BEG_OF_FILE:
+		E.buf.cy = 0;
+		E.buf.rowoff = 0;
+		break;
+	case END_OF_FILE:
+		E.buf.cy = E.buf.numrows;
 		break;
 	case HOME_KEY:
 	case CTRL('a'):
