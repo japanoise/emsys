@@ -405,54 +405,9 @@ void editorDrawRows(struct abuf *ab, int screenrows, int screencols) {
 		if (filerow >= E.buf.numrows) {
 			abAppend(ab, CSI"34m~"CSI"0m", 10);
 		} else {
-			if (E.buf.row[filerow].renderwidth > screencols) {
-				uint8_t *line = malloc(E.buf.row[filerow].rsize);
-				int i = 0;
-				int in_sgr = 0;
-				int curwidth = 0;
-				int idx = 0;
-				while (i < E.buf.row[filerow].rsize) {
-					if (in_sgr) {
-						if (E.buf.row[filerow].render[i]='m') {
-							in_sgr = 0;
-						}
-						line[idx++] = E.buf.row[filerow].render[i++];
-					} else if (E.buf.row[filerow].render[i]=='\033') {
-						line[idx++] = E.buf.row[filerow].render[i++];
-						in_sgr = 1;
-					} else if (utf8_is2Char(E.buf.row[filerow].render[i])) {
-						curwidth+=charInStringWidth(E.buf.row[filerow].render, i);
-						line[idx++] = E.buf.row[filerow].render[i++];
-						line[idx++] = E.buf.row[filerow].render[i++];
-					} else if (utf8_is3Char(E.buf.row[filerow].render[i])) {
-						curwidth+=charInStringWidth(E.buf.row[filerow].render, i);
-						line[idx++] = E.buf.row[filerow].render[i++];
-						line[idx++] = E.buf.row[filerow].render[i++];
-						line[idx++] = E.buf.row[filerow].render[i++];
-					} else if (utf8_is4Char(E.buf.row[filerow].render[i])) {
-						curwidth+=charInStringWidth(E.buf.row[filerow].render, i);
-						line[idx++] = E.buf.row[filerow].render[i++];
-						line[idx++] = E.buf.row[filerow].render[i++];
-						line[idx++] = E.buf.row[filerow].render[i++];
-						line[idx++] = E.buf.row[filerow].render[i++];
-					} else {
-						curwidth++;
-						line[idx++] = E.buf.row[filerow].render[i++];
-					}
-					if (curwidth >= screencols) {
-						abAppend(ab, line, idx);
-						abAppend(ab, CRLF, 2);
-						y++;
-						curwidth = 0;
-						idx = 0;
-					}
-				}
-				abAppend(ab, line, idx);
-				free(line);
-			} else {
-				abAppend(ab, E.buf.row[filerow].render,
+			y += (E.buf.row[filerow].renderwidth/screencols);
+			abAppend(ab, E.buf.row[filerow].render,
 					 E.buf.row[filerow].rsize);
-			}
 			filerow++;
 		}
 		abAppend(ab, "\x1b[K", 3);
