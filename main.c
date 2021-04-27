@@ -833,6 +833,9 @@ void editorProcessKeypress() {
 	case SAVE:
 		editorSave();
 		break;
+	case CTRL('i'):
+		editorInsertChar(c);
+		break;
 	default:
 		if (ISCTRL(c)) {
 			editorSetStatusMessage("Unknown command C-%c", c|0x60);
