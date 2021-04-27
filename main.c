@@ -92,6 +92,8 @@ struct editorConfig E;
 /*** prototypes ***/
 
 void editorSetStatusMessage(const char *fmt, ...);
+void editorRefreshScreen();
+uint8_t *editorPrompt(uint8_t *prompt);
 
 /*** terminal ***/
 
@@ -488,7 +490,13 @@ void editorOpen(char *filename) {
 }
 
 void editorSave() {
-	if (E.buf.filename==NULL) return;
+	if (E.buf.filename==NULL) {
+		E.buf.filename = editorPrompt("Save as: %s");
+		if (E.buf.filename==NULL) {
+			editorSetStatusMessage("Save aborted.");
+			return;
+		}
+	}
 
 	int len;
 	char *buf = editorRowsToString(&len);
@@ -703,6 +711,75 @@ void editorResizeScreen(int sig) {
 
 /*** input ***/
 
+uint8_t *editorPrompt(uint8_t *prompt) {
+	size_t bufsize = 128;
+	uint8_t *buf = malloc(bufsize);
+
+	int promptlen = strlen(prompt) - 2;
+
+	size_t buflen = 0;
+	size_t bufwidth = 0;
+	buf[0] = 0;
+	char cbuf[32];
+
+	for (;;) {
+		editorSetStatusMessage(prompt, buf);
+		editorRefreshScreen();
+		snprintf(cbuf, sizeof(cbuf), CSI"%d;%dH", E.screenrows,
+			 promptlen + bufwidth + 1);
+		write(STDOUT_FILENO, cbuf, strlen(cbuf));
+
+		int c = editorReadKey();
+		switch (c) {
+		case '\r':
+			if (buflen != 0) {
+				editorSetStatusMessage("");
+				return buf;
+			}
+			break;
+		case CTRL('g'):
+		case CTRL('c'):
+			editorSetStatusMessage("");
+			free(buf);
+			return NULL;
+			break;
+		case CTRL('h'):
+		case BACKSPACE:
+		case DEL_KEY:
+			if (buflen==0) {
+				break;
+			}
+			while (utf8_isCont(buf[buflen-1])) {
+				buf[--buflen] = 0;
+			}
+			buf[--buflen] = 0;
+			bufwidth = stringWidth(buf);
+			break;
+		case UNICODE:;
+			buflen += E.nunicode;
+			if (buflen >= (bufsize-1)) {
+				bufsize *= 2;
+				buf = realloc(buf, bufsize);
+			}
+			for (int i = 0; i < E.nunicode; i++) {
+				buf[(buflen-E.nunicode)+i] = E.unicode[i];
+			}
+			buf[buflen] = 0;
+			bufwidth = stringWidth(buf);
+		default:
+			if (!ISCTRL(c) && c < 256) {
+				if (buflen >= bufsize - 1) {
+					bufsize *= 2;
+					buf = realloc(buf, bufsize);
+				}
+				buf[buflen++] = c;
+				buf[buflen] = 0;
+				bufwidth++;
+			}
+		}
+	}
+}
+
 void editorMoveCursor(int key) {
 	erow *row = (E.buf.cy >= E.buf.numrows) ? NULL : &E.buf.row[E.buf.cy];
 	
@@ -775,7 +852,7 @@ void editorProcessKeypress() {
 		if (E.buf.dirty) {
 			editorSetStatusMessage(
 				"%.20s has unsaved changes, really quit? Y/N",
-				E.buf.filename);
+				E.buf.filename ? E.buf.filename : "[untitled]");
 			editorRefreshScreen();
 			int c = editorReadKey();
 			if (c == 'y' || c == 'Y') {
