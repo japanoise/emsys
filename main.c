@@ -93,7 +93,7 @@ struct editorConfig E;
 
 void editorSetStatusMessage(const char *fmt, ...);
 void editorRefreshScreen();
-uint8_t *editorPrompt(uint8_t *prompt);
+uint8_t *editorPrompt(uint8_t *prompt, void (*callback)(uint8_t *, int));
 
 /*** terminal ***/
 
@@ -491,7 +491,7 @@ void editorOpen(char *filename) {
 
 void editorSave() {
 	if (E.buf.filename==NULL) {
-		E.buf.filename = editorPrompt("Save as: %s");
+		E.buf.filename = editorPrompt("Save as: %s", NULL);
 		if (E.buf.filename==NULL) {
 			editorSetStatusMessage("Save aborted.");
 			return;
@@ -518,6 +518,60 @@ void editorSave() {
 
 	free(buf);
 	editorSetStatusMessage("Save failed: %s", strerror(errno));
+}
+
+/*** find ***/
+
+void editorFindCallback(uint8_t *query, int key) {
+	static int last_match = -1;
+	static int direction = 1;
+
+	if (key == CTRL('g') || key == CTRL('c') || key == '\r') {
+		last_match = -1;
+		direction = 1;
+		return;
+	} else if (key == CTRL('s')) {
+		direction = 1;
+	} else if (key == CTRL('r')) {
+		direction = -1;
+	} else {
+		last_match = -1;
+		direction = 1;
+	}
+
+	if (last_match == -1) direction = 1;
+	int current = last_match;
+	for (int i = 0; i < E.buf.numrows; i++) {
+		current += direction;
+		if(current == -1) current = E.buf.numrows - 1;
+		else if (current == E.buf.numrows) current = 0;
+		
+		erow *row = &E.buf.row[current];
+		uint8_t *match = strstr(row->chars, query);
+		if (match) {
+			last_match = current;
+			E.buf.cy = current;
+			E.buf.cx = match - row->chars;
+			E.buf.rowoff = E.buf.numrows;
+			break;
+		}
+	}
+}
+
+void editorFind() {
+	int saved_cx = E.buf.cx;
+	int saved_cy = E.buf.cy;
+	int saved_rowoff = E.buf.rowoff;
+		
+	uint8_t *query = editorPrompt("Search (C-g to cancel): %s", editorFindCallback);
+	
+	if (query) {
+		free(query);
+	} else {
+		E.buf.cx = saved_cx;
+		E.buf.cy = saved_cy;
+		E.buf.rowoff = saved_rowoff;
+	}
 }
 
 /*** append buffer ***/
@@ -711,7 +765,7 @@ void editorResizeScreen(int sig) {
 
 /*** input ***/
 
-uint8_t *editorPrompt(uint8_t *prompt) {
+uint8_t *editorPrompt(uint8_t *prompt, void(*callback)(uint8_t *, int)) {
 	size_t bufsize = 128;
 	uint8_t *buf = malloc(bufsize);
 
@@ -734,12 +788,14 @@ uint8_t *editorPrompt(uint8_t *prompt) {
 		case '\r':
 			if (buflen != 0) {
 				editorSetStatusMessage("");
+				if (callback) callback(buf, c);
 				return buf;
 			}
 			break;
 		case CTRL('g'):
 		case CTRL('c'):
 			editorSetStatusMessage("");
+			if (callback) callback(buf, c);
 			free(buf);
 			return NULL;
 			break;
@@ -777,6 +833,8 @@ uint8_t *editorPrompt(uint8_t *prompt) {
 				bufwidth++;
 			}
 		}
+
+		if (callback) callback(buf, c);
 	}
 }
 
@@ -900,6 +958,9 @@ void editorProcessKeypress() {
 		if (E.buf.row != NULL) {
 			E.buf.cx = E.buf.row[E.buf.cy].size;
 		}
+		break;
+	case CTRL('s'):
+		editorFind();
 		break;
 	case UNICODE_ERROR:
 		editorSetStatusMessage("Bad UTF-8 sequence");
