@@ -15,6 +15,7 @@
 #include<time.h>
 #include<unistd.h>
 #include"emsys.h"
+#include"region.h"
 #include"row.h"
 #include"unicode.h"
 
@@ -28,6 +29,13 @@ void die(const char *s) {
 	write(STDOUT_FILENO, "sleeping 5s", 11);
 	sleep(5);
 	exit(1);
+}
+
+
+void editorUpdateBuffer(struct editorBuffer *buf) {
+	for (int i = 0; i < buf->numrows; i++) {
+		editorUpdateRow(&buf->row[i]);
+	}
 }
 
 /*** terminal ***/
@@ -109,6 +117,8 @@ int editorReadKey() {
 			return BEG_OF_FILE;
 		} else if (seq[0]=='>') {
 			return END_OF_FILE;
+		} else if (seq[0]=='w' || seq[0] == 'W') {
+			return COPY;
 		}
 
 		return 033;
@@ -765,6 +775,18 @@ void editorProcessKeypress() {
 		break;
 	case SAVE:
 		editorSave();
+		break;
+	case COPY:
+		editorCopyRegion(&E, &E.buf);
+		break;
+	case CTRL('@'):
+		editorSetMark(&E.buf);
+		break;
+	case CTRL('y'):
+		editorYank(&E, &E.buf);
+		break;
+	case CTRL('w'):
+		editorKillRegion(&E, &E.buf);
 		break;
 	case CTRL('i'):
 		editorInsertChar(c);

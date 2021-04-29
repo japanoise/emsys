@@ -21,17 +21,18 @@ enum editorKey {
 	ARROW_RIGHT,
 	ARROW_UP,
 	ARROW_DOWN,
-        HOME_KEY,
-        DEL_KEY,
-        END_KEY,
-        PAGE_UP,
-        PAGE_DOWN,
+	HOME_KEY,
+	DEL_KEY,
+	END_KEY,
+	PAGE_UP,
+	PAGE_DOWN,
 	UNICODE,
 	UNICODE_ERROR,
 	END_OF_FILE,
 	BEG_OF_FILE,
 	QUIT,
-	SAVE
+	SAVE,
+	COPY
 };
 
 /*** data ***/
@@ -46,7 +47,7 @@ typedef struct erow {
 
 struct editorBuffer {
 	int cx, cy;
-        int markx, marky;
+	int markx, marky;
 	int scx, scy;
 	int numrows;
 	int rowoff;
@@ -57,7 +58,7 @@ struct editorBuffer {
 };
 
 struct editorConfig {
-        uint8_t *kill;
+	uint8_t *kill;
 	int screenrows;
 	int screencols;
 	uint8_t unicode[4];
@@ -73,6 +74,9 @@ struct editorConfig {
 void editorSetStatusMessage(const char *fmt, ...);
 void editorRefreshScreen();
 uint8_t *editorPrompt(uint8_t *prompt, void (*callback)(uint8_t *, int));
+void editorUpdateBuffer(struct editorBuffer *buf);
+void editorInsertNewline();
+void editorInsertChar(int c);
 void die(const char *s);
 
 #endif
