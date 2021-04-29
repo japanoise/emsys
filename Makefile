@@ -1,5 +1,5 @@
 PROGNAME=emsys
-OBJECTS=main.o wcwidth.o unicode.o
+OBJECTS=main.o wcwidth.o unicode.o row.o
 
 all: $(PROGNAME)
 

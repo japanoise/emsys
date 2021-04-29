@@ -15,7 +15,10 @@
 #include<time.h>
 #include<unistd.h>
 #include"emsys.h"
+#include"row.h"
 #include"unicode.h"
+
+struct editorConfig E;
 
 void die(const char *s) {
 	write(STDOUT_FILENO, CSI"2J", 4);
@@ -188,170 +191,30 @@ int getWindowSize(int *rows, int *cols) {
 	}
 }
 
-/*** row operations ***/
-
-void editorUpdateRow(erow *row) {
-	int tabs = 0;
-	int extra = 0;
-	int j;
-	for (j = 0; j < row->size; j++) {
-		if (row->chars[j] == '\t') {
-			tabs++;
-		} else if (ISCTRL(row->chars[j])) {
-			/* 
-			 * These need an extra few bytes to display
-			 * CSI 7 m - 4 bytes
-			 * CSI m - 3 bytes 
-			 * preceding ^ - 1 byte
-			 */
-			extra+=8;
-		}
-	}
-	
-	free(row->render);
-	row->render = malloc(row->size + tabs*(EMSYS_TAB_STOP - 1) + extra + 1);
-	row->renderwidth = 0;
-
-	int idx = 0;
-	for (j = 0; j < row->size; j++) {
-		if (row->chars[j] == '\t') {
-			row->renderwidth += EMSYS_TAB_STOP;
-			row->render[idx++] = ' ';
-			while (idx % EMSYS_TAB_STOP != 0) row->render[idx++] = ' ';
-		} else if (row->chars[j] == 0x7f) {
-			row->renderwidth += 2;
-			row->render[idx++] = 0x1b;
-			row->render[idx++] = '[';
-			row->render[idx++] = '7';
-			row->render[idx++] = 'm';
-			row->render[idx++] = '^';
-			row->render[idx++] = '?';
-			row->render[idx++] = 0x1b;
-			row->render[idx++] = '[';
-			row->render[idx++] = 'm';
-		} else if (ISCTRL(row->chars[j])) {
-			row->renderwidth += 2;
-			row->render[idx++] = 0x1b;
-			row->render[idx++] = '[';
-			row->render[idx++] = '7';
-			row->render[idx++] = 'm';
-			row->render[idx++] = '^';
-			row->render[idx++] = row->chars[j]|0x40;
-			row->render[idx++] = 0x1b;
-			row->render[idx++] = '[';
-			row->render[idx++] = 'm';
-		} else if (row->chars[j] > 0x7f) {
-			int width = charInStringWidth(row->chars, idx);
-			row->render[idx++] = row->chars[j];
-			row->renderwidth += width;
-		} else if (utf8_isCont(row->chars[j])) {
-			row->render[idx++] = row->chars[j];
-		} else {
-			row->renderwidth += 1;
-			row->render[idx++] = row->chars[j];
-		}
-	}
-	row->render[idx] = 0;
-	row->rsize=idx;
-}
-
-void editorInsertRow(int at, char *s, size_t len) {
-	if (at < 0 || at > E.buf.numrows) return;
-
-	E.buf.row = realloc(E.buf.row, sizeof(erow) * (E.buf.numrows + 1));
-	memmove(&E.buf.row[at + 1], &E.buf.row[at], sizeof(erow) * (E.buf.numrows - at));
-
-	E.buf.row[at].size = len;
-	E.buf.row[at].chars = malloc(len + 1);
-	memcpy(E.buf.row[at].chars, s, len);
-	E.buf.row[at].chars[len] = '\0';
-
-	E.buf.row[at].rsize = 0;
-	E.buf.row[at].render = NULL;
-	editorUpdateRow(&E.buf.row[at]);
-
-	E.buf.numrows++;
-	E.buf.dirty = 1;
-}
-
-void editorFreeRow(erow *row) {
-	free(row->render);
-	free(row->chars);
-}
-void editorDelRow(int at) {
-	if (at < 0 || at >= E.buf.numrows) return;
-	editorFreeRow(&E.buf.row[at]);
-	memmove(&E.buf.row[at], &E.buf.row[at + 1],
-		sizeof(erow) * (E.buf.numrows - at - 1));
-	E.buf.numrows--;
-	E.buf.dirty = 1;
-}
-
-void editorRowInsertChar(erow *row, int at, int c) {
-	if (at < 0 || at > row->size) at = row->size;
-	row->chars = realloc(row->chars, row->size +2);
-	memmove(&row->chars[at + 1], &row->chars[at], row->size - at + 1);
-	row->size++;
-	row->chars[at] = c;
-	editorUpdateRow(row);
-	E.buf.dirty = 1;
-}
-
-void editorRowInsertUnicode(erow *row, int at) {
-	if (at < 0 || at > row->size) at = row->size;
-	row->chars = realloc(row->chars, row->size + 1 + E.nunicode);
-	memmove(&row->chars[at + E.nunicode], &row->chars[at], row->size - at + E.nunicode);
-	row->size += E.nunicode;
-	for (int i = 0; i < E.nunicode; i++) {
-		row->chars[at+i] = E.unicode[i];
-	}
-	editorUpdateRow(row);
-   	E.buf.dirty = 1;
-}
-
-void editorRowAppendString(erow *row, char *s, size_t len) {
-	row->chars = realloc(row->chars, row->size + len + 1);
-	memcpy(&row->chars[row->size], s, len);
-	row->size += len;
-	row->chars[row->size] = '\0';
-	editorUpdateRow(row);
-	E.buf.dirty = 1;
-}
-
-void editorRowDelChar(erow *row, int at) {
-	if (at < 0 || at >= row->size) return;
-	int size = utf8_nBytes(row->chars[at]);
-	memmove(&row->chars[at],
-		&row->chars[at+size], row->size - ((at+size)-1));
-	row->size -= size;
-	editorUpdateRow(row);
-	E.buf.dirty = 1;
-}
-
 /*** editor operations ***/
 
 void editorInsertChar(int c) {
 	if (E.buf.cy == E.buf.numrows) {
-		editorInsertRow(E.buf.numrows, "", 0);
+		editorInsertRow(&E, E.buf.numrows, "", 0);
 	}
-	editorRowInsertChar(&E.buf.row[E.buf.cy], E.buf.cx, c);
+	editorRowInsertChar(&E, &E.buf.row[E.buf.cy], E.buf.cx, c);
 	E.buf.cx++;
 }
 
 void editorInsertUnicode() {
 	if (E.buf.cy == E.buf.numrows) {
-		editorInsertRow(E.buf.numrows, "", 0);
+		editorInsertRow(&E, E.buf.numrows, "", 0);
 	}
-	editorRowInsertUnicode(&E.buf.row[E.buf.cy], E.buf.cx);
+	editorRowInsertUnicode(&E, &E.buf.row[E.buf.cy], E.buf.cx);
 	E.buf.cx += E.nunicode;
 }
 
 void editorInsertNewline() {
 	if (E.buf.cx == 0) {
-		editorInsertRow(E.buf.cy, "", 0);
+		editorInsertRow(&E, E.buf.cy, "", 0);
 	} else {
 		erow *row = &E.buf.row[E.buf.cy];
-		editorInsertRow(E.buf.cy + 1, &row->chars[E.buf.cx], row->size - E.buf.cx);
+		editorInsertRow(&E, E.buf.cy + 1, &row->chars[E.buf.cx], row->size - E.buf.cx);
 		row = &E.buf.row[E.buf.cy];
 		row->size = E.buf.cx;
 		row->chars[row->size] = '\0';
@@ -368,12 +231,12 @@ void editorDelChar() {
 	erow *row = &E.buf.row[E.buf.cy];
 	if (E.buf.cx > 0) {
 		do E.buf.cx--; while (utf8_isCont(row->chars[E.buf.cx]));
-		editorRowDelChar(row, E.buf.cx);
+		editorRowDelChar(&E, row, E.buf.cx);
 	} else {
 		E.buf.cx = E.buf.row[E.buf.cy-1].size;
-		editorRowAppendString(&E.buf.row[E.buf.cy-1], row->chars,
+		editorRowAppendString(&E, &E.buf.row[E.buf.cy-1], row->chars,
 				      row->size);
-		editorDelRow(E.buf.cy);
+		editorDelRow(&E, E.buf.cy);
 		E.buf.cy--;
 	}
 }
@@ -414,7 +277,7 @@ void editorOpen(char *filename) {
 		while (linelen > 0 && (line[linelen - 1] == '\n' ||
 				       line[linelen - 1] == '\r'))
 			linelen--;
-		editorInsertRow(E.buf.numrows, line, linelen);
+		editorInsertRow(&E, E.buf.numrows, line, linelen);
 	}
 	free(line);
 	fclose(fp);
@@ -919,6 +782,8 @@ void editorProcessKeypress() {
 /*** init ***/
 
 void initEditor() {
+	E.buf.markx = -1;
+	E.buf.marky = -1;
 	E.buf.cx = 0;
 	E.buf.cy = 0;
 	E.buf.scx = 0;
@@ -929,6 +794,7 @@ void initEditor() {
 	E.buf.filename = NULL;
 	E.buf.dirty = 0;
 	E.minibuffer[0] = 0;
+	E.kill = NULL;
 
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 }

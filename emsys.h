@@ -1,6 +1,10 @@
 #ifndef EMSYS_H
 #define EMSYS_H 1
 
+#include<stdint.h>
+#include<termios.h>
+#include<time.h>
+
 /*** util ***/
 
 #define EMSYS_TAB_STOP 8
@@ -42,6 +46,7 @@ typedef struct erow {
 
 struct editorBuffer {
 	int cx, cy;
+        int markx, marky;
 	int scx, scy;
 	int numrows;
 	int rowoff;
@@ -52,6 +57,7 @@ struct editorBuffer {
 };
 
 struct editorConfig {
+        uint8_t *kill;
 	int screenrows;
 	int screencols;
 	uint8_t unicode[4];
@@ -61,8 +67,6 @@ struct editorConfig {
 	struct termios orig_termios;
 	struct editorBuffer buf;
 };
-
-struct editorConfig E;
 
 /*** prototypes ***/
 
