@@ -9,6 +9,9 @@ insert_final_newline = true
 [*.c]
 indent_style = tab
 
+[*.h]
+indent_style = tab
+
 # Makefile; semantic tabs
 [Makefile]
 indent_style = tab
