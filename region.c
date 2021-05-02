@@ -4,6 +4,7 @@
 #include"emsys.h"
 #include"region.h"
 #include"row.h"
+#include"undo.h"
 
 void editorSetMark(struct editorBuffer *buf) {
 	buf->markx = buf->cx;
@@ -34,7 +35,7 @@ static void validateRegion(struct editorBuffer *buf) {
 		buf->cx = buf->markx;
 		buf->markx = swapx;
 		buf->marky = swapy;
-	}		
+	}
 }
 
 static size_t regionSize(struct editorBuffer *buf) {
@@ -56,6 +57,27 @@ void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 	editorCopyRegion(ed, buf);
 	validateRegion(buf);
 
+	clearRedos(buf);
+
+	struct editorUndo *new = newUndo();
+	new->startx = buf->cx;
+	new->starty = buf->cy;
+	new->endx = buf->markx;
+	new->endy = buf->marky;
+	free(new->data);
+	new->datalen = strlen(ed->kill);
+	new->datasize = new->datalen + 1;
+	new->data = malloc(new->datasize);
+	/* XXX: have to copy kill to undo in reverse */
+	for (int i = 0; i < new->datalen; i++) {
+		new->data[i] = ed->kill[new->datalen-i-1];
+	}
+	new->data[new->datalen] = 0;
+	new->append = 0;
+	new->delete = 1;
+	new->prev = buf->undo;
+	buf->undo = new;
+
 	struct erow *row = &buf->row[buf->cy];
 	if (buf->cy == buf->marky) {
 		memmove(&row->chars[buf->cx], &row->chars[buf->markx],
@@ -73,7 +95,6 @@ void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 		memcpy(&row->chars[buf->cx], &last->chars[buf->markx],
 		       last->size-buf->markx);
 		editorDelRow(ed, buf->cy+1);
-		
 	}
 
 	buf->dirty = 1;
@@ -116,13 +137,30 @@ void editorYank(struct editorConfig *ed, struct editorBuffer *buf) {
 		return;
 	}
 
-        for (int i = 0; ed->kill[i] != 0; i++) {
+	clearRedos(buf);
+
+	struct editorUndo *new = newUndo();
+	new->startx = buf->cx;
+	new->starty = buf->cy;
+	free(new->data);
+	new->datalen = strlen(ed->kill);
+	new->datasize = new->datalen + 1;
+	new->data = malloc(new->datasize);
+	strcpy(new->data, ed->kill);
+	new->append = 0;
+
+	for (int i = 0; ed->kill[i] != 0; i++) {
 		if (ed->kill[i] == '\n') {
 			editorInsertNewline();
 		} else {
 			editorInsertChar(ed->kill[i]);
 		}
 	}
+
+	new->endx = buf->cx;
+	new->endy = buf->cy;
+	new->prev = buf->undo;
+	buf->undo = new;
 
 	buf->dirty = 1;
 	editorUpdateBuffer(buf);

@@ -32,7 +32,8 @@ enum editorKey {
 	BEG_OF_FILE,
 	QUIT,
 	SAVE,
-	COPY
+	COPY,
+	REDO
 };
 
 /*** data ***/
@@ -45,6 +46,19 @@ typedef struct erow {
 	uint8_t *render;
 } erow;
 
+struct editorUndo {
+        struct editorUndo *prev;
+        int startx;
+        int starty;
+        int endx;
+        int endy;
+        int append;
+        int datalen;
+        int datasize;
+        int delete;
+        uint8_t *data;
+};
+
 struct editorBuffer {
 	int cx, cy;
 	int markx, marky;
@@ -55,6 +69,8 @@ struct editorBuffer {
 	int dirty;
 	erow *row;
 	char *filename;
+        struct editorUndo *undo;
+        struct editorUndo *redo;
 };
 
 struct editorConfig {

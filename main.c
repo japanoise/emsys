@@ -17,6 +17,7 @@
 #include"emsys.h"
 #include"region.h"
 #include"row.h"
+#include"undo.h"
 #include"unicode.h"
 
 struct editorConfig E;
@@ -130,6 +131,8 @@ int editorReadKey() {
 			return QUIT;
 		} else if (seq[0] == CTRL('s')) {
 			return SAVE;
+		} else if (seq[0] == CTRL('_')) {
+			return REDO;
 		}
 	} else if (c == CTRL('p')) {
 		return ARROW_UP;
@@ -240,9 +243,13 @@ void editorDelChar() {
 
 	erow *row = &E.buf.row[E.buf.cy];
 	if (E.buf.cx > 0) {
-		do E.buf.cx--; while (utf8_isCont(row->chars[E.buf.cx]));
+		do {
+			E.buf.cx--;
+			editorUndoDelChar(&E.buf, row->chars[E.buf.cx]);
+		} while (utf8_isCont(row->chars[E.buf.cx]));
 		editorRowDelChar(&E, row, E.buf.cx);
 	} else {
+		editorUndoDelChar(&E.buf, '\n');
 		E.buf.cx = E.buf.row[E.buf.cy-1].size;
 		editorRowAppendString(&E, &E.buf.row[E.buf.cy-1], row->chars,
 				      row->size);
@@ -486,6 +493,22 @@ void editorDrawStatusBar(struct abuf *ab, int line) {
 			   E.buf.filename ? E.buf.filename : "[untitled]",
 			   E.buf.dirty ? '*': '-', E.buf.dirty ? '*': '-',
 			   E.buf.cy+1, E.buf.cx);
+#ifdef EMSYS_DEBUG_UNDO
+	if (E.buf.undo != NULL) {
+		int i = 0;
+		for (i = 0; i < E.buf.undo->datalen; i++) {
+			status[i] = E.buf.undo->data[i];
+			if (E.buf.undo->data[i] == '\n')
+				status[i] = '#';
+		}
+		status[i++] = '"';
+		i += sprintf(&status[i], "sx %d sy %d ex %d ey %d",
+			E.buf.undo->startx,
+			E.buf.undo->starty,
+			E.buf.undo->endx,
+			E.buf.undo->endy);
+	}
+#endif
 
 	char perc[8] = " xxx --";
 	if (E.buf.numrows == 0) {
@@ -694,6 +717,7 @@ void editorProcessKeypress() {
 
 	switch (c) {
 	case '\r':
+		editorUndoAppendChar(&E.buf, '\n');
 		editorInsertNewline();
 		break;
 	case BACKSPACE:
@@ -771,6 +795,7 @@ void editorProcessKeypress() {
 		editorSetStatusMessage("Bad UTF-8 sequence");
 		break;
 	case UNICODE:
+		editorUndoAppendUnicode(&E, &E.buf);
 		editorInsertUnicode();
 		break;
 	case SAVE:
@@ -789,12 +814,20 @@ void editorProcessKeypress() {
 		editorKillRegion(&E, &E.buf);
 		break;
 	case CTRL('i'):
+		editorUndoAppendChar(&E.buf, c);
 		editorInsertChar(c);
+		break;
+	case CTRL('_'):
+		editorDoUndo(&E, &E.buf);
+		break;
+	case REDO:
+		editorDoRedo(&E, &E.buf);
 		break;
 	default:
 		if (ISCTRL(c)) {
 			editorSetStatusMessage("Unknown command C-%c", c|0x60);
 		} else {
+			editorUndoAppendChar(&E.buf, c);
 			editorInsertChar(c);
 		}
 		break;
@@ -815,6 +848,8 @@ void initEditor() {
 	E.buf.row = NULL;
 	E.buf.filename = NULL;
 	E.buf.dirty = 0;
+	E.buf.undo = NULL;
+	E.buf.redo = NULL;
 	E.minibuffer[0] = 0;
 	E.kill = NULL;
 
