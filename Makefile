@@ -1,4 +1,6 @@
 PROGNAME=emsys
+PREFIX=/usr/local
+BINDIR=$(PREFIX)/bin
 OBJECTS=main.o wcwidth.o unicode.o row.o region.o undo.o
 
 all: $(PROGNAME)
@@ -11,6 +13,9 @@ $(PROGNAME): $(OBJECTS)
 
 unicodetest: unicode.o unicodetest.o wcwidth.o
 	$(CC) -o $@ $^ $(LDFLAGS)
+
+install: $(PROGNAME)
+	install -m 0755 $(PROGNAME) $(BINDIR)
 
 clean:
 	rm -rf *.o
