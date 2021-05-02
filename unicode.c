@@ -41,14 +41,14 @@ static int testCaseStringWidth(char *str, int expected) {
 }
 
 int unicodeTest() {
-	printf("UTF8 -> UCS conversion test");
+	printf("UTF8 -> UCS conversion test\n");
 	int retval = testCaseUCS("$", 0x24);
 	retval = retval + testCaseUCS("\xC2\xA2", 0xA2);
 	retval = retval + testCaseUCS("\xE0\xA4\xB9", 0x939);
 	retval = retval + testCaseUCS("\xE2\x82\xAC", 0x20AC);
 	retval = retval + testCaseUCS("\xED\x95\x9C", 0xD55C);
 	retval = retval + testCaseUCS("\xF0\x90\x8D\x88", 0x10348);
-	printf("Rune width test");
+	printf("Rune width test\n");
 	retval += testCaseStringWidth("bruh", 4);
 	retval += testCaseStringWidth("生存戦略", 8);
 	return retval;
