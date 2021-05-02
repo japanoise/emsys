@@ -290,6 +290,7 @@ void editorKillLine() {
 		row->chars[E.buf.cx] == 0;
 		row->size = E.buf.cx;
 		editorUpdateRow(row);
+		E.buf.dirty = 1;
 	}
 }
 
@@ -325,6 +326,7 @@ void editorKillLineBackwards() {
 	row->chars[row->size] = 0;
 	editorUpdateRow(row);
 	E.buf.cx = 0;
+	E.buf.dirty = 1;
 }
 
 /*** file i/o ***/
