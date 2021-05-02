@@ -22,6 +22,8 @@
 
 struct editorConfig E;
 
+void editorMoveCursor(int key);
+
 void die(const char *s) {
 	write(STDOUT_FILENO, CSI"2J", 4);
 	write(STDOUT_FILENO, CSI"H", 3);
@@ -255,6 +257,39 @@ void editorDelChar() {
 				      row->size);
 		editorDelRow(&E, E.buf.cy);
 		E.buf.cy--;
+	}
+}
+
+void editorKillLine() {
+	erow *row = &E.buf.row[E.buf.cy];
+
+	if (E.buf.cx == E.buf.row->size) {
+		editorMoveCursor(ARROW_RIGHT);
+		editorDelChar();
+	} else {
+		clearRedos(&E.buf);
+		struct editorUndo *new = newUndo();
+		new->starty = E.buf.cy;
+		new->endy = E.buf.cy;
+		new->startx = E.buf.cx;
+		new->endx = row->size;
+		new->delete = 1;
+		new->prev = E.buf.undo;
+		E.buf.undo = new;
+		int i = 0;
+		for (int j = row->size-1; j >= E.buf.cx; j--) {
+			new->data[i++] = row->chars[j];
+			new->datalen++;
+			if (new->datalen >= new->datasize - 2) {
+				new->datasize *= 2;
+				new->data = realloc(new->data, new->datasize);
+			}
+		}
+		new->data[i] = 0;
+
+		row->chars[E.buf.cx] == 0;
+		row->size = E.buf.cx;
+		editorUpdateRow(row);
 	}
 }
 
@@ -819,6 +854,9 @@ void editorProcessKeypress() {
 		break;
 	case CTRL('_'):
 		editorDoUndo(&E, &E.buf);
+		break;
+	case CTRL('k'):
+		editorKillLine();
 		break;
 	case REDO:
 		editorDoRedo(&E, &E.buf);
