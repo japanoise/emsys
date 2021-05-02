@@ -239,6 +239,18 @@ void editorInsertNewline() {
 	E.buf.cx = 0;
 }
 
+void editorInsertNewlineAndIndent() {
+	editorUndoAppendChar(&E.buf, '\n');
+	editorInsertNewline();
+	int i = 0;
+	uint8_t c = E.buf.row[E.buf.cy-1].chars[i];
+	while (c == ' ' || c == CTRL('i')) {
+		editorUndoAppendChar(&E.buf, c);
+		editorInsertChar(c);
+		c = E.buf.row[E.buf.cy-1].chars[++i];
+	}
+}
+
 void editorDelChar() {
 	if (E.buf.cy == E.buf.numrows) return;
 	if (E.buf.cy == 0 && E.buf.cx == 0) return;
@@ -896,6 +908,9 @@ void editorProcessKeypress() {
 		break;
 	case CTRL('u'):
 		editorKillLineBackwards();
+		break;
+	case CTRL('j'):
+		editorInsertNewlineAndIndent();
 		break;
 	case REDO:
 		editorDoRedo(&E, &E.buf);
