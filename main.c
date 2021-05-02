@@ -293,6 +293,40 @@ void editorKillLine() {
 	}
 }
 
+void editorKillLineBackwards() {
+	if (E.buf.cx == 0) {
+		return;
+	}
+
+	erow *row = &E.buf.row[E.buf.cy];
+
+	clearRedos(&E.buf);
+	struct editorUndo *new = newUndo();
+	new->starty = E.buf.cy;
+	new->endy = E.buf.cy;
+	new->startx = 0;
+	new->endx = E.buf.cx;
+	new->delete = 1;
+	new->prev = E.buf.undo;
+	E.buf.undo = new;
+	int i = 0;
+	for (int j = E.buf.cx-1; j >= 0; j--) {
+		new->data[i++] = row->chars[j];
+		new->datalen++;
+		if (new->datalen >= new->datasize - 2) {
+			new->datasize *= 2;
+			new->data = realloc(new->data, new->datasize);
+		}
+	}
+	new->data[i] = 0;
+
+	row->size -= E.buf.cx;
+	memmove(row->chars, &row->chars[E.buf.cx], row->size);
+	row->chars[row->size] = 0;
+	editorUpdateRow(row);
+	E.buf.cx = 0;
+}
+
 /*** file i/o ***/
 
 char *editorRowsToString(int *buflen) {
@@ -857,6 +891,9 @@ void editorProcessKeypress() {
 		break;
 	case CTRL('k'):
 		editorKillLine();
+		break;
+	case CTRL('u'):
+		editorKillLineBackwards();
 		break;
 	case REDO:
 		editorDoRedo(&E, &E.buf);
