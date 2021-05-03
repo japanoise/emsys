@@ -33,7 +33,9 @@ enum editorKey {
 	QUIT,
 	SAVE,
 	COPY,
-	REDO
+	REDO,
+	FORWARD_WORD,
+	BACKWARD_WORD
 };
 
 /*** data ***/

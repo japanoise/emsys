@@ -122,6 +122,10 @@ int editorReadKey() {
 			return END_OF_FILE;
 		} else if (seq[0]=='w' || seq[0] == 'W') {
 			return COPY;
+		} else if (seq[0]=='f' || seq[0]=='F') {
+			return FORWARD_WORD;
+		} else if (seq[0]=='b' || seq[0]=='B') {
+			return BACKWARD_WORD;
 		}
 
 		return 033;
@@ -794,6 +798,70 @@ void editorMoveCursor(int key) {
 	}
 }
 
+int isWordBoundary(uint8_t c) {
+	return (c == ' ' || c == CTRL('i') || c == '_' || c == 0);
+}
+
+void editorForwardWord() {
+	erow *row = (E.buf.cy >= E.buf.numrows) ? NULL : &E.buf.row[E.buf.cy];
+	if (!row) return;
+
+	if (E.buf.cy == E.buf.numrows-1 && E.buf.cx == row->size) return;
+
+	uint8_t c = row->chars[E.buf.cx];
+
+	while (isWordBoundary(c)) {
+		editorMoveCursor(ARROW_RIGHT);
+		row = &E.buf.row[E.buf.cy];
+		c = row->chars[E.buf.cx];
+	}
+
+	do {
+		if (E.buf.cy == E.buf.numrows-1 && E.buf.cx == row->size) {
+			return;
+		}
+		editorMoveCursor(ARROW_RIGHT);
+		row = &E.buf.row[E.buf.cy];
+		c = row->chars[E.buf.cx];
+	} while (!isWordBoundary(c));
+}
+
+void editorBackWord() {
+	int cx = E.buf.cx;
+	int icy = E.buf.cy;
+
+	if (icy >= E.buf.numrows) {
+		return;
+	}
+
+	int pre = 1;
+
+	for (int cy = icy; cy >= 0; cy--) {
+		if (cy != icy) {
+			cx = E.buf.row[cy].size;
+		}
+		while (cx > 0) {
+			uint8_t c = E.buf.row[cy].chars[cx-1];
+			if (isWordBoundary(c) && !pre) {
+				E.buf.cx = cx;
+				E.buf.cy = cy;
+				return;
+			} else if (!isWordBoundary(c)) {
+				pre = 0;
+			}
+			cx--;
+		}
+		if (!pre) {
+			E.buf.cx = cx;
+			E.buf.cy = cy;
+			return;
+		}
+	}
+
+	E.buf.cx = cx;
+	E.buf.cy = 0;
+}
+
 /* Where the magic happens */
 void editorProcessKeypress() {
 	int c = editorReadKey();
@@ -911,6 +979,12 @@ void editorProcessKeypress() {
 		break;
 	case CTRL('j'):
 		editorInsertNewlineAndIndent();
+		break;
+	case FORWARD_WORD:
+		editorForwardWord();
+		break;
+	case BACKWARD_WORD:
+		editorBackWord();
 		break;
 	case REDO:
 		editorDoRedo(&E, &E.buf);
