@@ -126,6 +126,10 @@ int editorReadKey() {
 			return FORWARD_WORD;
 		} else if (seq[0]=='b' || seq[0]=='B') {
 			return BACKWARD_WORD;
+		} else if (seq[0]=='p' || seq[0]=='P') {
+			return BACKWARD_PARA;
+		} else if (seq[0]=='n' || seq[0]=='N') {
+			return FORWARD_PARA;
 		}
 
 		return 033;
@@ -802,6 +806,10 @@ int isWordBoundary(uint8_t c) {
 	return (c == ' ' || c == CTRL('i') || c == '_' || c == 0);
 }
 
+int isParaBoundary(erow *row) {
+	return (row->size == 0);
+}
+
 void editorForwardWord() {
 	erow *row = (E.buf.cy >= E.buf.numrows) ? NULL : &E.buf.row[E.buf.cy];
 	if (!row) return;
@@ -860,6 +868,60 @@ void editorBackWord() {
 
 	E.buf.cx = cx;
 	E.buf.cy = 0;
+}
+
+void editorBackPara() {
+	E.buf.cx = 0;
+	int icy = E.buf.cy;
+
+	if (icy >= E.buf.numrows) {
+		icy--;
+	}
+
+	if (E.buf.numrows == 0) {
+		return;
+	}
+
+	int pre = 1;
+
+	for (int cy = icy; cy >= 0; cy--) {
+		erow *row = &E.buf.row[cy];
+		if (isParaBoundary(row) && !pre) {
+			E.buf.cy = cy;
+			return;
+		} else if (!isParaBoundary(row)) {
+			pre = 0;
+		}
+	}
+
+	E.buf.cy = 0;
+}
+
+void editorForwardPara() {
+	E.buf.cx = 0;
+	int icy = E.buf.cy;
+
+	if (icy >= E.buf.numrows) {
+		return;
+	}
+
+	if (E.buf.numrows == 0) {
+		return;
+	}
+
+	int pre = 1;
+
+	for (int cy = icy; cy < E.buf.numrows; cy++) {
+		erow *row = &E.buf.row[cy];
+		if (isParaBoundary(row) && !pre) {
+			E.buf.cy = cy;
+			return;
+		} else if (!isParaBoundary(row)) {
+			pre = 0;
+		}
+	}
+
+	E.buf.cy = E.buf.numrows;
 }
 
 /* Where the magic happens */
@@ -985,6 +1047,12 @@ void editorProcessKeypress() {
 		break;
 	case BACKWARD_WORD:
 		editorBackWord();
+		break;
+	case FORWARD_PARA:
+		editorForwardPara();
+		break;
+	case BACKWARD_PARA:
+		editorBackPara();
 		break;
 	case REDO:
 		editorDoRedo(&E, &E.buf);

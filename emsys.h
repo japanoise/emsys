@@ -35,7 +35,9 @@ enum editorKey {
 	COPY,
 	REDO,
 	FORWARD_WORD,
-	BACKWARD_WORD
+	BACKWARD_WORD,
+	FORWARD_PARA,
+	BACKWARD_PARA
 };
 
 /*** data ***/
