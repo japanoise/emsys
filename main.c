@@ -810,35 +810,44 @@ int isParaBoundary(erow *row) {
 	return (row->size == 0);
 }
 
-void editorForwardWord() {
-	erow *row = (E.buf.cy >= E.buf.numrows) ? NULL : &E.buf.row[E.buf.cy];
-	if (!row) return;
-
-	if (E.buf.cy == E.buf.numrows-1 && E.buf.cx == row->size) return;
-
-	uint8_t c = row->chars[E.buf.cx];
-
-	while (isWordBoundary(c)) {
-		editorMoveCursor(ARROW_RIGHT);
-		row = &E.buf.row[E.buf.cy];
-		c = row->chars[E.buf.cx];
+void bufferEndOfForwardWord(struct editorBuffer *buf, int *dx, int *dy) {
+	int cx = buf->cx;
+	int icy = buf->cy;
+	if (icy >= buf->numrows) {
+		*dx = cx;
+		*dy = icy;
+		return;
 	}
-
-	do {
-		if (E.buf.cy == E.buf.numrows-1 && E.buf.cx == row->size) {
+	int pre = 1;
+	for (int cy = icy; cy < buf->numrows; cy++) {
+		int l = buf->row[cy].size;
+		while (cx < l) {
+			uint8_t c = buf->row[cy].chars[cx];
+			if (isWordBoundary(c) && !pre) {
+				*dx = cx;
+				*dy = cy;
+				return;
+			} else if (!isWordBoundary(c)) {
+				pre = 0;
+			}
+			cx++;
+		}
+		if (!pre) {
+			*dx = cx;
+			*dy = cy;
 			return;
 		}
-		editorMoveCursor(ARROW_RIGHT);
-		row = &E.buf.row[E.buf.cy];
-		c = row->chars[E.buf.cx];
-	} while (!isWordBoundary(c));
+		cx = 0;
+	}
+	*dx = cx;
+	*dy = icy;
 }
 
-void editorBackWord() {
-	int cx = E.buf.cx;
-	int icy = E.buf.cy;
+void bufferEndOfBackwardWord(struct editorBuffer *buf, int *dx, int *dy) {
+	int cx = buf->cx;
+	int icy = buf->cy;
 
-	if (icy >= E.buf.numrows) {
+	if (icy >= buf->numrows) {
 		return;
 	}
 
@@ -846,13 +855,13 @@ void editorBackWord() {
 
 	for (int cy = icy; cy >= 0; cy--) {
 		if (cy != icy) {
-			cx = E.buf.row[cy].size;
+			cx = buf->row[cy].size;
 		}
 		while (cx > 0) {
-			uint8_t c = E.buf.row[cy].chars[cx-1];
+			uint8_t c = buf->row[cy].chars[cx-1];
 			if (isWordBoundary(c) && !pre) {
-				E.buf.cx = cx;
-				E.buf.cy = cy;
+				*dx = cx;
+				*dy = cy;
 				return;
 			} else if (!isWordBoundary(c)) {
 				pre = 0;
@@ -860,14 +869,22 @@ void editorBackWord() {
 			cx--;
 		}
 		if (!pre) {
-			E.buf.cx = cx;
-			E.buf.cy = cy;
+			*dx = cx;
+			*dy = cy;
 			return;
 		}
 	}
 
-	E.buf.cx = cx;
-	E.buf.cy = 0;
+	*dx = cx;
+	*dy = 0;
+}
+
+void editorForwardWord() {
+	bufferEndOfForwardWord(&E.buf, &E.buf.cx, &E.buf.cy);
+}
+
+void editorBackWord() {
+	bufferEndOfBackwardWord(&E.buf, &E.buf.cx, &E.buf.cy);
 }
 
 void editorBackPara() {
