@@ -307,7 +307,7 @@ void editorKillLine() {
 		}
 		new->data[i] = 0;
 
-		row->chars[E.buf.cx] == 0;
+		row->chars[E.buf.cx] = 0;
 		row->size = E.buf.cx;
 		editorUpdateRow(row);
 		E.buf.dirty = 1;
@@ -741,6 +741,7 @@ uint8_t *editorPrompt(uint8_t *prompt, void(*callback)(uint8_t *, int)) {
 			}
 			buf[buflen] = 0;
 			bufwidth = stringWidth(buf);
+			break;
 		default:
 			if (!ISCTRL(c) && c < 256) {
 				if (buflen >= bufsize - 1) {
