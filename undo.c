@@ -196,7 +196,9 @@ void editorUndoAppendUnicode(struct editorConfig *ed, struct editorBuffer *buf) 
 
 void editorUndoDelChar(struct editorBuffer *buf, uint8_t c) {
 	clearRedos(buf);
-	if (buf->undo == NULL || !(buf->undo->append) || !(buf->undo->delete)) {
+	if (buf->undo == NULL || !(buf->undo->append) || !(buf->undo->delete)
+	    || !((c == '\n' && buf->undo->startx == 0 && buf->undo->starty == buf->cy)
+		 || (buf->cx+1 == buf->undo->startx && buf->cy == buf->undo->starty))) {
 		if (buf->undo != NULL) buf->undo->append = 0;
 		struct editorUndo *new = newUndo();
 		new->prev = buf->undo;
