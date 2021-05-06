@@ -259,7 +259,7 @@ void editorInsertNewlineAndIndent() {
 	}
 }
 
-void editorDelChar() {
+void editorBackSpace() {
 	if (E.buf.cy == E.buf.numrows) return;
 	if (E.buf.cy == 0 && E.buf.cx == 0) return;
 
@@ -267,11 +267,11 @@ void editorDelChar() {
 	if (E.buf.cx > 0) {
 		do {
 			E.buf.cx--;
-			editorUndoDelChar(&E.buf, row->chars[E.buf.cx]);
+			editorUndoBackSpace(&E.buf, row->chars[E.buf.cx]);
 		} while (utf8_isCont(row->chars[E.buf.cx]));
 		editorRowDelChar(&E, row, E.buf.cx);
 	} else {
-		editorUndoDelChar(&E.buf, '\n');
+		editorUndoBackSpace(&E.buf, '\n');
 		E.buf.cx = E.buf.row[E.buf.cy-1].size;
 		editorRowAppendString(&E, &E.buf.row[E.buf.cy-1], row->chars,
 				      row->size);
@@ -285,7 +285,7 @@ void editorKillLine() {
 
 	if (E.buf.cx == E.buf.row->size) {
 		editorMoveCursor(ARROW_RIGHT);
-		editorDelChar();
+		editorBackSpace();
 	} else {
 		clearRedos(&E.buf);
 		struct editorUndo *new = newUndo();
@@ -955,12 +955,12 @@ void editorProcessKeypress() {
 		break;
 	case BACKSPACE:
 	case CTRL('h'):
-		editorDelChar();
+		editorBackSpace();
 		break;
 	case DEL_KEY:
 	case CTRL('d'):
 		editorMoveCursor(ARROW_RIGHT);
-		editorDelChar();
+		editorBackSpace();
 		break;
 	case CTRL('l'):
 		E.buf.rowoff = E.buf.cy - (E.screenrows/2);

@@ -194,7 +194,7 @@ void editorUndoAppendUnicode(struct editorConfig *ed, struct editorBuffer *buf) 
 	buf->undo->endx += ed->nunicode;
 }
 
-void editorUndoDelChar(struct editorBuffer *buf, uint8_t c) {
+void editorUndoBackSpace(struct editorBuffer *buf, uint8_t c) {
 	clearRedos(buf);
 	if (buf->undo == NULL || !(buf->undo->append) || !(buf->undo->delete)
 	    || !((c == '\n' && buf->undo->startx == 0 && buf->undo->starty == buf->cy)
