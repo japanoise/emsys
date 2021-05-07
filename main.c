@@ -717,7 +717,7 @@ uint8_t *editorPrompt(uint8_t *prompt, void(*callback)(uint8_t *, int)) {
 	for (;;) {
 		editorSetStatusMessage(prompt, buf);
 		editorRefreshScreen();
-		snprintf(cbuf, sizeof(cbuf), CSI"%d;%dH", E.screenrows,
+		snprintf(cbuf, sizeof(cbuf), CSI"%d;%ldH", E.screenrows,
 			 promptlen + bufwidth + 1);
 		write(STDOUT_FILENO, cbuf, strlen(cbuf));
 
