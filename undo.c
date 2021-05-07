@@ -18,9 +18,9 @@ void editorDoUndo(struct editorConfig *ed, struct editorBuffer *buf) {
 		buf->cy = buf->undo->starty;
 		for (int i = buf->undo->datalen - 1; i >= 0; i--) {
 			if (buf->undo->data[i] == '\n') {
-				editorInsertNewline();
+				editorInsertNewline(buf);
 			} else {
-				editorInsertChar(buf->undo->data[i]);
+				editorInsertChar(buf, buf->undo->data[i]);
 			}
 		}
 		buf->cx = buf->undo->endx;
@@ -96,9 +96,9 @@ void editorDoRedo(struct editorConfig *ed, struct editorBuffer *buf) {
 		buf->cy = buf->redo->starty;
 		for (int i = 0; i < buf->redo->datalen; i++) {
 			if (buf->redo->data[i] == '\n') {
-				editorInsertNewline();
+				editorInsertNewline(buf);
 			} else {
-				editorInsertChar(buf->redo->data[i]);
+				editorInsertChar(buf, buf->redo->data[i]);
 			}
 		}
 		buf->cx = buf->redo->endx;

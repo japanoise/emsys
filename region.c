@@ -151,9 +151,9 @@ void editorYank(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	for (int i = 0; ed->kill[i] != 0; i++) {
 		if (ed->kill[i] == '\n') {
-			editorInsertNewline();
+			editorInsertNewline(buf);
 		} else {
-			editorInsertChar(ed->kill[i]);
+			editorInsertChar(buf, ed->kill[i]);
 		}
 	}
 
