@@ -1,3 +1,1 @@
-#include<wchar.h>
-
-int mk_wcwidth(wchar_t ucs);
+int mk_wcwidth(int ucs);
