@@ -130,6 +130,10 @@ int editorReadKey() {
 			return BACKWARD_PARA;
 		} else if (seq[0]=='n' || seq[0]=='N') {
 			return FORWARD_PARA;
+		} else if (seq[0]=='h' || seq[0]=='H' || seq[0]==127) {
+			return BACKSPACE_WORD;
+		} else if (seq[0]=='d' || seq[0]=='D') {
+			return DELETE_WORD;
 		}
 
 		return 033;
@@ -910,6 +914,24 @@ void editorBackWord(struct editorBuffer *bufr) {
 	bufferEndOfBackwardWord(bufr, &bufr->cx, &bufr->cy);
 }
 
+void editorDeleteWord(struct editorBuffer *bufr) {
+	int origMarkx = bufr->markx;
+	int origMarky = bufr->marky;
+	bufferEndOfForwardWord(bufr, &bufr->markx, &bufr->marky);
+	editorKillRegion(&E, bufr);
+	bufr->markx = origMarkx;
+	bufr->marky = origMarky;
+}
+
+void editorBackspaceWord(struct editorBuffer *bufr) {
+	int origMarkx = bufr->markx;
+	int origMarky = bufr->marky;
+	bufferEndOfBackwardWord(bufr, &bufr->markx, &bufr->marky);
+	editorKillRegion(&E, bufr);
+	bufr->markx = origMarkx;
+	bufr->marky = origMarky;
+}
+
 void editorBackPara(struct editorBuffer *bufr) {
 	bufr->cx = 0;
 	int icy = bufr->cy;
@@ -1103,6 +1125,12 @@ void editorProcessKeypress() {
 		if (E.focusBuf == NULL) {
 			E.focusBuf = E.firstBuf;
 		}
+		break;
+	case DELETE_WORD:
+		editorDeleteWord(bufr);
+		break;
+	case BACKSPACE_WORD:
+		editorBackspaceWord(bufr);
 		break;
 	default:
 		if (ISCTRL(c)) {
