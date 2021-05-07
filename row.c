@@ -71,22 +71,22 @@ void editorUpdateRow(erow *row) {
 }
 
 void editorInsertRow(struct editorConfig *ed, int at, char *s, size_t len) {
-	if (at < 0 || at > ed->buf.numrows) return;
+	if (at < 0 || at > ed->buf->numrows) return;
 
-	ed->buf.row = realloc(ed->buf.row, sizeof(erow) * (ed->buf.numrows + 1));
-	memmove(&ed->buf.row[at + 1], &ed->buf.row[at], sizeof(erow) * (ed->buf.numrows - at));
+	ed->buf->row = realloc(ed->buf->row, sizeof(erow) * (ed->buf->numrows + 1));
+	memmove(&ed->buf->row[at + 1], &ed->buf->row[at], sizeof(erow) * (ed->buf->numrows - at));
 
-	ed->buf.row[at].size = len;
-	ed->buf.row[at].chars = malloc(len + 1);
-	memcpy(ed->buf.row[at].chars, s, len);
-	ed->buf.row[at].chars[len] = '\0';
+	ed->buf->row[at].size = len;
+	ed->buf->row[at].chars = malloc(len + 1);
+	memcpy(ed->buf->row[at].chars, s, len);
+	ed->buf->row[at].chars[len] = '\0';
 
-	ed->buf.row[at].rsize = 0;
-	ed->buf.row[at].render = NULL;
-	editorUpdateRow(&ed->buf.row[at]);
+	ed->buf->row[at].rsize = 0;
+	ed->buf->row[at].render = NULL;
+	editorUpdateRow(&ed->buf->row[at]);
 
-	ed->buf.numrows++;
-	ed->buf.dirty = 1;
+	ed->buf->numrows++;
+	ed->buf->dirty = 1;
 }
 
 void editorFreeRow(erow *row) {
@@ -95,12 +95,12 @@ void editorFreeRow(erow *row) {
 }
 
 void editorDelRow(struct editorConfig *ed, int at) {
-	if (at < 0 || at >= ed->buf.numrows) return;
-	editorFreeRow(&ed->buf.row[at]);
-	memmove(&ed->buf.row[at], &ed->buf.row[at + 1],
-		sizeof(erow) * (ed->buf.numrows - at - 1));
-	ed->buf.numrows--;
-	ed->buf.dirty = 1;
+	if (at < 0 || at >= ed->buf->numrows) return;
+	editorFreeRow(&ed->buf->row[at]);
+	memmove(&ed->buf->row[at], &ed->buf->row[at + 1],
+		sizeof(erow) * (ed->buf->numrows - at - 1));
+	ed->buf->numrows--;
+	ed->buf->dirty = 1;
 }
 
 void editorRowInsertChar(struct editorConfig *ed, erow *row, int at, int c) {
@@ -110,7 +110,7 @@ void editorRowInsertChar(struct editorConfig *ed, erow *row, int at, int c) {
 	row->size++;
 	row->chars[at] = c;
 	editorUpdateRow(row);
-	ed->buf.dirty = 1;
+	ed->buf->dirty = 1;
 }
 
 void editorRowInsertUnicode(struct editorConfig *ed, erow *row, int at) {
@@ -122,7 +122,7 @@ void editorRowInsertUnicode(struct editorConfig *ed, erow *row, int at) {
 		row->chars[at+i] = ed->unicode[i];
 	}
 	editorUpdateRow(row);
-   	ed->buf.dirty = 1;
+   	ed->buf->dirty = 1;
 }
 
 void editorRowAppendString(struct editorConfig *ed, erow *row, char *s, size_t len) {
@@ -131,7 +131,7 @@ void editorRowAppendString(struct editorConfig *ed, erow *row, char *s, size_t l
 	row->size += len;
 	row->chars[row->size] = '\0';
 	editorUpdateRow(row);
-	ed->buf.dirty = 1;
+	ed->buf->dirty = 1;
 }
 
 void editorRowDelChar(struct editorConfig *ed, erow *row, int at) {
@@ -141,5 +141,5 @@ void editorRowDelChar(struct editorConfig *ed, erow *row, int at) {
 		&row->chars[at+size], row->size - ((at+size)-1));
 	row->size -= size;
 	editorUpdateRow(row);
-	ed->buf.dirty = 1;
+	ed->buf->dirty = 1;
 }

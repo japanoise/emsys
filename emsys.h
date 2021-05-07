@@ -86,7 +86,7 @@ struct editorConfig {
 	char minibuffer[80];
 	time_t statusmsg_time;
 	struct termios orig_termios;
-	struct editorBuffer buf;
+	struct editorBuffer *buf;
 };
 
 /*** prototypes ***/
