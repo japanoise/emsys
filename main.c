@@ -994,6 +994,7 @@ void editorProcessKeypress() {
 			if (c == 'y' || c == 'Y') {
 				exit(0);
 			}
+			editorSetStatusMessage("");
 		} else {
 			exit(0);
 		}
