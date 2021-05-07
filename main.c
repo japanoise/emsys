@@ -143,6 +143,8 @@ int editorReadKey() {
 			return SAVE;
 		} else if (seq[0] == CTRL('_')) {
 			return REDO;
+		} else if (seq[0] == 'b' || seq[0] == 'B' || seq[0] == CTRL('b')) {
+			return SWITCH_BUFFER;
 		}
 	} else if (c == CTRL('p')) {
 		return ARROW_UP;
@@ -218,26 +220,26 @@ int getWindowSize(int *rows, int *cols) {
 
 void editorInsertChar(struct editorBuffer *bufr, int c) {
 	if (bufr->cy == bufr->numrows) {
-		editorInsertRow(&E, bufr->numrows, "", 0);
+		editorInsertRow(bufr, bufr->numrows, "", 0);
 	}
-	editorRowInsertChar(&E, &bufr->row[bufr->cy], bufr->cx, c);
+	editorRowInsertChar(bufr, &bufr->row[bufr->cy], bufr->cx, c);
 	bufr->cx++;
 }
 
 void editorInsertUnicode(struct editorBuffer *bufr) {
 	if (bufr->cy == bufr->numrows) {
-		editorInsertRow(&E, bufr->numrows, "", 0);
+		editorInsertRow(bufr, bufr->numrows, "", 0);
 	}
-	editorRowInsertUnicode(&E, &bufr->row[bufr->cy], bufr->cx);
+	editorRowInsertUnicode(&E, bufr, &bufr->row[bufr->cy], bufr->cx);
 	bufr->cx += E.nunicode;
 }
 
 void editorInsertNewline(struct editorBuffer *bufr) {
 	if (bufr->cx == 0) {
-		editorInsertRow(&E, bufr->cy, "", 0);
+		editorInsertRow(bufr, bufr->cy, "", 0);
 	} else {
 		erow *row = &bufr->row[bufr->cy];
-		editorInsertRow(&E, bufr->cy + 1, &row->chars[bufr->cx], row->size - bufr->cx);
+		editorInsertRow(bufr, bufr->cy + 1, &row->chars[bufr->cx], row->size - bufr->cx);
 		row = &bufr->row[bufr->cy];
 		row->size = bufr->cx;
 		row->chars[row->size] = '\0';
@@ -269,11 +271,11 @@ void editorDelChar(struct editorBuffer *bufr) {
 	editorUndoDelChar(bufr, row);
 	if (bufr->cx == row->size) {
 		row = &bufr->row[bufr->cy+1];
-		editorRowAppendString(&E, &bufr->row[bufr->cy], row->chars,
+		editorRowAppendString(bufr, &bufr->row[bufr->cy], row->chars,
 				      row->size);
-		editorDelRow(&E, bufr->cy+1);
+		editorDelRow(bufr, bufr->cy+1);
 	} else {
-		editorRowDelChar(&E, row, bufr->cx);
+		editorRowDelChar(bufr, row, bufr->cx);
 	}
 }
 
@@ -287,13 +289,13 @@ void editorBackSpace(struct editorBuffer *bufr) {
 			bufr->cx--;
 			editorUndoBackSpace(bufr, row->chars[bufr->cx]);
 		} while (utf8_isCont(row->chars[bufr->cx]));
-		editorRowDelChar(&E, row, bufr->cx);
+		editorRowDelChar(bufr, row, bufr->cx);
 	} else {
 		editorUndoBackSpace(bufr, '\n');
 		bufr->cx = bufr->row[bufr->cy-1].size;
-		editorRowAppendString(&E, &bufr->row[bufr->cy-1], row->chars,
+		editorRowAppendString(bufr, &bufr->row[bufr->cy-1], row->chars,
 				      row->size);
-		editorDelRow(&E, bufr->cy);
+		editorDelRow(bufr, bufr->cy);
 		bufr->cy--;
 	}
 }
@@ -402,7 +404,7 @@ void editorOpen(struct editorBuffer *bufr, char *filename) {
 		while (linelen > 0 && (line[linelen - 1] == '\n' ||
 				       line[linelen - 1] == '\r'))
 			linelen--;
-		editorInsertRow(&E, bufr->numrows, line, linelen);
+		editorInsertRow(bufr, bufr->numrows, line, linelen);
 	}
 	free(line);
 	fclose(fp);
@@ -673,7 +675,7 @@ void editorRefreshScreen() {
 	abAppend(&ab, CSI"?25l", 6);
 	abAppend(&ab, CSI"H", 3);
 
-	struct editorBuffer *bufr = E.buf;
+	struct editorBuffer *bufr = E.focusBuf;
 	editorScroll(bufr, E.screenrows-2, E.screencols);
 	editorDrawRows(bufr, &ab, E.screenrows-2, E.screencols);
 	editorDrawStatusBar(bufr, &ab, E.screenrows-1);
@@ -681,7 +683,7 @@ void editorRefreshScreen() {
 
 	/* move to scy, scx; show cursor */
 	char buf[32];
-	snprintf(buf, sizeof(buf), CSI"%d;%dH", E.buf->scy + 1, E.buf->scx + 1);
+	snprintf(buf, sizeof(buf), CSI"%d;%dH", bufr->scy + 1, bufr->scx + 1);
 	abAppend(&ab, buf, strlen(buf));
 	abAppend(&ab, CSI"?25h", 6);
 
@@ -966,7 +968,7 @@ void editorForwardPara(struct editorBuffer *bufr) {
 void editorProcessKeypress() {
 	int c = editorReadKey();
 
-	struct editorBuffer *bufr = E.buf;
+	struct editorBuffer *bufr = E.focusBuf;
 	switch (c) {
 	case '\r':
 		editorUndoAppendChar(bufr, '\n');
@@ -1070,7 +1072,7 @@ void editorProcessKeypress() {
 		editorInsertChar(bufr, c);
 		break;
 	case CTRL('_'):
-		editorDoUndo(&E, bufr);
+		editorDoUndo(bufr);
 		break;
 	case CTRL('k'):
 		editorKillLine(bufr);
@@ -1094,7 +1096,13 @@ void editorProcessKeypress() {
 		editorBackPara(bufr);
 		break;
 	case REDO:
-		editorDoRedo(&E, bufr);
+		editorDoRedo(bufr);
+		break;
+	case SWITCH_BUFFER:
+		E.focusBuf = E.focusBuf->next;
+		if (E.focusBuf == NULL) {
+			E.focusBuf = E.firstBuf;
+		}
 		break;
 	default:
 		if (ISCTRL(c)) {
@@ -1124,11 +1132,11 @@ struct editorBuffer *newBuffer() {
 	ret->dirty = 0;
 	ret->undo = NULL;
 	ret->redo = NULL;
+	ret->next = NULL;
 	return ret;
 }
 
 void initEditor() {
-	E.buf = newBuffer();
 	E.minibuffer[0] = 0;
 	E.kill = NULL;
 
@@ -1139,7 +1147,16 @@ int main(int argc, char *argv[]) {
 	enableRawMode();
 	initEditor();
 	if (argc >= 2) {
-		editorOpen(E.buf, argv[1]);
+		E.focusBuf = NULL;
+		for (int i = 1; i < argc; i++) {
+			E.firstBuf = newBuffer();
+			editorOpen(E.firstBuf, argv[i]);
+			E.firstBuf->next = E.focusBuf;
+			E.focusBuf = E.firstBuf;
+		}
+	} else {
+		E.firstBuf = newBuffer();
+		E.focusBuf = E.firstBuf;
 	}
 
 	editorSetStatusMessage("emsys "EMSYS_VERSION" - C-x C-c to quit");

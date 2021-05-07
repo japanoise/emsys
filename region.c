@@ -86,7 +86,7 @@ void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 		row->chars[row->size] = 0;
 	} else {
 		for (int i = buf->cy + 1; i < buf->marky; i++) {
-			editorDelRow(ed, buf->cy+1);
+			editorDelRow(buf, buf->cy+1);
 		}
 		struct erow *last = &buf->row[buf->cy+1];
 		row->size = buf->cx;
@@ -94,7 +94,7 @@ void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 		row->chars = realloc(row->chars, row->size);
 		memcpy(&row->chars[buf->cx], &last->chars[buf->markx],
 		       last->size-buf->markx);
-		editorDelRow(ed, buf->cy+1);
+		editorDelRow(buf, buf->cy+1);
 	}
 
 	buf->dirty = 1;

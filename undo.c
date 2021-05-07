@@ -7,7 +7,7 @@
 #include"undo.h"
 #include"unicode.h"
 
-void editorDoUndo(struct editorConfig *ed, struct editorBuffer *buf) {
+void editorDoUndo(struct editorBuffer *buf) {
 	if (buf->undo == NULL) {
 		editorSetStatusMessage("No further undo information.");
 		return;
@@ -36,7 +36,7 @@ void editorDoUndo(struct editorConfig *ed, struct editorBuffer *buf) {
 		} else {
 			for (int i = buf->undo->starty + 1;
 			     i < buf->undo->endy; i++) {
-				editorDelRow(ed, buf->undo->starty+1);
+				editorDelRow(buf, buf->undo->starty+1);
 			}
 			struct erow *last = &buf->row[buf->undo->starty+1];
 			row->size = buf->undo->startx;
@@ -45,7 +45,7 @@ void editorDoUndo(struct editorConfig *ed, struct editorBuffer *buf) {
 			memcpy(&row->chars[buf->undo->startx],
 			       &last->chars[buf->undo->endx],
 			       last->size-buf->undo->endx);
-			editorDelRow(ed, buf->undo->starty+1);
+			editorDelRow(buf, buf->undo->starty+1);
 		
 		}
 		buf->cx = buf->undo->startx;
@@ -60,7 +60,7 @@ void editorDoUndo(struct editorConfig *ed, struct editorBuffer *buf) {
 	buf->redo->prev = orig;
 }
 
-void editorDoRedo(struct editorConfig *ed, struct editorBuffer *buf) {
+void editorDoRedo(struct editorBuffer *buf) {
 	if (buf->redo == NULL) {
 		editorSetStatusMessage("No further redo information.");
 		return;
@@ -77,7 +77,7 @@ void editorDoRedo(struct editorConfig *ed, struct editorBuffer *buf) {
 		} else {
 			for (int i = buf->redo->starty + 1;
 			     i < buf->redo->endy; i++) {
-				editorDelRow(ed, buf->redo->starty+1);
+				editorDelRow(buf, buf->redo->starty+1);
 			}
 			struct erow *last = &buf->row[buf->redo->starty+1];
 			row->size = buf->redo->startx;
@@ -86,7 +86,7 @@ void editorDoRedo(struct editorConfig *ed, struct editorBuffer *buf) {
 			memcpy(&row->chars[buf->redo->startx],
 			       &last->chars[buf->redo->endx],
 			       last->size-buf->redo->endx);
-			editorDelRow(ed, buf->redo->starty+1);
+			editorDelRow(buf, buf->redo->starty+1);
 		
 		}
 		buf->cx = buf->redo->startx;

@@ -2,7 +2,7 @@ PROGNAME=emsys
 PREFIX=/usr/local
 BINDIR=$(PREFIX)/bin
 OBJECTS=main.o wcwidth.o unicode.o row.o region.o undo.o
-CFLAGS+=-Wall -Wextra -pedantic -Wno-pointer-sign
+CFLAGS+=-Wall -Wextra -pedantic -Wno-pointer-sign -Werror=incompatible-pointer-types
 
 all: $(PROGNAME)
 

@@ -37,7 +37,8 @@ enum editorKey {
 	FORWARD_WORD,
 	BACKWARD_WORD,
 	FORWARD_PARA,
-	BACKWARD_PARA
+	BACKWARD_PARA,
+	SWITCH_BUFFER
 };
 
 /*** data ***/
@@ -75,6 +76,7 @@ struct editorBuffer {
 	char *filename;
         struct editorUndo *undo;
         struct editorUndo *redo;
+	struct editorBuffer *next;
 };
 
 struct editorConfig {
@@ -86,7 +88,8 @@ struct editorConfig {
 	char minibuffer[80];
 	time_t statusmsg_time;
 	struct termios orig_termios;
-	struct editorBuffer *buf;
+	struct editorBuffer *firstBuf;
+	struct editorBuffer *focusBuf;
 };
 
 /*** prototypes ***/
