@@ -38,20 +38,6 @@ static void validateRegion(struct editorBuffer *buf) {
 	}
 }
 
-static size_t regionSize(struct editorBuffer *buf) {
-	if (buf->cy == buf->marky) {
-		return (buf->marky - buf->cy) + 1;
-	} else {
-		size_t ret = buf->row[buf->cy].size - buf->cx;
-		for (int i = buf->cy + 1; i < buf->marky; i++) {
-			ret += buf->row[i].size;
-		}
-		ret += buf->row[buf->marky].size - buf->markx;
-		ret++;
-		return ret;
-	}
-}
-
 void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 	if (markInvalid(buf)) return;
 	editorCopyRegion(ed, buf);
@@ -109,7 +95,8 @@ void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 	int origMarky = buf->marky;
 	validateRegion(buf);
 	free(ed->kill);
-	ed->kill = malloc(regionSize(buf));
+	int regionSize = 32;
+	ed->kill = malloc(regionSize);
 
 	int killpos = 0;
 	while (!(buf->cy == buf->marky && buf->cx == buf->markx)) {
@@ -121,6 +108,11 @@ void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 		} else {
 			ed->kill[killpos++] = c;
 			buf->cx++;
+		}
+
+		if (killpos >= regionSize - 2) {
+			regionSize *= 2;
+			ed->kill = realloc(ed->kill, regionSize);
 		}
 	}
 	ed->kill[killpos] = 0;
