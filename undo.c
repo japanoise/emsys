@@ -5,6 +5,7 @@
 #include"region.h"
 #include"row.h"
 #include"undo.h"
+#include"unicode.h"
 
 void editorDoUndo(struct editorConfig *ed, struct editorBuffer *buf) {
 	if (buf->undo == NULL) {
@@ -222,5 +223,49 @@ void editorUndoBackSpace(struct editorBuffer *buf, uint8_t c) {
 		buf->undo->startx = buf->row[buf->undo->starty].size;
 	} else {
 		buf->undo->startx--;
+	}
+}
+
+void editorUndoDelChar(struct editorBuffer *buf, erow *row) {
+	clearRedos(buf);
+	if (buf->undo == NULL || !(buf->undo->append) || !(buf->undo->delete)
+	    || !(buf->undo->startx == buf->cx && buf->undo->starty == buf->cy)) {
+		if (buf->undo != NULL) buf->undo->append = 0;
+		struct editorUndo *new = newUndo();
+		new->prev = buf->undo;
+		new->endx = buf->cx;
+		new->endy = buf->cy;
+		new->startx = buf->cx;
+		new->starty = buf->cy;
+		new->delete = 1;
+		buf->undo = new;
+	}
+
+	if (buf->cx == row->size) {
+		buf->undo->datalen++;
+		if (buf->undo->datalen >= buf->undo->datasize - 2) {
+			buf->undo->datasize *= 2;
+			buf->undo->data = realloc(buf->undo->data,
+						  buf->undo->datasize);
+		}
+		memmove(&buf->undo->data[1], buf->undo->data,
+			buf->undo->datalen-1);
+		buf->undo->data[0] = '\n';
+		buf->undo->endy++;
+		buf->undo->endx = 0;
+	} else {
+		int n = utf8_nBytes(row->chars[buf->cx]);
+		buf->undo->datalen += n;
+		if (buf->undo->datalen >= buf->undo->datasize - 2) {
+			buf->undo->datasize *= 2;
+			buf->undo->data = realloc(buf->undo->data,
+						  buf->undo->datasize);
+		}
+		memmove(&buf->undo->data[n], buf->undo->data,
+			buf->undo->datalen-n);
+		for (int i = 0; i < n; i++) {
+			buf->undo->data[i] = row->chars[buf->cx+n-i-1];
+			buf->undo->endx++;
+		}
 	}
 }

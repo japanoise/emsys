@@ -259,6 +259,24 @@ void editorInsertNewlineAndIndent() {
 	}
 }
 
+void editorDelChar() {
+	if (E.buf.cy == E.buf.numrows) return;
+	if (E.buf.cy == E.buf.numrows - 1 &&
+	    E.buf.cx == E.buf.row[E.buf.cy].size)
+		return;
+
+	erow *row = &E.buf.row[E.buf.cy];
+	editorUndoDelChar(&E.buf, row);
+	if (E.buf.cx == row->size) {
+		row = &E.buf.row[E.buf.cy+1];
+		editorRowAppendString(&E, &E.buf.row[E.buf.cy], row->chars,
+				      row->size);
+		editorDelRow(&E, E.buf.cy+1);
+	} else {
+		editorRowDelChar(&E, row, E.buf.cx);
+	}
+}
+
 void editorBackSpace() {
 	if (E.buf.cy == E.buf.numrows) return;
 	if (E.buf.cy == 0 && E.buf.cx == 0) return;
@@ -284,8 +302,7 @@ void editorKillLine() {
 	erow *row = &E.buf.row[E.buf.cy];
 
 	if (E.buf.cx == E.buf.row->size) {
-		editorMoveCursor(ARROW_RIGHT);
-		editorBackSpace();
+		editorDelChar();
 	} else {
 		clearRedos(&E.buf);
 		struct editorUndo *new = newUndo();
@@ -959,8 +976,7 @@ void editorProcessKeypress() {
 		break;
 	case DEL_KEY:
 	case CTRL('d'):
-		editorMoveCursor(ARROW_RIGHT);
-		editorBackSpace();
+		editorDelChar();
 		break;
 	case CTRL('l'):
 		E.buf.rowoff = E.buf.cy - (E.screenrows/2);
