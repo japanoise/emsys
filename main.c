@@ -1147,11 +1147,24 @@ int main(int argc, char *argv[]) {
 	enableRawMode();
 	initEditor();
 	if (argc >= 2) {
+		int i = 1;
+		int linum = -1;
 		E.focusBuf = NULL;
-		for (int i = 1; i < argc; i++) {
+		if (argv[1][0] == '+' && argc > 2) {
+			linum = atoi(argv[1]+1);
+			i++;
+		}
+		for (; i < argc; i++) {
 			E.firstBuf = newBuffer();
 			editorOpen(E.firstBuf, argv[i]);
 			E.firstBuf->next = E.focusBuf;
+			if (linum > 0) {
+				E.firstBuf->cy = linum - 1;
+				linum = -1;
+				if (E.firstBuf->cy > E.firstBuf->numrows) {
+					E.firstBuf->cy = E.firstBuf->numrows;
+				}
+			}
 			E.focusBuf = E.firstBuf;
 		}
 	} else {
