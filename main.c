@@ -1107,21 +1107,26 @@ void editorProcessKeypress() {
 
 /*** init ***/
 
+struct editorBuffer *newBuffer() {
+	struct editorBuffer *ret = malloc(sizeof (struct editorBuffer));
+	ret->markx = -1;
+	ret->marky = -1;
+	ret->cx = 0;
+	ret->cy = 0;
+	ret->scx = 0;
+	ret->scy = 0;
+	ret->rowoff = 0;
+	ret->numrows = 0;
+	ret->row = NULL;
+	ret->filename = NULL;
+	ret->dirty = 0;
+	ret->undo = NULL;
+	ret->redo = NULL;
+	return ret;
+}
+
 void initEditor() {
-	E.buf = malloc(sizeof (struct editorBuffer));
-	E.buf->markx = -1;
-	E.buf->marky = -1;
-	E.buf->cx = 0;
-	E.buf->cy = 0;
-	E.buf->scx = 0;
-	E.buf->scy = 0;
-	E.buf->rowoff = 0;
-	E.buf->numrows = 0;
-	E.buf->row = NULL;
-	E.buf->filename = NULL;
-	E.buf->dirty = 0;
-	E.buf->undo = NULL;
-	E.buf->redo = NULL;
+	E.buf = newBuffer();
 	E.minibuffer[0] = 0;
 	E.kill = NULL;
 
