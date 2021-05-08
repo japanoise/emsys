@@ -307,7 +307,7 @@ void editorBackSpace(struct editorBuffer *bufr) {
 void editorKillLine(struct editorBuffer *bufr) {
 	erow *row = &bufr->row[bufr->cy];
 
-	if (bufr->cx == bufr->row->size) {
+	if (bufr->cx == row->size) {
 		editorDelChar(bufr);
 	} else {
 		clearRedos(bufr);
