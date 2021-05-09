@@ -40,7 +40,11 @@ enum editorKey {
 	BACKWARD_PARA,
 	SWITCH_BUFFER,
 	DELETE_WORD,
-	BACKSPACE_WORD
+	BACKSPACE_WORD,
+	OTHER_WINDOW,
+	CREATE_WINDOW,
+	DESTROY_WINDOW,
+	DESTROY_OTHER_WINDOWS
 };
 
 /*** data ***/
@@ -81,6 +85,11 @@ struct editorBuffer {
 	struct editorBuffer *next;
 };
 
+struct editorWindow {
+	int focused;
+	struct editorBuffer *buf;
+};
+
 struct editorConfig {
 	uint8_t *kill;
 	int screenrows;
@@ -92,6 +101,8 @@ struct editorConfig {
 	struct termios orig_termios;
 	struct editorBuffer *firstBuf;
 	struct editorBuffer *focusBuf;
+	int nwindows;
+	struct editorWindow **windows;
 };
 
 /*** prototypes ***/

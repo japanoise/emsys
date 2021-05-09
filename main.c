@@ -41,6 +41,30 @@ void editorUpdateBuffer(struct editorBuffer *buf) {
 	}
 }
 
+int windowFocusedIdx(struct editorConfig *ed) {
+	for(int i = 0; i < E.nwindows; i++) {
+		if (ed->windows[i]->focused) {
+			return i;
+		}
+	}
+	/* You're in trouble m80 */
+	return 0;
+}
+
+void editorSwitchWindow(struct editorConfig *ed) {
+	if (ed->nwindows == 1) {
+		editorSetStatusMessage("No other windows to select");
+		return;
+	}
+	int idx = windowFocusedIdx(ed);
+	ed->windows[idx++]->focused = 0;
+	if (idx >= ed->nwindows) {
+		idx = 0;
+	}
+	ed->windows[idx]->focused = 1;
+	ed->focusBuf = ed->windows[idx]->buf;
+}
+
 /*** terminal ***/
 
 void disableRawMode() {
@@ -149,6 +173,14 @@ int editorReadKey() {
 			return REDO;
 		} else if (seq[0] == 'b' || seq[0] == 'B' || seq[0] == CTRL('b')) {
 			return SWITCH_BUFFER;
+		} else if (seq[0]=='o' || seq[0]=='O') {
+			return OTHER_WINDOW;
+		} else if (seq[0]=='2') {
+			return CREATE_WINDOW;
+		} else if (seq[0]=='0') {
+			return DESTROY_WINDOW;
+		} else if (seq[0]=='1') {
+			return DESTROY_OTHER_WINDOWS;
 		}
 	} else if (c == CTRL('p')) {
 		return ARROW_UP;
@@ -594,19 +626,31 @@ void editorDrawRows(struct editorBuffer *bufr, struct abuf *ab, int screenrows, 
 	}
 }
 
-void editorDrawStatusBar(struct editorBuffer *bufr, struct abuf *ab, int line) {
+void editorDrawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
 	/* XXX: It's actually possible for the status bar to end up
 	 * outside where it should be, so set it explicitly. */
 	char buf[32];
 	snprintf(buf, sizeof(buf), CSI"%d;%dH", line, 1);
 	abAppend(ab, buf, strlen(buf));
 
+	struct editorBuffer *bufr = win->buf;
+
 	abAppend(ab, "\x1b[7m", 4);
 	char status[80];
-	int len = snprintf(status, sizeof(status), "-- %.20s %c%c %2d:%2d --",
-			   bufr->filename ? bufr->filename : "[untitled]",
-			   bufr->dirty ? '*': '-', bufr->dirty ? '*': '-',
-			   bufr->cy+1, bufr->cx);
+	int len = 0;
+	if (win->focused) {
+		len = snprintf(status, sizeof(status),
+			       "-- %.20s %c%c %2d:%2d --",
+			       bufr->filename ? bufr->filename : "[untitled]",
+			       bufr->dirty ? '*': '-', bufr->dirty ? '*': '-',
+			       bufr->cy+1, bufr->cx);
+	} else {
+		len = snprintf(status, sizeof(status),
+			       "   %.20s %c%c %2d:%2d   ",
+			       bufr->filename ? bufr->filename : "[untitled]",
+			       bufr->dirty ? '*': '-', bufr->dirty ? '*': '-',
+			       bufr->cy+1, bufr->cx);
+	}
 #ifdef EMSYS_DEBUG_UNDO
 	if (bufr->undo != NULL) {
 		len = 0;
@@ -650,6 +694,14 @@ void editorDrawStatusBar(struct editorBuffer *bufr, struct abuf *ab, int line) {
 			 (bufr->rowoff*100)/bufr->numrows);
 	}
 
+
+	char fill[2] = "-";
+	if (!win->focused) {
+		perc[5] = ' ';
+		perc[6] = ' ';
+		fill[0] = ' ';
+	}
+
 	if (len > E.screencols) len = E.screencols;
 	abAppend(ab, status, len);
 	while (len < E.screencols) {
@@ -657,7 +709,7 @@ void editorDrawStatusBar(struct editorBuffer *bufr, struct abuf *ab, int line) {
 			abAppend(ab, perc, 7);
 			break;
 		} else {
-			abAppend(ab, "-", 1);
+			abAppend(ab, fill, 1);
 			len++;
 		}
 	}
@@ -679,15 +731,31 @@ void editorRefreshScreen() {
 	abAppend(&ab, CSI"?25l", 6);
 	abAppend(&ab, CSI"H", 3);
 
-	struct editorBuffer *bufr = E.focusBuf;
-	editorScroll(bufr, E.screenrows-2, E.screencols);
-	editorDrawRows(bufr, &ab, E.screenrows-2, E.screencols);
-	editorDrawStatusBar(bufr, &ab, E.screenrows-1);
+	int idx = windowFocusedIdx(&E);
+	int windowSize = E.screenrows/E.nwindows;
+
+	if (E.nwindows == 1) {
+			struct editorWindow *win = E.windows[0];
+			struct editorBuffer *bufr = win->buf;
+			editorScroll(bufr, E.screenrows-2, E.screencols);
+			editorDrawRows(bufr, &ab, E.screenrows-2, E.screencols);
+			editorDrawStatusBar(win, &ab, E.screenrows-1);
+	} else {
+		for (int i = 0; i < E.nwindows; i++) {
+			struct editorWindow *win = E.windows[i];
+			struct editorBuffer *bufr = win->buf;
+			editorScroll(bufr, windowSize-1, E.screencols);
+			editorDrawRows(bufr, &ab, windowSize-1, E.screencols);
+			editorDrawStatusBar(win, &ab, ((i+1)*windowSize));
+		}
+	}
 	editorDrawMinibuffer(&ab);
 
 	/* move to scy, scx; show cursor */
 	char buf[32];
-	snprintf(buf, sizeof(buf), CSI"%d;%dH", bufr->scy + 1, bufr->scx + 1);
+	snprintf(buf, sizeof(buf), CSI"%d;%dH",
+		 E.windows[idx]->buf->scy + 1 + (windowSize*idx),
+		 E.windows[idx]->buf->scx + 1);
 	abAppend(&ab, buf, strlen(buf));
 	abAppend(&ab, CSI"?25h", 6);
 
@@ -991,6 +1059,9 @@ void editorProcessKeypress() {
 	int c = editorReadKey();
 
 	struct editorBuffer *bufr = E.focusBuf;
+	int idx;
+	struct editorWindow **windows;
+
 	switch (c) {
 	case '\r':
 		editorUndoAppendChar(bufr, '\n');
@@ -1005,7 +1076,7 @@ void editorProcessKeypress() {
 		editorDelChar(bufr);
 		break;
 	case CTRL('l'):
-		bufr->rowoff = bufr->cy - (E.screenrows/2);
+		bufr->rowoff = bufr->cy - ((E.screenrows/E.nwindows)/2);
 		if (bufr->rowoff < 0) {
 			bufr->rowoff = 0;
 		}
@@ -1034,7 +1105,7 @@ void editorProcessKeypress() {
 	case PAGE_UP:
 	case CTRL('z'):
 		bufr->cy = bufr->rowoff;
-		int times = E.screenrows;
+		int times = (E.screenrows/E.nwindows)-4;
 		while (times--)
 			editorMoveCursor(bufr, ARROW_UP);
 		break;
@@ -1042,7 +1113,7 @@ void editorProcessKeypress() {
 	case CTRL('v'):
 		bufr->cy = bufr->rowoff + E.screenrows - 1;
 		if (bufr->cy > bufr->numrows) bufr->cy = bufr->numrows;
-		times = E.screenrows;
+		times = (E.screenrows/E.nwindows)-4;
 		while (times--)
 			editorMoveCursor(bufr, ARROW_DOWN);
 		break;
@@ -1125,7 +1196,68 @@ void editorProcessKeypress() {
 		if (E.focusBuf == NULL) {
 			E.focusBuf = E.firstBuf;
 		}
+		for (int i = 0; i < E.nwindows; i++) {
+			if (E.windows[i]->focused) {
+				E.windows[i]->buf = E.focusBuf;
+			}
+		}
 		break;
+
+	case OTHER_WINDOW:
+		editorSwitchWindow(&E);
+		break;
+
+	case CREATE_WINDOW:
+		E.windows = realloc(
+			E.windows,sizeof(struct editorWindow *)*(++E.nwindows));
+		E.windows[E.nwindows-1] = malloc(sizeof(struct editorWindow));
+		E.windows[E.nwindows-1]->focused = 0;
+		E.windows[E.nwindows-1]->buf = E.focusBuf;
+		break;
+
+	case DESTROY_WINDOW:
+		if (E.nwindows == 1) {
+			editorSetStatusMessage("Can't kill last window");
+			break;
+		}
+		idx = windowFocusedIdx(&E);
+		editorSwitchWindow(&E);
+		free(E.windows[idx]);
+		windows =
+			malloc(sizeof(struct editorWindow *)*(--E.nwindows));
+		int j = 0;
+		for (int i = 0; i <= E.nwindows; i++) {
+			if (i != idx) {
+				windows[j++] = E.windows[i];
+				if (windows[j]->focused) {
+					E.focusBuf = windows[j]->buf;
+				}
+			}
+		}
+		free(E.windows);
+		E.windows = windows;
+		break;
+
+	case DESTROY_OTHER_WINDOWS:
+		if (E.nwindows == 1) {
+			editorSetStatusMessage("No other windows to delete");
+			break;
+		}
+		idx = windowFocusedIdx(&E);
+		windows = malloc(sizeof(struct editorWindow *));
+		for (int i = 0; i < E.nwindows; i++) {
+			if (i != idx) {
+				free(E.windows[i]);
+			}
+		}
+		windows[0] = E.windows[idx];
+		windows[0]->focused = 1;
+		E.focusBuf = windows[0]->buf;
+		E.nwindows = 1;
+		free(E.windows);
+		E.windows = windows;
+		break;
+
 	case DELETE_WORD:
 		editorDeleteWord(bufr);
 		break;
@@ -1167,6 +1299,10 @@ struct editorBuffer *newBuffer() {
 void initEditor() {
 	E.minibuffer[0] = 0;
 	E.kill = NULL;
+	E.windows = malloc(sizeof(struct editorWindow *)*1);
+	E.windows[0] = malloc(sizeof(struct editorWindow));
+	E.windows[0]->focused = 1;
+	E.nwindows = 1;
 
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 }
@@ -1199,6 +1335,7 @@ int main(int argc, char *argv[]) {
 		E.firstBuf = newBuffer();
 		E.focusBuf = E.firstBuf;
 	}
+	E.windows[0]->buf = E.focusBuf;
 
 	editorSetStatusMessage("emsys "EMSYS_VERSION" - C-x C-c to quit");
 	signal (SIGWINCH, editorResizeScreen);
