@@ -181,6 +181,12 @@ int editorReadKey() {
 			return DESTROY_WINDOW;
 		} else if (seq[0]=='1') {
 			return DESTROY_OTHER_WINDOWS;
+		} else if (seq[0]=='(') {
+			return MACRO_RECORD;
+		} else if (seq[0]=='e' || seq[0]=='E') {
+			return MACRO_EXEC;
+		} else if (seq[0]==')') {
+			return MACRO_END;
 		}
 	} else if (c == CTRL('p')) {
 		return ARROW_UP;
@@ -1055,9 +1061,7 @@ void editorForwardPara(struct editorBuffer *bufr) {
 }
 
 /* Where the magic happens */
-void editorProcessKeypress() {
-	int c = editorReadKey();
-
+void editorProcessKeypress(int c) {
 	struct editorBuffer *bufr = E.focusBuf;
 	int idx;
 	struct editorWindow **windows;
@@ -1303,6 +1307,9 @@ void initEditor() {
 	E.windows[0] = malloc(sizeof(struct editorWindow));
 	E.windows[0]->focused = 1;
 	E.nwindows = 1;
+	E.recording = 0;
+	E.macro.nkeys = 0;
+	E.macro.keys = NULL;
 
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 }
@@ -1342,7 +1349,51 @@ int main(int argc, char *argv[]) {
 
 	while (1) {
 		editorRefreshScreen();
-		editorProcessKeypress();
+		int c = editorReadKey();
+		if (c == MACRO_RECORD) {
+			if (E.recording) {
+				editorSetStatusMessage(
+					"Already defining keyboard macro");
+			} else {
+				editorSetStatusMessage(
+					"Defining keyboard macro...");
+				E.recording = 1;
+				E.macro.nkeys = 0;
+				E.macro.skeys = 0x10;
+				free(E.macro.keys);
+				E.macro.keys = malloc(
+					E.macro.skeys * sizeof (int));
+			}
+		} else if (c == MACRO_END) {
+			if (E.recording) {
+				editorSetStatusMessage(
+					"Keyboard macro defined");
+				E.recording = 0;
+			} else {
+				editorSetStatusMessage(
+					"Not defining keyboard macro");
+			}
+		} else if (c == MACRO_EXEC) {
+			if (E.recording) {
+				editorSetStatusMessage(
+					"Keyboard macro defined");
+				E.recording = 0;
+			}
+			for (int idx = 0; idx < E.macro.nkeys; idx++) {
+				editorProcessKeypress(E.macro.keys[idx]);
+			}
+		} else {
+			if (E.recording) {
+				E.macro.keys[E.macro.nkeys++] = c;
+				if (E.macro.nkeys>=E.macro.skeys) {
+					E.macro.skeys *= 2;
+					E.macro.keys = realloc(
+						E.macro.keys,
+						E.macro.skeys * sizeof (int));
+				}
+			}
+			editorProcessKeypress(c);
+		}
 	}
 	return 0;
 }

@@ -44,7 +44,10 @@ enum editorKey {
 	OTHER_WINDOW,
 	CREATE_WINDOW,
 	DESTROY_WINDOW,
-	DESTROY_OTHER_WINDOWS
+	DESTROY_OTHER_WINDOWS,
+	MACRO_RECORD,
+	MACRO_END,
+	MACRO_EXEC
 };
 
 /*** data ***/
@@ -90,6 +93,12 @@ struct editorWindow {
 	struct editorBuffer *buf;
 };
 
+struct editorMacro {
+	int *keys;
+	int nkeys;
+	int skeys;
+};
+
 struct editorConfig {
 	uint8_t *kill;
 	int screenrows;
@@ -103,6 +112,8 @@ struct editorConfig {
 	struct editorBuffer *focusBuf;
 	int nwindows;
 	struct editorWindow **windows;
+	int recording;
+	struct editorMacro macro;
 };
 
 /*** prototypes ***/
