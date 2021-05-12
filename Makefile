@@ -6,7 +6,7 @@ CFLAGS+=-Wall -Wextra -pedantic -Wno-pointer-sign -Werror=incompatible-pointer-t
 
 all: $(PROGNAME)
 
-debug: CFLAGS+=-g -O0 -v -Q
+debug: CFLAGS+=-g -O0
 debug: $(PROGNAME)
 
 $(PROGNAME): $(OBJECTS)
