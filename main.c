@@ -1066,6 +1066,17 @@ void editorProcessKeypress(int c) {
 	int idx;
 	struct editorWindow **windows;
 
+	if (E.micro) {
+		if (E.micro == REDO && c == CTRL('_')) {
+			editorDoRedo(bufr);
+			return;
+		} else {
+			E.micro = 0;
+		}
+	} else {
+		E.micro = 0;
+	}
+
 	switch (c) {
 	case '\r':
 		editorUndoAppendChar(bufr, '\n');
@@ -1194,7 +1205,13 @@ void editorProcessKeypress(int c) {
 		break;
 	case REDO:
 		editorDoRedo(bufr);
+		if (bufr->redo != NULL) {
+			editorSetStatusMessage(
+				"Press C-_ or C-/ to redo again");
+			E.micro = REDO;
+		}
 		break;
+
 	case SWITCH_BUFFER:
 		E.focusBuf = E.focusBuf->next;
 		if (E.focusBuf == NULL) {
@@ -1310,6 +1327,7 @@ void initEditor() {
 	E.recording = 0;
 	E.macro.nkeys = 0;
 	E.macro.keys = NULL;
+	E.micro = 0;
 
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 }
@@ -1373,7 +1391,8 @@ int main(int argc, char *argv[]) {
 				editorSetStatusMessage(
 					"Not defining keyboard macro");
 			}
-		} else if (c == MACRO_EXEC) {
+		} else if (c == MACRO_EXEC || (E.micro == MACRO_EXEC &&
+					       (c == 'e' || c == 'E'))) {
 			if (E.recording) {
 				editorSetStatusMessage(
 					"Keyboard macro defined");
@@ -1382,6 +1401,7 @@ int main(int argc, char *argv[]) {
 			for (int idx = 0; idx < E.macro.nkeys; idx++) {
 				editorProcessKeypress(E.macro.keys[idx]);
 			}
+			E.micro = MACRO_EXEC;
 		} else {
 			if (E.recording) {
 				E.macro.keys[E.macro.nkeys++] = c;

@@ -114,6 +114,7 @@ struct editorConfig {
 	struct editorWindow **windows;
 	int recording;
 	struct editorMacro macro;
+	int micro;
 };
 
 /*** prototypes ***/
