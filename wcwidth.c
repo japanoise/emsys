@@ -188,10 +188,38 @@ int mk_wcwidth(int ucs)
 
   /* if we arrive here, ucs is not a combining or C0/C1 control character */
 
+  /* An early escape for some high characters that aren't fullwidth */
+  if (
+	  (0xa4cf < ucs && ucs < 0xac00) ||
+	  (0x10000 <= ucs && ucs <= 0x1f000) ||
+  	  ucs >= 0x40000
+	  ) {
+  	  return 1;
+  }
+
   return 1 + 
     (ucs >= 0x1100 &&
      (ucs <= 0x115f ||                    /* Hangul Jamo init. consonants */
       ucs == 0x2329 || ucs == 0x232a ||
+      (0x231a <= ucs && ucs <= 0x231b) || /* Low emoji */
+      (0x23e9 <= ucs && ucs <= 0x23ec) ||
+      ucs == 0x23f0 || ucs == 0x23f3 ||
+      (0x25fd <= ucs && ucs <= 0x25fe) ||
+      (0x2614 <= ucs && ucs <= 0x2615) ||
+      (0x2648 <= ucs && ucs <= 0x2653) ||
+      ucs == 0x267f || ucs == 0x2693 || ucs == 0x26a1 ||
+      (0x26aa <= ucs && ucs <= 0x26ab) ||
+      (0x26bd <= ucs && ucs <= 0x26be) ||
+      (0x26c4 <= ucs && ucs <= 0x26c5) ||
+      ucs == 0x26ce || ucs == 0x26d4 || ucs == 0x26ea ||
+      (0x26f2 <= ucs && ucs <= 0x26f3) ||
+      ucs == 0x26f5 || ucs == 0x26fa || ucs == 0x26fd || ucs == 0x2705 ||
+      (0x270a <= ucs && ucs <= 0x270b) ||
+      ucs == 0x2728 || ucs == 0x274c || ucs == 0x274e ||
+      (0x2753 <= ucs && ucs <= 0x2755) || ucs == 0x2757 ||
+      (0x2795 <= ucs && ucs <= 0x2797) ||
+      ucs == 0x27b0 || ucs == 0x27bf ||
+      (0x2b1b <= ucs && ucs <= 0x2b1c) || ucs == 0x2b50 || ucs == 0x2b55 ||
       (ucs >= 0x2e80 && ucs <= 0xa4cf &&
        ucs != 0x303f) ||                  /* CJK ... Yi */
       (ucs >= 0xac00 && ucs <= 0xd7a3) || /* Hangul Syllables */
@@ -200,7 +228,42 @@ int mk_wcwidth(int ucs)
       (ucs >= 0xfe30 && ucs <= 0xfe6f) || /* CJK Compatibility Forms */
       (ucs >= 0xff00 && ucs <= 0xff60) || /* Fullwidth Forms */
       (ucs >= 0xffe0 && ucs <= 0xffe6) ||
-      (ucs >= 0x20000 && ucs <= 0x2fffd) ||
+      ucs == 0x1f004 || ucs == 0x1f0cf || ucs == 0x1f18e || /* High emoji */
+      (0x1f191 <= ucs && ucs <= 0x1f19a) ||
+      ucs == 0x1f201 || ucs == 0x1f21a || ucs == 0x1f22f ||
+      (0x1f232 <= ucs && ucs <= 0x1f236) ||
+      (0x1f238 <= ucs && ucs <= 0x1f23a) ||
+      (0x1f250 <= ucs && ucs <= 0x1f251) ||
+      (0x1f300 <= ucs && ucs <= 0x1f320) ||
+      (0x1f32d <= ucs && ucs <= 0x1f335) ||
+      (0x1f337 <= ucs && ucs <= 0x1f37b) || ucs == 0x1f37c ||
+      (0x1f37e <= ucs && ucs <= 0x1f37f) ||
+      (0x1f380 <= ucs && ucs <= 0x1f393) ||
+      (0x1f3a0 <= ucs && ucs <= 0x1f3ca) ||
+      (0x1f3cf <= ucs && ucs <= 0x1f3d3) ||
+      (0x1f3e0 <= ucs && ucs <= 0x1f3f0) || ucs == 0x1f3f4 ||
+      (0x1f3f8 <= ucs && ucs <= 0x1f429) || ucs == 0x1f42a ||
+      (0x1f42b <= ucs && ucs <= 0x1f43e) || ucs == 0x1f440 ||
+      (0x1f442 <= ucs && ucs <= 0x1f4fc) ||
+      (0x1f4ff <= ucs && ucs <= 0x1f53d) ||
+      (0x1f54b <= ucs && ucs <= 0x1f54e) ||
+      (0x1f550 <= ucs && ucs <= 0x1f567) || ucs == 0x1f57a ||
+      (0x1f595 <= ucs && ucs <= 0x1f596) || ucs == 0x1f5a4 ||
+      (0x1f5fb <= ucs && ucs <= 0x1f6c5) || ucs == 0x1f6cc ||
+      (0x1f6d0 <= ucs && ucs <= 0x1f6d2) ||
+      (0x1f6d5 <= ucs && ucs <= 0x1f6d7) ||
+      (0x1f6eb <= ucs && ucs <= 0x1f6ec) ||
+      (0x1f6f4 <= ucs && ucs <= 0x1f6fc) ||
+      (0x1f7e0 <= ucs && ucs <= 0x1f93a) ||
+      (0x1f93c <= ucs && ucs <= 0x1f945) ||
+      (0x1f947 <= ucs && ucs <= 0x1f978) ||
+      (0x1f97a <= ucs && ucs <= 0x1fa74) ||
+      (0x1fa78 <= ucs && ucs <= 0x1fa86) ||
+      (0x1fa90 <= ucs && ucs <= 0x1faa8) ||
+      (0x1fab0 <= ucs && ucs <= 0x1fab6) ||
+      (0x1fac0 <= ucs && ucs <= 0x1fac2) ||
+      (0x1fad0 <= ucs && ucs <= 0x1fad6) || /* Emoji ends */
+      (ucs >= 0x20000 && ucs <= 0x2fffd) || /* High CJK */
       (ucs >= 0x30000 && ucs <= 0x3fffd)));
 }
 

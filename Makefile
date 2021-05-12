@@ -12,6 +12,9 @@ debug: $(PROGNAME)
 $(PROGNAME): $(OBJECTS)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
+debug-unicodetest: CFLAGS+=-g -O0
+debug-unicodetest: unicodetest
+
 unicodetest: unicode.o unicodetest.o wcwidth.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 

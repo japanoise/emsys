@@ -48,9 +48,11 @@ int unicodeTest() {
 	retval = retval + testCaseUCS("\xE2\x82\xAC", 0x20AC);
 	retval = retval + testCaseUCS("\xED\x95\x9C", 0xD55C);
 	retval = retval + testCaseUCS("\xF0\x90\x8D\x88", 0x10348);
+	retval = retval + testCaseUCS("\xF0\x9f\x98\x87", 0x1f607);
 	printf("Rune width test\n");
 	retval += testCaseStringWidth("bruh", 4);
 	retval += testCaseStringWidth("生存戦略", 8);
+	retval += testCaseStringWidth("😇", 2);
 	return retval;
 }
 
@@ -74,13 +76,8 @@ int charInStringWidth(uint8_t *str, int idx) {
 	} else if (str[idx] == 0x7f) {
 		/* The canonical way to display DEL is ^? */
 		return 2;
-	} else if (utf8_is4Char(str[idx])) {
-		/* HACK: assume 1 width for high unicode. 
-		 * Reason being wcwidth uses wchar, which is too small. */
-		return 1;
-		
 	} else {
-		wchar_t rune = utf8ToUCS(str, idx);
+		int rune = utf8ToUCS(str, idx);
 		return mk_wcwidth(rune);
 	}
 	
