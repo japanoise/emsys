@@ -158,6 +158,8 @@ int editorReadKey() {
 			return BACKSPACE_WORD;
 		} else if (seq[0]=='d' || seq[0]=='D') {
 			return DELETE_WORD;
+		} else if ('0' <= seq[0] && seq[0] <= '9') {
+			return ALT_0 + (seq[0] - '0');
 		}
 
 		return 033;
@@ -1077,18 +1079,40 @@ void editorProcessKeypress(int c) {
 		E.micro = 0;
 	}
 
+	if (ALT_0 <= c && c <= ALT_9) {
+		if (!bufr->uarg_active) {
+			bufr->uarg_active = 1;
+			bufr->uarg = 0;
+		}
+		bufr->uarg *= 10;
+		bufr->uarg += c - ALT_0;
+		editorSetStatusMessage("uarg: %i", bufr->uarg);
+		return;
+	}
+
+	int rept = 1;
+	if (bufr->uarg_active) {
+		rept = bufr->uarg;
+	}
+
 	switch (c) {
 	case '\r':
-		editorUndoAppendChar(bufr, '\n');
-		editorInsertNewline(bufr);
+		for (int i = 0; i < rept; i++) {
+			editorUndoAppendChar(bufr, '\n');
+			editorInsertNewline(bufr);
+		}
 		break;
 	case BACKSPACE:
 	case CTRL('h'):
-		editorBackSpace(bufr);
+		for (int i = 0; i < rept; i++) {
+			editorBackSpace(bufr);
+		}
 		break;
 	case DEL_KEY:
 	case CTRL('d'):
-		editorDelChar(bufr);
+		for (int i = 0; i < rept; i++) {
+			editorDelChar(bufr);
+		}
 		break;
 	case CTRL('l'):
 		bufr->rowoff = bufr->cy - ((E.screenrows/E.nwindows)/2);
@@ -1115,22 +1139,28 @@ void editorProcessKeypress(int c) {
 	case ARROW_RIGHT:
 	case ARROW_UP:
 	case ARROW_DOWN:
-		editorMoveCursor(bufr, c);
+		for (int i = 0; i < rept; i++) {
+			editorMoveCursor(bufr, c);
+		}
 		break;
 	case PAGE_UP:
 	case CTRL('z'):
-		bufr->cy = bufr->rowoff;
-		int times = (E.screenrows/E.nwindows)-4;
-		while (times--)
-			editorMoveCursor(bufr, ARROW_UP);
+		for (int i = 0; i < rept; i++) {
+			bufr->cy = bufr->rowoff;
+			int times = (E.screenrows/E.nwindows)-4;
+			while (times--)
+				editorMoveCursor(bufr, ARROW_UP);
+		}
 		break;
 	case PAGE_DOWN:
 	case CTRL('v'):
-		bufr->cy = bufr->rowoff + E.screenrows - 1;
-		if (bufr->cy > bufr->numrows) bufr->cy = bufr->numrows;
-		times = (E.screenrows/E.nwindows)-4;
-		while (times--)
-			editorMoveCursor(bufr, ARROW_DOWN);
+		for (int i = 0; i < rept; i++) {
+			bufr->cy = bufr->rowoff + E.screenrows - 1;
+			if (bufr->cy > bufr->numrows) bufr->cy = bufr->numrows;
+			int times = (E.screenrows/E.nwindows)-4;
+			while (times--)
+				editorMoveCursor(bufr, ARROW_DOWN);
+		}
 		break;
 	case BEG_OF_FILE:
 		bufr->cy = 0;
@@ -1170,45 +1200,67 @@ void editorProcessKeypress(int c) {
 		editorSetMark(bufr);
 		break;
 	case CTRL('y'):
-		editorYank(&E, bufr);
+		for (int i = 0; i < rept; i++) {
+			editorYank(&E, bufr);
+		}
 		break;
 	case CTRL('w'):
-		editorKillRegion(&E, bufr);
+		for (int i = 0; i < rept; i++) {
+			editorKillRegion(&E, bufr);
+		}
 		break;
 	case CTRL('i'):
-		editorUndoAppendChar(bufr, c);
-		editorInsertChar(bufr, c);
+		for (int i = 0; i < rept; i++) {
+			editorUndoAppendChar(bufr, c);
+			editorInsertChar(bufr, c);
+		}
 		break;
 	case CTRL('_'):
-		editorDoUndo(bufr);
+		for (int i = 0; i < rept; i++) {
+			editorDoUndo(bufr);
+		}
 		break;
 	case CTRL('k'):
-		editorKillLine(bufr);
+		for (int i = 0; i < rept; i++) {
+			editorKillLine(bufr);
+		}
 		break;
 	case CTRL('u'):
 		editorKillLineBackwards(bufr);
 		break;
 	case CTRL('j'):
-		editorInsertNewlineAndIndent(bufr);
+		for (int i = 0; i < rept; i++) {
+			editorInsertNewlineAndIndent(bufr);
+		}
 		break;
 	case FORWARD_WORD:
-		editorForwardWord(bufr);
+		for (int i = 0; i < rept; i++) {
+			editorForwardWord(bufr);
+		}
 		break;
 	case BACKWARD_WORD:
-		editorBackWord(bufr);
+		for (int i = 0; i < rept; i++) {
+			editorBackWord(bufr);
+		}
 		break;
 	case FORWARD_PARA:
-		editorForwardPara(bufr);
+		for (int i = 0; i < rept; i++) {
+			editorForwardPara(bufr);
+		}
 		break;
 	case BACKWARD_PARA:
-		editorBackPara(bufr);
+		for (int i = 0; i < rept; i++) {
+			editorBackPara(bufr);
+		}
 		break;
 	case REDO:
-		editorDoRedo(bufr);
-		if (bufr->redo != NULL) {
-			editorSetStatusMessage(
-				"Press C-_ or C-/ to redo again");
-			E.micro = REDO;
+		for (int i = 0; i < rept; i++) {
+			editorDoRedo(bufr);
+			if (bufr->redo != NULL) {
+				editorSetStatusMessage(
+					"Press C-_ or C-/ to redo again");
+				E.micro = REDO;
+			}
 		}
 		break;
 
@@ -1280,17 +1332,23 @@ void editorProcessKeypress(int c) {
 		break;
 
 	case DELETE_WORD:
-		editorDeleteWord(bufr);
+		for (int i = 0; i < rept; i++) {
+			editorDeleteWord(bufr);
+		}
 		break;
 	case BACKSPACE_WORD:
-		editorBackspaceWord(bufr);
+		for (int i = 0; i < rept; i++) {
+			editorBackspaceWord(bufr);
+		}
 		break;
 	default:
 		if (ISCTRL(c)) {
 			editorSetStatusMessage("Unknown command C-%c", c|0x60);
 		} else {
-			editorUndoAppendChar(bufr, c);
-			editorInsertChar(bufr, c);
+			for (int i = 0; i < rept; i++) {
+				editorUndoAppendChar(bufr, c);
+				editorInsertChar(bufr, c);
+			}
 		}
 		break;
 	}
@@ -1314,6 +1372,8 @@ struct editorBuffer *newBuffer() {
 	ret->undo = NULL;
 	ret->redo = NULL;
 	ret->next = NULL;
+	ret->uarg = 0;
+	ret->uarg_active = 0;
 	return ret;
 }
 

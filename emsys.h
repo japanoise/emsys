@@ -47,7 +47,17 @@ enum editorKey {
 	DESTROY_OTHER_WINDOWS,
 	MACRO_RECORD,
 	MACRO_END,
-	MACRO_EXEC
+	MACRO_EXEC,
+	ALT_0,
+	ALT_1,
+	ALT_2,
+	ALT_3,
+	ALT_4,
+	ALT_5,
+	ALT_6,
+	ALT_7,
+	ALT_8,
+	ALT_9
 };
 
 /*** data ***/
@@ -81,6 +91,8 @@ struct editorBuffer {
 	int rowoff;
 	int end;
 	int dirty;
+	int uarg;
+	int uarg_active;
 	erow *row;
 	char *filename;
         struct editorUndo *undo;
