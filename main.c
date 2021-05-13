@@ -1365,7 +1365,7 @@ int main(int argc, char *argv[]) {
 	editorSetStatusMessage("emsys "EMSYS_VERSION" - C-x C-c to quit");
 	signal (SIGWINCH, editorResizeScreen);
 
-	while (1) {
+	for (;;) {
 		editorRefreshScreen();
 		int c = editorReadKey();
 		if (c == MACRO_RECORD) {
