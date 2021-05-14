@@ -1108,6 +1108,7 @@ void editorProcessKeypress(int c) {
 
 	int rept = 1;
 	if (bufr->uarg_active) {
+		bufr->uarg_active = 0;
 		rept = bufr->uarg;
 	}
 
