@@ -58,7 +58,11 @@ enum editorKey {
 	ALT_7,
 	ALT_8,
 	ALT_9,
-	SUSPEND
+	SUSPEND,
+	UPCASE_WORD,
+	DOWNCASE_WORD,
+	UPCASE_REGION,
+	DOWNCASE_REGION
 };
 
 /*** data ***/
@@ -81,6 +85,7 @@ struct editorUndo {
         int datalen;
         int datasize;
         int delete;
+	int paired;
         uint8_t *data;
 };
 

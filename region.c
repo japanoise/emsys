@@ -158,7 +158,23 @@ void editorYank(struct editorConfig *ed, struct editorBuffer *buf) {
 	editorUpdateBuffer(buf);
 }
 
-void editorTransformRegion(struct editorBuffer *buf, uint8_t (*transformer)(uint8_t*)) {
+void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
+			   uint8_t *(*transformer)(uint8_t*)) {
 	if (markInvalid(buf)) return;
 	validateRegion(buf);
+
+	uint8_t *okill = NULL;
+	if (ed->kill != NULL) {
+		okill = malloc(strlen(ed->kill) + 1);
+		strcpy(okill, ed->kill);
+	}
+	editorKillRegion(ed, buf);
+
+	uint8_t *input = ed->kill;
+	ed->kill = transformer(input);
+	editorYank(ed, buf);
+	buf->undo->paired = 1;
+
+	free(ed->kill);
+	ed->kill = okill;
 }

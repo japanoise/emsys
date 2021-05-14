@@ -12,6 +12,7 @@ void editorDoUndo(struct editorBuffer *buf) {
 		editorSetStatusMessage("No further undo information.");
 		return;
 	}
+	int paired = buf->undo->paired;
 
 	if (buf->undo->delete) {
 		buf->cx = buf->undo->startx;
@@ -58,6 +59,10 @@ void editorDoUndo(struct editorBuffer *buf) {
 	buf->redo = buf->undo;
 	buf->undo = buf->undo->prev;
 	buf->redo->prev = orig;
+
+	if (paired) {
+		editorDoUndo(buf);
+	}
 }
 
 void editorDoRedo(struct editorBuffer *buf) {
@@ -111,11 +116,16 @@ void editorDoRedo(struct editorBuffer *buf) {
 	buf->undo = buf->redo;
 	buf->redo = buf->redo->prev;
 	buf->undo->prev = orig;
+
+	if (buf->redo != NULL && buf->redo->paired) {
+		editorDoRedo(buf);
+	}
 }
 
 struct editorUndo *newUndo() {
 	struct editorUndo *ret = malloc(sizeof (*ret));
         ret->prev = NULL;
+	ret->paired = 0;
         ret->startx = 0;
         ret->starty = 0;
         ret->endx = 0;

@@ -17,6 +17,7 @@
 #include"emsys.h"
 #include"region.h"
 #include"row.h"
+#include"transform.h"
 #include"undo.h"
 #include"unicode.h"
 
@@ -161,6 +162,10 @@ int editorReadKey() {
 			return DELETE_WORD;
 		} else if ('0' <= seq[0] && seq[0] <= '9') {
 			return ALT_0 + (seq[0] - '0');
+		} else if (seq[0]=='u' || seq[0]=='U') {
+			return UPCASE_WORD;
+		} else if (seq[0]=='l' || seq[0]=='L') {
+			return DOWNCASE_WORD;
 		}
 
 		return 033;
@@ -192,6 +197,10 @@ int editorReadKey() {
 			return MACRO_END;
 		} else if (seq[0]=='z' || seq[0]=='Z' || seq[0]==CTRL('z')) {
 			return SUSPEND;
+		} else if (seq[0]=='u' || seq[0]=='U' || seq[0]==CTRL('u')) {
+			return UPCASE_REGION;
+		} else if (seq[0]=='l' || seq[0]=='L' || seq[0]==CTRL('l')) {
+			return DOWNCASE_REGION;
 		}
 
 	} else if (c == CTRL('p')) {
@@ -1006,6 +1015,28 @@ void editorBackWord(struct editorBuffer *bufr) {
 	bufferEndOfBackwardWord(bufr, &bufr->cx, &bufr->cy);
 }
 
+void editorUpcaseWord(struct editorConfig *ed, struct editorBuffer *bufr, int times) {
+	int icx = bufr->cx;
+	int icy = bufr->cy;
+	for (int i = 0; i < times; i++) {
+		bufferEndOfForwardWord(bufr, &bufr->cx, &bufr->cy);
+	}
+	bufr->markx = icx;
+	bufr->marky = icy;
+	editorTransformRegion(ed, bufr, transformerUpcase);
+}
+
+void editorDowncaseWord(struct editorConfig *ed, struct editorBuffer *bufr, int times) {
+	int icx = bufr->cx;
+	int icy = bufr->cy;
+	for (int i = 0; i < times; i++) {
+		bufferEndOfForwardWord(bufr, &bufr->cx, &bufr->cy);
+	}
+	bufr->markx = icx;
+	bufr->marky = icy;
+	editorTransformRegion(ed, bufr, transformerDowncase);
+}
+
 void editorDeleteWord(struct editorBuffer *bufr) {
 	int origMarkx = bufr->markx;
 	int origMarky = bufr->marky;
@@ -1362,6 +1393,23 @@ void editorProcessKeypress(int c) {
 			editorBackspaceWord(bufr);
 		}
 		break;
+
+	case UPCASE_WORD:
+		editorUpcaseWord(&E, bufr, rept);
+		break;
+		
+	case DOWNCASE_WORD:
+		editorDowncaseWord(&E, bufr, rept);
+		break;
+
+	case UPCASE_REGION:
+		editorTransformRegion(&E, bufr, transformerUpcase);
+		break;
+		
+	case DOWNCASE_REGION:
+		editorTransformRegion(&E, bufr, transformerDowncase);
+		break;
+		
 	default:
 		if (ISCTRL(c)) {
 			editorSetStatusMessage("Unknown command C-%c", c|0x60);
