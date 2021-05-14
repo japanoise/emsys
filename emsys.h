@@ -57,7 +57,8 @@ enum editorKey {
 	ALT_6,
 	ALT_7,
 	ALT_8,
-	ALT_9
+	ALT_9,
+	SUSPEND
 };
 
 /*** data ***/

@@ -23,6 +23,7 @@
 struct editorConfig E;
 
 void editorMoveCursor(struct editorBuffer *bufr, int key);
+void setupHandlers();
 
 void die(const char *s) {
 	write(STDOUT_FILENO, CSI"2J", 4);
@@ -189,7 +190,10 @@ int editorReadKey() {
 			return MACRO_EXEC;
 		} else if (seq[0]==')') {
 			return MACRO_END;
+		} else if (seq[0]=='z' || seq[0]=='Z' || seq[0]==CTRL('z')) {
+			return SUSPEND;
 		}
+
 	} else if (c == CTRL('p')) {
 		return ARROW_UP;
 	} else if (c == CTRL('n')) {
@@ -784,6 +788,18 @@ void editorResizeScreen(int sig) {
 	editorRefreshScreen();
 }
 
+void editorSuspend(int sig) {
+	signal(SIGTSTP, SIG_DFL);
+	disableRawMode();
+	raise(SIGTSTP);
+}
+
+void editorResume(int sig) {
+	setupHandlers();
+	enableRawMode();
+	editorResizeScreen(sig);
+}
+
 /*** input ***/
 
 uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt, void(*callback)(struct editorBuffer *, uint8_t *, int)) {
@@ -1331,6 +1347,10 @@ void editorProcessKeypress(int c) {
 		E.windows = windows;
 		break;
 
+	case SUSPEND:
+		raise(SIGTSTP);
+		break;
+
 	case DELETE_WORD:
 		for (int i = 0; i < rept; i++) {
 			editorDeleteWord(bufr);
@@ -1355,6 +1375,12 @@ void editorProcessKeypress(int c) {
 }
 
 /*** init ***/
+
+void setupHandlers() {
+	signal(SIGWINCH, editorResizeScreen);
+	signal(SIGCONT, editorResume);
+	signal(SIGTSTP, editorSuspend);
+}
 
 struct editorBuffer *newBuffer() {
 	struct editorBuffer *ret = malloc(sizeof (struct editorBuffer));
@@ -1423,7 +1449,7 @@ int main(int argc, char *argv[]) {
 	E.windows[0]->buf = E.focusBuf;
 
 	editorSetStatusMessage("emsys "EMSYS_VERSION" - C-x C-c to quit");
-	signal (SIGWINCH, editorResizeScreen);
+	setupHandlers();
 
 	for (;;) {
 		editorRefreshScreen();
