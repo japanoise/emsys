@@ -4,11 +4,16 @@
 #include<stdint.h>
 #include<termios.h>
 #include<time.h>
+#include"uthash.h"
 
 /*** util ***/
 
 #define EMSYS_TAB_STOP 8
 #define EMSYS_VERSION "git-main"
+
+#ifndef EMSYS_BUILD_DATE
+#define EMSYS_BUILD_DATE "unknown"
+#endif
 
 #define ESC "\033"
 #define CSI ESC"["
@@ -63,7 +68,8 @@ enum editorKey {
 	DOWNCASE_WORD,
 	UPCASE_REGION,
 	DOWNCASE_REGION,
-	TRANSPOSE_WORDS
+	TRANSPOSE_WORDS,
+	EXEC_CMD
 };
 
 /*** data ***/
@@ -118,6 +124,14 @@ struct editorMacro {
 	int skeys;
 };
 
+struct editorConfig;
+
+struct editorCommand {
+	char *key;
+	void (*cmd)(struct editorConfig*, struct editorBuffer*);
+	UT_hash_handle hh;
+};
+
 struct editorConfig {
 	uint8_t *kill;
 	int screenrows;
@@ -134,6 +148,7 @@ struct editorConfig {
 	int recording;
 	struct editorMacro macro;
 	int micro;
+	struct editorCommand *cmd;
 };
 
 /*** prototypes ***/

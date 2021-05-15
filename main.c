@@ -15,6 +15,7 @@
 #include<time.h>
 #include<unistd.h>
 #include"bound.h"
+#include"command.h"
 #include"emsys.h"
 #include"region.h"
 #include"row.h"
@@ -169,6 +170,8 @@ int editorReadKey() {
 			return DOWNCASE_WORD;
 		} else if (seq[0]=='t' || seq[0]=='T') {
 			return TRANSPOSE_WORDS;
+		} else if (seq[0]=='x' || seq[0]=='X') {
+			return EXEC_CMD;
 		}
 
 		return 033;
@@ -1471,7 +1474,13 @@ void editorProcessKeypress(int c) {
 	case CTRL('t'):
 		editorTransposeChars(&E, bufr);
 		break;
-		
+
+	case EXEC_CMD:;
+		uint8_t *cmd = editorPrompt(bufr, "cmd: %s", NULL);
+		runCommand(cmd, &E, bufr);
+		free(cmd);
+		break;
+
 	default:
 		if (ISCTRL(c)) {
 			editorSetStatusMessage("Unknown command C-%c", c|0x60);
@@ -1525,6 +1534,7 @@ void initEditor() {
 	E.macro.nkeys = 0;
 	E.macro.keys = NULL;
 	E.micro = 0;
+	setupCommands(&E);
 
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 }

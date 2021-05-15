@@ -1,8 +1,8 @@
 PROGNAME=emsys
 PREFIX=/usr/local
 BINDIR=$(PREFIX)/bin
-OBJECTS=main.o wcwidth.o unicode.o row.o region.o undo.o transform.o bound.o
-CFLAGS+=-Wall -Wextra -pedantic -Wno-pointer-sign -Werror=incompatible-pointer-types
+OBJECTS=main.o wcwidth.o unicode.o row.o region.o undo.o transform.o bound.o command.o
+CFLAGS+=-Wall -Wextra -pedantic -Wno-pointer-sign -Werror=incompatible-pointer-types -DEMSYS_BUILD_DATE=\"$(shell date '+%Y-%m-%dT%H:%M:%S%z')\"
 
 all: $(PROGNAME)
 
