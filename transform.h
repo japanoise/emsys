@@ -4,4 +4,5 @@
 uint8_t* transformerUpcase(uint8_t*);
 uint8_t* transformerDowncase(uint8_t*);
 uint8_t* transformerTransposeWords(uint8_t*);
+uint8_t* transformerTransposeChars(uint8_t*);
 #endif

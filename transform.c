@@ -3,6 +3,7 @@
 #include <string.h>
 #include "bound.h"
 #include "transform.h"
+#include "unicode.h"
 
 #define MKOUTPUT(in, l, o) int l = strlen(in); uint8_t *o = malloc(l+1)
 
@@ -30,6 +31,19 @@ uint8_t* transformerDowncase(uint8_t* input) {
 		}
 		output[i] = c;
 	}
+
+	return output;
+}
+
+uint8_t* transformerTransposeChars(uint8_t* input) {
+	MKOUTPUT(input, len, output);
+
+	int endFirst=utf8_nBytes(input[0]);
+
+	memcpy(output, input+endFirst, len-endFirst);
+	memcpy(output+(len-endFirst), input, endFirst);
+	
+	output[len] = 0;
 
 	return output;
 }

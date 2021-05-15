@@ -1136,6 +1136,33 @@ void editorTransposeWords(struct editorConfig *ed, struct editorBuffer *bufr) {
 	editorTransformRegion(ed, bufr, transformerTransposeWords);
 }
 
+void editorTransposeChars(struct editorConfig *ed, struct editorBuffer *bufr) {
+	if (bufr->numrows == 0) {
+		editorSetStatusMessage("Buffer is empty");
+		return;
+	}
+
+	if (bufr->cx == 0 && bufr->cy == 0) {
+		editorSetStatusMessage("Beginning of buffer");
+		return;
+	} else if (bufr->cy >= bufr->numrows ||
+		   (bufr->cy == bufr->numrows-1 &&
+		    bufr->cx == bufr->row[bufr->cy].size)) {
+		editorSetStatusMessage("End of buffer");
+		return;
+	}
+
+	int scx, scy;
+	editorMoveCursor(bufr, ARROW_LEFT);
+	scx = bufr->cx;
+	scy = bufr->cy;
+	editorMoveCursor(bufr, ARROW_RIGHT);
+	editorMoveCursor(bufr, ARROW_RIGHT);
+	bufr->markx = scx;
+	bufr->marky = scy;
+	editorTransformRegion(ed, bufr, transformerTransposeChars);
+}
+
 /* Where the magic happens */
 void editorProcessKeypress(int c) {
 	struct editorBuffer *bufr = E.focusBuf;
@@ -1439,6 +1466,10 @@ void editorProcessKeypress(int c) {
 
 	case TRANSPOSE_WORDS:
 		editorTransposeWords(&E, bufr);
+		break;
+
+	case CTRL('t'):
+		editorTransposeChars(&E, bufr);
 		break;
 		
 	default:
