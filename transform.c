@@ -1,11 +1,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include "bound.h"
 #include "transform.h"
 
+#define MKOUTPUT(in, l, o) int l = strlen(in); uint8_t *o = malloc(l+1)
+
 uint8_t* transformerUpcase(uint8_t* input) {
-	int len = strlen((char *)input);
-	uint8_t *output = malloc(len+1);
+	MKOUTPUT(input, len, output);
 
 	for (int i = 0; i <= len; i++) {
 		uint8_t c = input[i];
@@ -19,8 +21,7 @@ uint8_t* transformerUpcase(uint8_t* input) {
 }
 
 uint8_t* transformerDowncase(uint8_t* input) {
-	int len = strlen((char *)input);
-	uint8_t *output = malloc(len+1);
+	MKOUTPUT(input, len, output);
 
 	for (int i = 0; i <= len; i++) {
 		uint8_t c = input[i];
@@ -29,6 +30,36 @@ uint8_t* transformerDowncase(uint8_t* input) {
 		}
 		output[i] = c;
 	}
+
+	return output;
+}
+
+uint8_t* transformerTransposeWords(uint8_t* input) {
+	MKOUTPUT(input, len, output);
+
+	int endFirst, startSecond;
+	int which = 0;
+	for (int i = 0; i <= len; i++) {
+		if (!which) {
+			if (isWordBoundary(input[i])) {
+				which++;
+				endFirst = i;
+			}
+		} else {
+			if (!isWordBoundary(input[i])) {
+				startSecond = i;
+				break;
+			}
+		}
+	}
+	int offset = 0;
+	memcpy(output, input+startSecond, len-startSecond);
+	offset += len-startSecond;
+	memcpy(output+offset, input+endFirst, startSecond-endFirst);
+	offset += startSecond-endFirst;
+	memcpy(output+offset, input, endFirst);
+
+	output[len] = 0;
 
 	return output;
 }

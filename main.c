@@ -167,6 +167,8 @@ int editorReadKey() {
 			return UPCASE_WORD;
 		} else if (seq[0]=='l' || seq[0]=='L') {
 			return DOWNCASE_WORD;
+		} else if (seq[0]=='t' || seq[0]=='T') {
+			return TRANSPOSE_WORDS;
 		}
 
 		return 033;
@@ -1102,6 +1104,38 @@ void editorForwardPara(struct editorBuffer *bufr) {
 	bufr->cy = bufr->numrows;
 }
 
+void editorTransposeWords(struct editorConfig *ed, struct editorBuffer *bufr) {
+	if (bufr->numrows == 0) {
+		editorSetStatusMessage("Buffer is empty");
+		return;
+	}
+
+	if (bufr->cx == 0 && bufr->cy == 0) {
+		editorSetStatusMessage("Beginning of buffer");
+		return;
+	} else if (bufr->cy >= bufr->numrows ||
+		   (bufr->cy == bufr->numrows-1 &&
+		    bufr->cx == bufr->row[bufr->cy].size)) {
+		editorSetStatusMessage("End of buffer");
+		return;
+	}
+
+	int scx, scy, ecx, ecy;
+	bufferEndOfBackwardWord(bufr, &scx, &scy);
+	bufferEndOfForwardWord(bufr, &ecx, &ecy);
+	if ((scx == bufr->cx && bufr->cy == scy) ||
+	    (ecx == bufr->cx && bufr->cy == ecy)) {
+		editorSetStatusMessage("Cannot transpose here");
+		return;
+	}
+	bufr->cx = scx;
+	bufr->cy = scy;
+	bufr->markx = ecx;
+	bufr->marky = ecy;
+
+	editorTransformRegion(ed, bufr, transformerTransposeWords);
+}
+
 /* Where the magic happens */
 void editorProcessKeypress(int c) {
 	struct editorBuffer *bufr = E.focusBuf;
@@ -1401,6 +1435,10 @@ void editorProcessKeypress(int c) {
 		
 	case DOWNCASE_REGION:
 		editorTransformRegion(&E, bufr, transformerDowncase);
+		break;
+
+	case TRANSPOSE_WORDS:
+		editorTransposeWords(&E, bufr);
 		break;
 		
 	default:
