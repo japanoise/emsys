@@ -14,6 +14,7 @@
 #include<termios.h>
 #include<time.h>
 #include<unistd.h>
+#include"bound.h"
 #include"emsys.h"
 #include"region.h"
 #include"row.h"
@@ -928,14 +929,6 @@ void editorMoveCursor(struct editorBuffer *bufr, int key) {
 	if (bufr->cx > rowlen) {
 		bufr->cx = rowlen;
 	}
-}
-
-int isWordBoundary(uint8_t c) {
-	return (c == ' ' || c == CTRL('i') || c == '_' || c == 0);
-}
-
-int isParaBoundary(erow *row) {
-	return (row->size == 0);
 }
 
 void bufferEndOfForwardWord(struct editorBuffer *buf, int *dx, int *dy) {
