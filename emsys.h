@@ -9,7 +9,10 @@
 /*** util ***/
 
 #define EMSYS_TAB_STOP 8
-#define EMSYS_VERSION "git-main"
+
+#ifndef EMSYS_VERSION
+#define EMSYS_VERSION "unknown"
+#endif
 
 #ifndef EMSYS_BUILD_DATE
 #define EMSYS_BUILD_DATE "unknown"
