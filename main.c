@@ -22,6 +22,7 @@
 #include"transform.h"
 #include"undo.h"
 #include"unicode.h"
+#include"unused.h"
 
 struct editorConfig E;
 
@@ -798,12 +799,12 @@ void editorSetStatusMessage(const char *fmt, ...) {
 	E.statusmsg_time = time(NULL);
 }
 
-void editorResizeScreen(int sig) {
+void editorResizeScreen(int UNUSED(sig)) {
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 	editorRefreshScreen();
 }
 
-void editorSuspend(int sig) {
+void editorSuspend(int UNUSED(sig)) {
 	signal(SIGTSTP, SIG_DFL);
 	disableRawMode();
 	raise(SIGTSTP);

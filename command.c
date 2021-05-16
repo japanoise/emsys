@@ -3,8 +3,10 @@
 #include "emsys.h"
 #include "command.h"
 #include "uthash.h"
+#include "unused.h"
 
-void editorVersion(struct editorConfig *ed, struct editorBuffer *buf) {
+void editorVersion(struct editorConfig *UNUSED(ed),
+		   struct editorBuffer *UNUSED(buf)) {
 	editorSetStatusMessage(
 		"emsys version "EMSYS_VERSION", built "EMSYS_BUILD_DATE);
 }
