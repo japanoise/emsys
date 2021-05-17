@@ -84,11 +84,11 @@ void enableRawMode() {
 	/* Saves the screen and switches to an alt screen */
 	if(write(STDOUT_FILENO, CSI"?1049h", 8)==-1)
 		die("enableRawMode write");
-	/* 
+	/*
 	 * I looked into it. It's possible, but not easy, to do it
 	 * without termios. Basically you'd have to hand-hack and send
 	 * off your own bits. Check out busybox vi and that rabbithole
-	 * for an implementation. 
+	 * for an implementation.
 	 */
 	if(tcgetattr(STDIN_FILENO, &E.orig_termios)==-1)
 		die("tcgetattr");
@@ -1574,4 +1574,3 @@ int main(int argc, char *argv[]) {
 	}
 	return 0;
 }
-
