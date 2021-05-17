@@ -1425,8 +1425,10 @@ void editorProcessKeypress(int c) {
 
 	case EXEC_CMD:;
 		uint8_t *cmd = editorPrompt(bufr, "cmd: %s", NULL);
-		runCommand(cmd, &E, bufr);
-		free(cmd);
+		if (cmd != NULL) {
+			runCommand(cmd, &E, bufr);
+			free(cmd);
+		}
 		break;
 
 	default:
