@@ -11,15 +11,14 @@ void editorVersion(struct editorConfig *UNUSED(ed),
 		"emsys version "EMSYS_VERSION", built "EMSYS_BUILD_DATE);
 }
 
+#define ADDCMD(name, func) newCmd = malloc(sizeof *newCmd); newCmdName = name ; newCmd->cmd = func ; HASH_ADD_KEYPTR(hh, ed->cmd, newCmdName, strlen(newCmdName), newCmd)
+
 void setupCommands(struct editorConfig *ed) {
 	ed->cmd = NULL;
 	struct editorCommand *newCmd;
 	char *newCmdName;
 
-	newCmd = malloc(sizeof *newCmd);
-	newCmdName = "version";
-	newCmd->cmd = editorVersion;
-	HASH_ADD_KEYPTR(hh, ed->cmd, newCmdName, strlen(newCmdName), newCmd);
+	ADDCMD("version", editorVersion);
 }
 
 void runCommand(char * cmd, struct editorConfig *ed, struct editorBuffer *buf) {	for (int i = 0; cmd[i]; i++) {
