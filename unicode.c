@@ -80,7 +80,7 @@ int charInStringWidth(uint8_t *str, int idx) {
 		int rune = utf8ToUCS(str, idx);
 		return mk_wcwidth(rune);
 	}
-	
+
 }
 
 int utf8_is2Char(uint8_t ch) {

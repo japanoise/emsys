@@ -47,7 +47,7 @@ void editorDoUndo(struct editorBuffer *buf) {
 			       &last->chars[buf->undo->endx],
 			       last->size-buf->undo->endx);
 			editorDelRow(buf, buf->undo->starty+1);
-		
+
 		}
 		buf->cx = buf->undo->startx;
 		buf->cy = buf->undo->starty;
@@ -92,7 +92,7 @@ void editorDoRedo(struct editorBuffer *buf) {
 			       &last->chars[buf->redo->endx],
 			       last->size-buf->redo->endx);
 			editorDelRow(buf, buf->redo->starty+1);
-		
+
 		}
 		buf->cx = buf->redo->startx;
 		buf->cy = buf->redo->starty;

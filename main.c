@@ -841,7 +841,7 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt, void(*callback
 
 void editorMoveCursor(struct editorBuffer *bufr, int key) {
 	erow *row = (bufr->cy >= bufr->numrows) ? NULL : &bufr->row[bufr->cy];
-	
+
 	switch (key) {
 	case ARROW_LEFT:
 		if (bufr->cx != 0) {
@@ -1402,7 +1402,7 @@ void editorProcessKeypress(int c) {
 	case UPCASE_WORD:
 		editorUpcaseWord(&E, bufr, rept);
 		break;
-		
+
 	case DOWNCASE_WORD:
 		editorDowncaseWord(&E, bufr, rept);
 		break;
@@ -1410,7 +1410,7 @@ void editorProcessKeypress(int c) {
 	case UPCASE_REGION:
 		editorTransformRegion(&E, bufr, transformerUpcase);
 		break;
-		
+
 	case DOWNCASE_REGION:
 		editorTransformRegion(&E, bufr, transformerDowncase);
 		break;

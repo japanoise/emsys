@@ -42,7 +42,7 @@ uint8_t* transformerTransposeChars(uint8_t* input) {
 
 	memcpy(output, input+endFirst, len-endFirst);
 	memcpy(output+(len-endFirst), input, endFirst);
-	
+
 	output[len] = 0;
 
 	return output;

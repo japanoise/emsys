@@ -23,7 +23,7 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 		current += direction;
 		if(current == -1) current = bufr->numrows - 1;
 		else if (current == bufr->numrows) current = 0;
-		
+
 		erow *row = &bufr->row[current];
 		uint8_t *match = strstr(row->chars, query);
 		if (match) {
@@ -40,9 +40,9 @@ void editorFind(struct editorBuffer *bufr) {
 	int saved_cx = bufr->cx;
 	int saved_cy = bufr->cy;
 	int saved_rowoff = bufr->rowoff;
-		
+
 	uint8_t *query = editorPrompt(bufr, "Search (C-g to cancel): %s", editorFindCallback);
-	
+
 	if (query) {
 		free(query);
 	} else {

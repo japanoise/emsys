@@ -22,7 +22,7 @@ void editorUpdateRow(erow *row) {
 			extra+=8;
 		}
 	}
-	
+
 	free(row->render);
 	row->render = malloc(row->size + tabs*(EMSYS_TAB_STOP - 1) + extra + 1);
 	row->renderwidth = 0;
