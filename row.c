@@ -116,13 +116,11 @@ void editorRowInsertChar(struct editorBuffer *bufr, erow *row, int at, int c) {
 void editorRowInsertUnicode(struct editorConfig *ed, struct editorBuffer *bufr, erow *row, int at) {
 	if (at < 0 || at > row->size) at = row->size;
 	row->chars = realloc(row->chars, row->size + 1 + ed->nunicode);
-	memmove(&row->chars[at + ed->nunicode], &row->chars[at], row->size - at + ed->nunicode);
+	memmove(&row->chars[at + ed->nunicode], &row->chars[at], row->size - at + 1);
 	row->size += ed->nunicode;
-	for (int i = 0; i < ed->nunicode; i++) {
-		row->chars[at+i] = ed->unicode[i];
-	}
+	memcpy(&row->chars[at], ed->unicode, ed->nunicode);
 	editorUpdateRow(row);
-   	bufr->dirty = 1;
+	bufr->dirty = 1;
 }
 
 void editorRowAppendString(struct editorBuffer *bufr, erow *row, char *s, size_t len) {
