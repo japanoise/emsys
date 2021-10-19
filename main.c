@@ -601,9 +601,12 @@ void editorDrawRows(struct editorBuffer *bufr, struct abuf *ab, int screenrows, 
 			y += (bufr->row[filerow].renderwidth/screencols);
 			abAppend(ab, bufr->row[filerow].render,
 					 bufr->row[filerow].rsize);
+			if (bufr->row[filerow].renderwidth > 0 &&
+			    bufr->row[filerow].renderwidth%screencols==0) {
+				abAppend(ab, CRLF, 2);
+			}
 			filerow++;
 		}
-		abAppend(ab, "\x1b[K", 3);
 		abAppend(ab, CRLF, 2);
 	}
 }
@@ -708,6 +711,9 @@ void editorDrawMinibuffer(struct abuf *ab) {
 
 void editorRefreshScreen() {
 	struct abuf ab = ABUF_INIT;
+
+	/* Clear screen */
+	abAppend(&ab, "\x1b[2J", 4);
 
 	/* Hide cursor and move to 1,1 */
 	abAppend(&ab, CSI"?25l", 6);
