@@ -1367,10 +1367,11 @@ void editorProcessKeypress(int c) {
 		int j = 0;
 		for (int i = 0; i <= E.nwindows; i++) {
 			if (i != idx) {
-				windows[j++] = E.windows[i];
+				windows[j] = E.windows[i];
 				if (windows[j]->focused) {
 					E.focusBuf = windows[j]->buf;
 				}
+				j++;
 			}
 		}
 		free(E.windows);
