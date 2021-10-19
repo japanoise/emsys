@@ -51,7 +51,7 @@ uint8_t* transformerTransposeChars(uint8_t* input) {
 uint8_t* transformerTransposeWords(uint8_t* input) {
 	MKOUTPUT(input, len, output);
 
-	int endFirst, startSecond;
+	int endFirst, startSecond = 0;
 	int which = 0;
 	for (int i = 0; i <= len; i++) {
 		if (!which) {
