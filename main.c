@@ -459,7 +459,14 @@ void editorOpen(struct editorBuffer *bufr, char *filename) {
 	free(bufr->filename);
 	bufr->filename = strdup(filename);
 	FILE *fp = fopen(filename, "r");
-	if (!fp) die("fopen");
+	if (!fp) {
+		if (errno == ENOENT) {
+			editorSetStatusMessage("%s: no such file or directory",
+					       bufr->filename);
+			return;
+		}
+		die("fopen");
+	}
 
 	char * line = NULL;
 	size_t linecap = 0;
