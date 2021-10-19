@@ -720,7 +720,7 @@ void editorRefreshScreen() {
 	abAppend(&ab, CSI"H", 3);
 
 	int idx = windowFocusedIdx(&E);
-	int windowSize = E.screenrows/E.nwindows;
+	int windowSize = (E.screenrows-1)/E.nwindows;
 
 	if (E.nwindows == 1) {
 			struct editorWindow *win = E.windows[0];
