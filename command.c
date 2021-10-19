@@ -21,7 +21,8 @@ void setupCommands(struct editorConfig *ed) {
 	ADDCMD("version", editorVersion);
 }
 
-void runCommand(char * cmd, struct editorConfig *ed, struct editorBuffer *buf) {	for (int i = 0; cmd[i]; i++) {
+void runCommand(char * cmd, struct editorConfig *ed, struct editorBuffer *buf) {
+	for (int i = 0; cmd[i]; i++) {
 		uint8_t c = cmd[i];
 		if ('A' <= c && c <= 'Z') {
 			c |= 0x60;
