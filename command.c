@@ -26,6 +26,8 @@ void runCommand(char * cmd, struct editorConfig *ed, struct editorBuffer *buf) {
 		uint8_t c = cmd[i];
 		if ('A' <= c && c <= 'Z') {
 			c |= 0x60;
+		} else if (c == ' ') {
+			cmd[i] = '-';
 		}
 		cmd[i] = c;
 	}
