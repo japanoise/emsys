@@ -72,7 +72,8 @@ enum editorKey {
 	UPCASE_REGION,
 	DOWNCASE_REGION,
 	TRANSPOSE_WORDS,
-	EXEC_CMD
+	EXEC_CMD,
+	FIND_FILE
 };
 
 /*** data ***/
@@ -163,5 +164,6 @@ void editorUpdateBuffer(struct editorBuffer *buf);
 void editorInsertNewline(struct editorBuffer *bufr);
 void editorInsertChar(struct editorBuffer *bufr, int c);
 void die(const char *s);
+struct editorBuffer *newBuffer();
 
 #endif

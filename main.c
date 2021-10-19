@@ -185,6 +185,8 @@ int editorReadKey() {
 			return QUIT;
 		} else if (seq[0] == CTRL('s')) {
 			return SAVE;
+		} else if (seq[0] == CTRL('f')) {
+			return FIND_FILE;
 		} else if (seq[0] == CTRL('_')) {
 			return REDO;
 		} else if (seq[0] == 'b' || seq[0] == 'B' || seq[0] == CTRL('b')) {
@@ -1132,6 +1134,7 @@ void editorProcessKeypress(int c) {
 	struct editorBuffer *bufr = E.focusBuf;
 	int idx;
 	struct editorWindow **windows;
+	uint8_t *prompt;
 
 	if (E.micro) {
 		if (E.micro == REDO && c == CTRL('_')) {
@@ -1340,6 +1343,22 @@ void editorProcessKeypress(int c) {
 				E.windows[i]->buf = E.focusBuf;
 			}
 		}
+		break;
+
+	case FIND_FILE:
+		prompt = editorPrompt(E.focusBuf, "Find File: %s", NULL);
+		if (prompt == NULL) {
+			editorSetStatusMessage("Canceled.");
+			break;
+		}
+
+		E.firstBuf = newBuffer();
+		editorOpen(E.firstBuf, prompt);
+		free(prompt);
+		E.firstBuf->next = E.focusBuf;
+		E.focusBuf = E.firstBuf;
+		idx = windowFocusedIdx(&E);
+		E.windows[idx]->buf = E.focusBuf;
 		break;
 
 	case OTHER_WINDOW:
