@@ -794,8 +794,15 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt, void(*callback
 	for (;;) {
 		editorSetStatusMessage(prompt, buf);
 		editorRefreshScreen();
-		snprintf(cbuf, sizeof(cbuf), CSI"%d;%ldH", E.screenrows,
-			 promptlen + bufwidth + 1);
+		if (E.nwindows == 1) {
+			snprintf(cbuf, sizeof(cbuf), CSI"%d;%ldH", E.screenrows,
+				 promptlen + bufwidth + 1);
+		} else {
+			int windowSize = (E.screenrows-1)/E.nwindows;
+			snprintf(cbuf, sizeof(cbuf), CSI"%d;%ldH",
+				 (windowSize*E.nwindows)+1,
+				 promptlen + bufwidth + 1);
+		}
 		write(STDOUT_FILENO, cbuf, strlen(cbuf));
 
 		int c = editorReadKey();
