@@ -166,6 +166,8 @@ int editorReadKey() {
 			return DELETE_WORD;
 		} else if ('0' <= seq[0] && seq[0] <= '9') {
 			return ALT_0 + (seq[0] - '0');
+		} else if (seq[0]=='c' || seq[0]=='c') {
+			return CAPCASE_WORD;
 		} else if (seq[0]=='u' || seq[0]=='U') {
 			return UPCASE_WORD;
 		} else if (seq[0]=='l' || seq[0]=='L') {
@@ -983,7 +985,8 @@ void editorBackWord(struct editorBuffer *bufr) {
 	bufferEndOfBackwardWord(bufr, &bufr->cx, &bufr->cy);
 }
 
-void editorUpcaseWord(struct editorConfig *ed, struct editorBuffer *bufr, int times) {
+void wordTransform(struct editorConfig *ed, struct editorBuffer *bufr,
+		   int times, uint8_t *(*transformer)(uint8_t*)) {
 	int icx = bufr->cx;
 	int icy = bufr->cy;
 	for (int i = 0; i < times; i++) {
@@ -991,18 +994,19 @@ void editorUpcaseWord(struct editorConfig *ed, struct editorBuffer *bufr, int ti
 	}
 	bufr->markx = icx;
 	bufr->marky = icy;
-	editorTransformRegion(ed, bufr, transformerUpcase);
+	editorTransformRegion(ed, bufr, transformer);
+}
+
+void editorUpcaseWord(struct editorConfig *ed, struct editorBuffer *bufr, int times) {
+	wordTransform(ed, bufr, times, transformerUpcase);
 }
 
 void editorDowncaseWord(struct editorConfig *ed, struct editorBuffer *bufr, int times) {
-	int icx = bufr->cx;
-	int icy = bufr->cy;
-	for (int i = 0; i < times; i++) {
-		bufferEndOfForwardWord(bufr, &bufr->cx, &bufr->cy);
-	}
-	bufr->markx = icx;
-	bufr->marky = icy;
-	editorTransformRegion(ed, bufr, transformerDowncase);
+	wordTransform(ed, bufr, times, transformerDowncase);
+}
+
+void editorCapitalCaseWord(struct editorConfig *ed, struct editorBuffer *bufr, int times) {
+	wordTransform(ed, bufr, times, transformerCapitalCase);
 }
 
 void editorDeleteWord(struct editorBuffer *bufr) {
@@ -1445,6 +1449,10 @@ void editorProcessKeypress(int c) {
 
 	case DOWNCASE_WORD:
 		editorDowncaseWord(&E, bufr, rept);
+		break;
+
+	case CAPCASE_WORD:
+		editorCapitalCaseWord(&E, bufr, rept);
 		break;
 
 	case UPCASE_REGION:

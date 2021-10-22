@@ -4,6 +4,7 @@
 #include "emsys.h"
 #include "command.h"
 #include "region.h"
+#include "transform.h"
 #include "uthash.h"
 #include "unused.h"
 
@@ -94,6 +95,11 @@ void editorReplaceString(struct editorConfig *ed,
 	free(repl);
 }
 
+void editorCapitalizeRegion(struct editorConfig *ed,
+		   struct editorBuffer *buf) {
+	editorTransformRegion(ed, buf, transformerCapitalCase);
+}
+
 #define ADDCMD(name, func) newCmd = malloc(sizeof *newCmd); newCmdName = name ; newCmd->cmd = func ; HASH_ADD_KEYPTR(hh, ed->cmd, newCmdName, strlen(newCmdName), newCmd)
 
 void setupCommands(struct editorConfig *ed) {
@@ -103,6 +109,8 @@ void setupCommands(struct editorConfig *ed) {
 
 	ADDCMD("version", editorVersion);
 	ADDCMD("replace-string", editorReplaceString);
+	ADDCMD("kanaya", editorCapitalizeRegion); /* egg! */
+	ADDCMD("capitalize-region", editorCapitalizeRegion);
 }
 
 void runCommand(char * cmd, struct editorConfig *ed, struct editorBuffer *buf) {

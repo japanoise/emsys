@@ -35,6 +35,25 @@ uint8_t* transformerDowncase(uint8_t* input) {
 	return output;
 }
 
+uint8_t* transformerCapitalCase(uint8_t* input) {
+	MKOUTPUT(input, len, output);
+
+	int first = 1;
+
+	for (int i = 0; i <= len; i++) {
+		uint8_t c = input[i];
+		if ('a' <= c && c <= 'z' && first) {
+			first = 0;
+			c &= 0x5f;
+		} else if (isWordBoundary(c)) {
+			first = 1;
+		}
+		output[i] = c;
+	}
+
+	return output;
+}
+
 uint8_t* transformerTransposeChars(uint8_t* input) {
 	MKOUTPUT(input, len, output);
 
