@@ -18,6 +18,7 @@
 #include"command.h"
 #include"emsys.h"
 #include"find.h"
+#include"pipe.h"
 #include"region.h"
 #include"row.h"
 #include"transform.h"
@@ -176,6 +177,8 @@ int editorReadKey() {
 			return TRANSPOSE_WORDS;
 		} else if (seq[0]=='x' || seq[0]=='X') {
 			return EXEC_CMD;
+		} else if (seq[0]=='|') {
+			return PIPE_CMD;
 		}
 
 		return 033;
@@ -1535,6 +1538,10 @@ void editorProcessKeypress(int c) {
 			runCommand(cmd, &E, bufr);
 			free(cmd);
 		}
+		break;
+
+	case PIPE_CMD:
+		editorPipe(&E, bufr);
 		break;
 
 	default:

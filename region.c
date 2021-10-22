@@ -175,6 +175,10 @@ void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
 	editorYank(ed, buf);
 	buf->undo->paired = 1;
 
-	free(ed->kill);
+	if (input == ed->kill) {
+		editorSetStatusMessage("Shouldn't free input here");
+	} else {
+		free(ed->kill);
+	}
 	ed->kill = okill;
 }
