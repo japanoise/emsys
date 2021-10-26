@@ -102,6 +102,7 @@ struct editorUndo {
 };
 
 struct editorBuffer {
+	int indent;
 	int cx, cy;
 	int markx, marky;
 	int scx, scy;

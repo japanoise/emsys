@@ -62,6 +62,29 @@ void editorVersion(struct editorConfig *UNUSED(ed),
 		"emsys version "EMSYS_VERSION", built "EMSYS_BUILD_DATE);
 }
 
+void editorIndentTabs(struct editorConfig *UNUSED(ed),
+		      struct editorBuffer *buf) {
+	buf->indent = 0;
+	editorSetStatusMessage("Indentation set to tabs");
+}
+
+void editorIndentSpaces(struct editorConfig *UNUSED(ed),
+		   struct editorBuffer *buf) {
+	uint8_t *indentS = editorPrompt(buf, "Set indentation to: %s", NULL);
+	if (indentS == NULL) {
+		goto cancel;
+	}
+	int indent = atoi((char *)indentS);
+	free(indentS);
+	if (indent <= 0) {
+	cancel:
+		editorSetStatusMessage("Canceled.");
+		return;
+	}
+	buf->indent = indent;
+	editorSetStatusMessage("Indentation set to %i spaces", indent);
+}
+
 uint8_t *orig;
 uint8_t *repl;
 
@@ -111,6 +134,8 @@ void setupCommands(struct editorConfig *ed) {
 	ADDCMD("replace-string", editorReplaceString);
 	ADDCMD("kanaya", editorCapitalizeRegion); /* egg! */
 	ADDCMD("capitalize-region", editorCapitalizeRegion);
+	ADDCMD("indent-spaces", editorIndentSpaces);
+	ADDCMD("indent-tabs", editorIndentTabs);
 }
 
 void runCommand(char * cmd, struct editorConfig *ed, struct editorBuffer *buf) {

@@ -1291,8 +1291,15 @@ void editorProcessKeypress(int c) {
 		break;
 	case CTRL('i'):
 		for (int i = 0; i < rept; i++) {
-			editorUndoAppendChar(bufr, c);
-			editorInsertChar(bufr, c);
+			if (bufr->indent) {
+				for(int i = 0; i < bufr->indent; i++) {
+					editorUndoAppendChar(bufr, ' ');
+					editorInsertChar(bufr, ' ');
+				}
+			} else {
+				editorUndoAppendChar(bufr, c);
+				editorInsertChar(bufr, c);
+			}
 		}
 		break;
 	case CTRL('_'):
@@ -1502,6 +1509,7 @@ void setupHandlers() {
 
 struct editorBuffer *newBuffer() {
 	struct editorBuffer *ret = malloc(sizeof (struct editorBuffer));
+	ret->indent = 0;
 	ret->markx = -1;
 	ret->marky = -1;
 	ret->cx = 0;
