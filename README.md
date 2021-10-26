@@ -40,14 +40,6 @@ thinking maybe of using PCRE2 for more advanced features, but that's installed
 basically everywhere anyway. Other than that, any new features added will
 endeavor to only introduce single-header libraries at most.
 
-Features not supported by current version, but planned:
-
-* Open multiple files
-* +linum syntax (like LESSEDIT)
-* Vertical splits
-* Undo/Redo
-* Indentation QOL, including ^J and indent-spaces
-
 ## Why you might hate it
 
 emsys is, like many in the ersatz-emacs sphere, "religious". This means:
@@ -99,6 +91,97 @@ be able to just `make && sudo make install`.
 
 [gomacs]: https://github.com/japanoise/gomacs
 [tutorial]: https://viewsourcecode.org/snaptoken/kilo/index.html
+
+## Usage
+
+`emsys` is not a 'modal' editor - text entered goes straight into the buffer,
+without having to enter an insert mode.
+
+Keybindings below are described in the usual Emacs format (`C-x` means
+Control-x, `M-x` means Alt-x or Escape then x).
+
+### Emacs Jargon
+
+* Buffer = An open file or pseudo-file which can be typed into
+* Window = A section on the screen displaying a buffer
+* Mark = The start or end of the region (where the end or start is the
+  current cursor position)
+* Region = The area between the cursor and the mark
+
+### Basic Commands
+
+* `C-x C-s` - Save buffer
+* `C-x C-f` - Open file
+* `C-x C-c` - Quit
+* `M-x ...` - Run named command
+* `M-x version` - Display version information
+
+### Cursor
+
+* `C-n` or DOWN - Move cursor to *n*ext line
+* `C-p` or UP - Move cursor to *p*revious line
+* `C-f` or RIGHT - Move cursor *f*orward
+* `C-b` or LEFT - Move cursor *b*ackward
+* `M-f` - Move cursor *f*orward word
+* `M-b` - Move cursor *b*ackward word
+* `M-n` - Move cursor to *n*ext paragraph
+* `M-p` - Move cursor to *p*revious paragraph
+* `M-<` - Move cursor to start of buffer
+* `M->` - Move cursor to end of buffer
+* `C-a` or HOME - Move cursor to start of line
+* `C-e` or END - Move cursor to end of line
+* `C-v` or PGDN - Move cursor down a page/screen
+* `C-z` or `M-v` or PGUP - Move cursor up a page/screen
+* `C-s` - *S*earch
+
+### Text Editing
+
+* `C-_` - Undo (this is Control-/ on most terminals)
+*  `C-x C-_` - Redo (keep pressing `C-_` to keep redoing)
+* `C-@` - Set mark (this is Control-SPACE on most terminals)
+* `C-w` - Kill (cut) current region
+* `M-w` - Copy current region
+* `C-y` - Yank (paste)
+* `C-j` - Insert a newline and indent (indentation copied from previous line)
+* BACKSPACE - Delete backwards
+* `C-d` or DELETE - Delete forwards
+* `M-BACKSPACE` - Delete backwards word
+* `M-d` - Delete forwards word
+* `C-u` - Delete to beginning of line
+* `C-k` - Delete to end of line
+* `M-x replace-string` - Replace one string with another in the region
+* `M-x indent-tabs` - Use tabs for indentation in current buffer (the default)
+* `M-x indent-spaces` - Use spaces for indentation in current buffer. You will
+  be prompted for the number of spaces to use.
+* `C-t` - Transpose (swap) characters around cursor, e.g. `a|b` -> `b|a`
+* `M-t` - Transpose words
+* `M-u` - Uppercase word (`foo` -> `FOO`)
+* `M-l` - Lowercase word (`FOO` -> `foo`)
+* `M-c` - Capitalize word (`foo` -> `Foo`)
+
+Note that commands dealing with capitalization only work for ASCII letters - any
+other characters will be ignored.
+
+If you want to change how paragraph and word endings are calculated, edit the
+file `bound.c`.
+
+### Windows
+
+* `C-x b` - Switch buffer
+* `C-x o` - Switch window
+* `C-x 0` - Kill current window
+* `C-x 1` - Kill other windows (make current the only *one*)
+* `C-x 2` - Create new window
+* `C-l` - Center cursor in window
+
+### Advanced
+
+* `C-x (` - Start defining keyboard macro
+* `C-x )` - Stop defining keyboard macro
+* `C-x e` - Execute macro (stopping definition if currently defining) - press
+  `e` again to repeat the macro
+* `C-x C-z` - Suspend emsys. Most of the time this will take you back to the
+  shell, where you can run `fg` to return emsys to the *f*ore*g*round.
 
 ## Copying
 
