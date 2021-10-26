@@ -42,9 +42,11 @@ uint8_t* transformerCapitalCase(uint8_t* input) {
 
 	for (int i = 0; i <= len; i++) {
 		uint8_t c = input[i];
-		if ('a' <= c && c <= 'z' && first) {
+		if ((('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')) && first) {
 			first = 0;
 			c &= 0x5f;
+		} else if ('A' <= c && c <= 'Z') {
+			c |= 0x60;
 		} else if (isWordBoundary(c)) {
 			first = 1;
 		}
