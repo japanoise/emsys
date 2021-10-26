@@ -11,4 +11,5 @@ void editorUndoBackSpace(struct editorBuffer *buf, uint8_t c);
 void editorUndoDelChar(struct editorBuffer *buf, erow *row);
 struct editorUndo *newUndo();
 void clearRedos(struct editorBuffer *buf);
+void clearUndosAndRedos(struct editorBuffer *buf);
 #endif

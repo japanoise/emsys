@@ -156,6 +156,12 @@ void clearRedos(struct editorBuffer *buf) {
 	buf->redo = NULL;
 }
 
+void clearUndosAndRedos(struct editorBuffer *buf) {
+	freeUndos(buf->undo);
+	buf->undo = NULL;
+	clearRedos(buf);
+}
+
 #define ALIGNED(x1, y1, x2, y2) ((x1 == x2) && (y1 == y2))
 
 void editorUndoAppendChar(struct editorBuffer *buf, uint8_t c) {

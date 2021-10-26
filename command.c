@@ -85,6 +85,40 @@ void editorIndentSpaces(struct editorConfig *UNUSED(ed),
 	editorSetStatusMessage("Indentation set to %i spaces", indent);
 }
 
+void editorRevert(struct editorConfig *ed,
+		   struct editorBuffer *buf) {
+	struct editorBuffer *new = newBuffer();
+	editorOpen(new, buf->filename);
+	new->next = buf->next;
+	ed->focusBuf = new;
+	if (ed->firstBuf == buf) {
+		ed->firstBuf = new;
+	}
+	struct editorBuffer *cur = ed->firstBuf;
+	while (cur != NULL) {
+		if (cur->next == buf) {
+			cur->next = new;
+			break;
+		}
+		cur = cur->next;
+	}
+	for (int i = 0; i < ed->nwindows; i++) {
+		if (ed->windows[i]->buf == buf) {
+			ed->windows[i]->buf = new;
+		}
+	}
+	new->indent = buf->indent;
+	new->cx = buf->cx;
+	new->cy = buf->cy;
+	if (new->cy > new->numrows) {
+		new->cy = new->numrows;
+		new->cx = 0;
+	} else if (new->cx > new->row[new->cy].size) {
+		new->cx = new->row[new->cy].size;
+	}
+	destroyBuffer(buf);
+}
+
 uint8_t *orig;
 uint8_t *repl;
 
@@ -136,6 +170,7 @@ void setupCommands(struct editorConfig *ed) {
 	ADDCMD("capitalize-region", editorCapitalizeRegion);
 	ADDCMD("indent-spaces", editorIndentSpaces);
 	ADDCMD("indent-tabs", editorIndentTabs);
+	ADDCMD("revert", editorRevert);
 }
 
 void runCommand(char * cmd, struct editorConfig *ed, struct editorBuffer *buf) {

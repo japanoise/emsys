@@ -1529,6 +1529,12 @@ struct editorBuffer *newBuffer() {
 	return ret;
 }
 
+void destroyBuffer(struct editorBuffer *buf) {
+	clearUndosAndRedos(buf);
+	free(buf->filename);
+	free(buf);
+}
+
 void initEditor() {
 	E.minibuffer[0] = 0;
 	E.kill = NULL;

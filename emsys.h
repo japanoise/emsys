@@ -168,7 +168,9 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt, void (*callbac
 void editorUpdateBuffer(struct editorBuffer *buf);
 void editorInsertNewline(struct editorBuffer *bufr);
 void editorInsertChar(struct editorBuffer *bufr, int c);
+void editorOpen(struct editorBuffer *bufr, char *filename);
 void die(const char *s);
 struct editorBuffer *newBuffer();
+void destroyBuffer(struct editorBuffer *);
 
 #endif
