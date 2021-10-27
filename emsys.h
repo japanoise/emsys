@@ -77,7 +77,8 @@ enum editorKey {
 	DOWNCASE_REGION,
 	TRANSPOSE_WORDS,
 	EXEC_CMD,
-	FIND_FILE
+	FIND_FILE,
+	WHAT_CURSOR
 };
 
 /*** data ***/

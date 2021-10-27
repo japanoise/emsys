@@ -186,6 +186,8 @@ file `bound.c`.
   shell, where you can run `fg` to return emsys to the *f*ore*g*round.
 * `M-x revert` - Reload file on disk into current buffer. Useful if you want to
   use `sed`, `go fmt`, etc. to do text operations on files.
+* `C-x =` - Describe cursor position (displays information about character at
+  point)
 
 ## Copying
 

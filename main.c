@@ -213,6 +213,8 @@ int editorReadKey() {
 			return UPCASE_REGION;
 		} else if (seq[0]=='l' || seq[0]=='L' || seq[0]==CTRL('l')) {
 			return DOWNCASE_REGION;
+		} else if (seq[0]=='=') {
+			return WHAT_CURSOR;
 		}
 
 	} else if (c == CTRL('p')) {
@@ -1480,6 +1482,43 @@ void editorProcessKeypress(int c) {
 
 	case DOWNCASE_REGION:
 		editorTransformRegion(&E, bufr, transformerDowncase);
+		break;
+
+	case WHAT_CURSOR:
+		c = 0;
+		if (bufr->cy >= bufr->numrows) {
+			editorSetStatusMessage("End of buffer");
+			break;
+		} else if (bufr->row[bufr->cy].size <= bufr->cx) {
+			c = (uint8_t) '\n';
+		} else {
+			c = (uint8_t) bufr->row[bufr->cy].chars[bufr->cx];
+		}
+
+		int npoint = 0, point;
+		for (int y = 0; y < bufr->numrows; y++) {
+			for (int x = 0; x <= bufr->row[y].size; x++) {
+				npoint++;
+				if (x == bufr->cx && y == bufr->cy) {
+					point = npoint;
+				}
+			}
+		}
+		int perc = ((point-1)*100)/npoint;
+		
+		if (c == 127) {
+			editorSetStatusMessage("char: ^? (%d #o%03o #x%02X)"
+					       " point=%d of %d (%d%%)",
+					       c, c, c, point, npoint, perc);
+		} else if (c < ' ') {
+			editorSetStatusMessage("char: ^%c (%d #o%03o #x%02X)"
+					       " point=%d of %d (%d%%)", c+0x40,
+					       c, c, c, point, npoint, perc);
+		} else {
+			editorSetStatusMessage("char: %c (%d #o%03o #x%02X)"
+					       " point=%d of %d (%d%%)",
+					       c, c, c, c, point, npoint, perc);
+		}
 		break;
 
 	case TRANSPOSE_WORDS:
