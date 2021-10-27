@@ -1322,6 +1322,16 @@ void editorProcessKeypress(int c) {
 			editorInsertNewlineAndIndent(bufr);
 		}
 		break;
+	case CTRL('q'):;
+		int nread;
+		while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
+			if (nread == -1 && errno != EAGAIN) die("read");
+		}
+		for (int i = 0; i < rept; i++) {
+			editorUndoAppendChar(bufr, c);
+			editorInsertChar(bufr, c);
+		}
+		break;
 	case FORWARD_WORD:
 		for (int i = 0; i < rept; i++) {
 			editorForwardWord(bufr);

@@ -158,6 +158,8 @@ Control-x, `M-x` means Alt-x or Escape then x).
 * `M-u` - Uppercase word (`foo` -> `FOO`)
 * `M-l` - Lowercase word (`FOO` -> `foo`)
 * `M-c` - Capitalize word (`foo` -> `Foo`)
+* `C-q` - Insert next character raw (allowing you to enter e.g. raw control
+  characters - be careful with nulls!)
 
 Note that commands dealing with capitalization only work for ASCII letters - any
 other characters will be ignored.
