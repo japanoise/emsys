@@ -46,8 +46,8 @@ emsys is, like many in the ersatz-emacs sphere, "religious". This means:
 
 * There's no configuration except through editing the source code (I may go for
   a config.h header like suckless)
-* Files are always separated by one linefeed (\n, ^J), including a final LF at
-  the end of the file.
+* Lines in files are always separated by one linefeed (\n, ^J), including a
+  final LF at the end of the file.
 * Files and keyboard input are always in the One True Encoding, UTF-8.
 * Files are plain text and do not contain nulls (though they may contain other
   control characters)
