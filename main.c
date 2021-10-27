@@ -1267,8 +1267,10 @@ void editorProcessKeypress(int c) {
 		editorSetStatusMessage("Bad UTF-8 sequence");
 		break;
 	case UNICODE:
-		editorUndoAppendUnicode(&E, bufr);
-		editorInsertUnicode(bufr);
+		for (int i = 0; i < rept; i++) {
+			editorUndoAppendUnicode(&E, bufr);
+			editorInsertUnicode(bufr);
+		}
 		break;
 	case SAVE:
 		editorSave(bufr);
