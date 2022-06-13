@@ -78,7 +78,8 @@ enum editorKey {
 	TRANSPOSE_WORDS,
 	EXEC_CMD,
 	FIND_FILE,
-	WHAT_CURSOR
+	WHAT_CURSOR,
+	PIPE_CMD
 };
 
 /*** data ***/
