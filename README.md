@@ -142,6 +142,7 @@ Control-x, `M-x` means Alt-x or Escape then x).
 * `C-w` - Kill (cut) current region
 * `M-w` - Copy current region
 * `C-y` - Yank (paste)
+* `M-|` - Filter region through shell command. This even works with pipes!
 * `C-j` - Insert a newline and indent (indentation copied from previous line)
 * BACKSPACE - Delete backwards
 * `C-d` or DELETE - Delete forwards
