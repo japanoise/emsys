@@ -113,13 +113,16 @@ int editorReadKey() {
 	}
 
 	if (c == 033) {
-		char seq[4];
-		if (read(STDIN_FILENO, &seq[0], 1) != 1) return 033;
+		char seq[5] = { 0, 0, 0, 0, 0 };
+		if (read(STDIN_FILENO, &seq[0], 1) != 1)
+			goto ESC_UNKNOWN;
 
 		if (seq[0] == '[') {
-			if (read(STDIN_FILENO, &seq[1], 1) != 1) return 033;
+			if (read(STDIN_FILENO, &seq[1], 1) != 1)
+				goto ESC_UNKNOWN;
 			if (seq[1] >= '0' && seq[1] <= '9') {
-				if (read(STDIN_FILENO, &seq[2], 1) != 1) return '\x1b';
+				if (read(STDIN_FILENO, &seq[2], 1) != 1)
+					goto ESC_UNKNOWN;
 				if (seq[2] == '~') {
 					switch (seq[1]) {
 					case '1': return HOME_KEY;
@@ -131,7 +134,8 @@ int editorReadKey() {
 					case '8': return END_KEY;
 					}
 				} else if (seq[2] == '4') {
-					if (read(STDIN_FILENO, &seq[3], 1) != 1) return '\x1b';
+					if (read(STDIN_FILENO, &seq[3], 1) != 1)
+						goto ESC_UNKNOWN;
 					if (seq[3] == '~') {
 						errno = EINTR;
 						die("Panic key");
@@ -181,11 +185,14 @@ int editorReadKey() {
 			return PIPE_CMD;
 		}
 
+	ESC_UNKNOWN:
+		editorSetStatusMessage("Unknown command M-%s", seq);
 		return 033;
 	} else if (c == CTRL('x')) {
 		/* Welcome to Emacs! */
-		char seq[4];
-		if (read(STDIN_FILENO, &seq[0], 1) != 1) return CTRL('x');
+		char seq[5] = { 0, 0, 0, 0, 0 };
+		if (read(STDIN_FILENO, &seq[0], 1) != 1)
+			goto CX_UNKNOWN;
 		if (seq[0] == CTRL('c')) {
 			return QUIT;
 		} else if (seq[0] == CTRL('s')) {
@@ -220,6 +227,9 @@ int editorReadKey() {
 			return WHAT_CURSOR;
 		}
 
+	CX_UNKNOWN:
+		editorSetStatusMessage("Unknown command C-x %s", seq);
+		return CTRL('x');
 	} else if (c == CTRL('p')) {
 		return ARROW_UP;
 	} else if (c == CTRL('n')) {
@@ -1542,6 +1552,16 @@ void editorProcessKeypress(int c) {
 
 	case PIPE_CMD:
 		editorPipe(&E, bufr);
+		break;
+
+	case CTRL('x'):
+	case 033:
+		/* These take care of their own error messages */
+		break;
+
+	case CTRL('g'):
+		/* Expected behavior */
+		editorSetStatusMessage("Quit");
 		break;
 
 	default:
