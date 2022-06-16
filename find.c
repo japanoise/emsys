@@ -20,6 +20,18 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 
 	if (last_match == -1) direction = 1;
 	int current = last_match;
+	if (current >= 0) {
+		erow *row = &bufr->row[current];
+		uint8_t *match = strstr(&(row->chars[bufr->cx+1]), query);
+		if (match) {
+			last_match = current;
+			bufr->cy = current;
+			bufr->cx = match - row->chars;
+			bufr->rowoff = bufr->numrows;
+			return;
+		}
+		
+	}
 	for (int i = 0; i < bufr->numrows; i++) {
 		current += direction;
 		if(current == -1) current = bufr->numrows - 1;
