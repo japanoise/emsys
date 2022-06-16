@@ -3,6 +3,7 @@
 void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 	static int last_match = -1;
 	static int direction = 1;
+	bufr->query = query;
 
 	if (key == CTRL('g') || key == CTRL('c') || key == '\r') {
 		last_match = -1;
@@ -43,6 +44,7 @@ void editorFind(struct editorBuffer *bufr) {
 
 	uint8_t *query = editorPrompt(bufr, "Search (C-g to cancel): %s", editorFindCallback);
 
+	bufr->query = NULL;
 	if (query) {
 		free(query);
 	} else {

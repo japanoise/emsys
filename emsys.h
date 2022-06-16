@@ -119,6 +119,7 @@ struct editorBuffer {
 	int uarg_active;
 	erow *row;
 	char *filename;
+	uint8_t *query;
         struct editorUndo *undo;
         struct editorUndo *redo;
 	struct editorBuffer *next;

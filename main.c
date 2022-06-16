@@ -764,6 +764,12 @@ void editorRefreshScreen() {
 		 E.windows[idx]->buf->scy + 1 + (windowSize*idx),
 		 E.windows[idx]->buf->scx + 1);
 	abAppend(&ab, buf, strlen(buf));
+	if(E.focusBuf->query) {
+		abAppend(&ab, "\x1b[7m", 4);
+		abAppend(&ab, E.focusBuf->query, strlen(E.focusBuf->query));
+		abAppend(&ab, "\x1b[0m", 4);
+		abAppend(&ab, buf, strlen(buf));
+	}
 	abAppend(&ab, CSI"?25h", 6);
 
 	write(STDOUT_FILENO, ab.b, ab.len);
@@ -1598,6 +1604,7 @@ struct editorBuffer *newBuffer() {
 	ret->numrows = 0;
 	ret->row = NULL;
 	ret->filename = NULL;
+	ret->query = NULL;
 	ret->dirty = 0;
 	ret->undo = NULL;
 	ret->redo = NULL;
