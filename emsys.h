@@ -79,7 +79,8 @@ enum editorKey {
 	EXEC_CMD,
 	FIND_FILE,
 	WHAT_CURSOR,
-	PIPE_CMD
+	PIPE_CMD,
+	QUERY_REPLACE
 };
 
 /*** data ***/
@@ -175,5 +176,7 @@ void editorOpen(struct editorBuffer *bufr, char *filename);
 void die(const char *s);
 struct editorBuffer *newBuffer();
 void destroyBuffer(struct editorBuffer *);
+int editorReadKey();
+void editorRecenter(struct editorBuffer *);
 
 #endif

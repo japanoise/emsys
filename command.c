@@ -1,10 +1,15 @@
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #include "emsys.h"
 #include "command.h"
 #include "region.h"
 #include "transform.h"
+#include "undo.h"
+#include "unicode.h"
 #include "uthash.h"
 #include "unused.h"
 
@@ -152,6 +157,172 @@ void editorReplaceString(struct editorConfig *ed,
 	free(repl);
 }
 
+static int nextOccur(struct editorBuffer *buf, uint8_t *needle, int ocheck) {
+	int ox = buf->cx;
+	int oy = buf->cy;
+	if (!ocheck) {
+		ox = -69;
+	}
+	while(buf->cy < buf->numrows) {
+		erow *row = &buf->row[buf->cy];
+		uint8_t *match = strstr(&(row->chars[buf->cx]), needle);
+		if (match) {
+			if (!(buf->cx == ox && buf->cy == oy)) {
+				buf->cx = match - row->chars;
+				buf->marky = buf->cy;
+				buf->markx = buf->cx+strlen(needle);
+				/* buf->rowoff = buf->numrows; */
+				return 1;
+			}
+			buf->cx++;
+		}
+		buf->cx = 0;
+		buf->cy++;
+	}
+	return 0;
+}
+
+void editorQueryReplace(struct editorConfig *ed,
+			struct editorBuffer *buf) {
+	orig = NULL;
+	repl = NULL;
+	orig = editorPrompt(buf, "Query replace: %s", NULL);
+	if (orig == NULL) {
+		editorSetStatusMessage("Canceled query-replace.");
+		return;
+	}
+
+	uint8_t *prompt = malloc(strlen(orig)+25);
+	sprintf(prompt, "Query replace %s with: %%s", orig);
+	repl = editorPrompt(buf, prompt, NULL);
+	free(prompt);
+	if (repl == NULL) {
+		free(orig);
+		editorSetStatusMessage("Canceled query-replace.");
+		return;
+	}
+
+	prompt = malloc(strlen(orig)+strlen(repl)+32);
+	sprintf(prompt, "Query replacing %s with %s:", orig, repl);
+	int bufwidth = stringWidth(prompt);
+	int savedMx = buf->markx;
+	int savedMy = buf->marky;
+	char cbuf[32];
+	struct editorUndo *first = buf->undo;
+	uint8_t *newStr = NULL;
+	buf->query = orig;
+
+#define NEXT_OCCUR(ocheck) if (!nextOccur(buf, orig, ocheck)) goto QR_CLEANUP
+
+	NEXT_OCCUR(false);
+
+	for (;;) {
+		editorSetStatusMessage(prompt);
+		editorRefreshScreen();
+		if (ed->nwindows == 1) {
+			snprintf(cbuf, sizeof(cbuf), CSI"%d;%dH",
+				 ed->screenrows, bufwidth + 2);
+		} else {
+			int windowSize = (ed->screenrows-1)/ed->nwindows;
+			snprintf(cbuf, sizeof(cbuf), CSI"%d;%dH",
+				 (windowSize*ed->nwindows)+1, bufwidth + 2);
+		}
+		write(STDOUT_FILENO, cbuf, strlen(cbuf));
+
+		int c = editorReadKey();
+		switch (c) {
+		case ' ':
+		case 'y':
+			editorTransformRegion(ed, buf, transformerReplaceString);
+			NEXT_OCCUR(true);
+			break;
+		case CTRL('h'):
+		case BACKSPACE:
+		case DEL_KEY:
+		case 'n':
+			buf->cx++;
+			NEXT_OCCUR(true);
+			break;
+		case '\r':
+		case 'q':
+		case 'N':
+		case CTRL('g'):
+			goto QR_CLEANUP;
+			break;
+		case '.':
+			editorTransformRegion(ed, buf, transformerReplaceString);
+			goto QR_CLEANUP;
+			break;
+		case '!':
+		case 'Y':
+			buf->marky = buf->numrows-1;
+			buf->markx = buf->row[buf->marky].size;
+			editorTransformRegion(ed, buf, transformerReplaceString);
+			goto QR_CLEANUP;
+			break;
+		case 'u':
+			editorDoUndo(buf);
+			buf->markx = buf->cx;
+			buf->marky = buf->cy;
+			buf->cx -= strlen(orig);
+			break;
+		case 'U':
+			while (buf->undo != first)
+				editorDoUndo(buf);
+			buf->markx = buf->cx;
+			buf->marky = buf->cy;
+			buf->cx -= strlen(orig);
+			break;
+		case CTRL('r'):
+			prompt = malloc(strlen(orig)+25);
+			sprintf(prompt, "Replace this %s with: %%s", orig);
+			newStr = editorPrompt(buf, prompt, NULL);
+			free(prompt);
+			if (newStr == NULL) {
+				goto RESET_PROMPT;
+			}
+			uint8_t *tmp = repl;
+			repl = newStr;
+			editorTransformRegion(ed, buf, transformerReplaceString);
+			free(newStr);
+			repl = tmp;
+			NEXT_OCCUR(true);
+			goto RESET_PROMPT;
+			break;
+		case 'e':
+		case 'E':
+			prompt = malloc(strlen(orig)+25);
+			sprintf(prompt, "Query replace %s with: %%s", orig);
+			newStr = editorPrompt(buf, prompt, NULL);
+			free(prompt);
+			if (newStr == NULL) {
+				goto RESET_PROMPT;
+			}
+			free(repl);
+			repl = newStr;
+			editorTransformRegion(ed, buf, transformerReplaceString);
+			NEXT_OCCUR(true);
+		RESET_PROMPT:
+			prompt = malloc(strlen(orig)+strlen(repl)+32);
+			sprintf(prompt, "Query replacing %s with %s:", orig, repl);
+			bufwidth = stringWidth(prompt);
+			break;
+		case CTRL('l'):
+			editorRecenter(buf);
+			break;
+		}
+	}
+
+QR_CLEANUP:
+	editorSetStatusMessage("");
+	buf->query = NULL;
+	buf->markx = savedMx;
+	buf->marky = savedMy;
+	free(orig);
+	free(repl);
+	free(prompt);
+}
+
 void editorCapitalizeRegion(struct editorConfig *ed,
 		   struct editorBuffer *buf) {
 	editorTransformRegion(ed, buf, transformerCapitalCase);
@@ -166,6 +337,7 @@ void setupCommands(struct editorConfig *ed) {
 
 	ADDCMD("version", editorVersion);
 	ADDCMD("replace-string", editorReplaceString);
+	ADDCMD("query-replace", editorQueryReplace);
 	ADDCMD("kanaya", editorCapitalizeRegion); /* egg! */
 	ADDCMD("capitalize-region", editorCapitalizeRegion);
 	ADDCMD("indent-spaces", editorIndentSpaces);

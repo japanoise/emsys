@@ -183,6 +183,8 @@ int editorReadKey() {
 			return EXEC_CMD;
 		} else if (seq[0]=='|') {
 			return PIPE_CMD;
+		} else if (seq[0]=='%') {
+			return QUERY_REPLACE;
 		}
 
 	ESC_UNKNOWN:
@@ -789,6 +791,13 @@ void editorResizeScreen(int UNUSED(sig)) {
 	editorRefreshScreen();
 }
 
+void editorRecenter(struct editorBuffer *bufr) {
+		bufr->rowoff = bufr->cy - ((E.screenrows/E.nwindows)/2);
+		if (bufr->rowoff < 0) {
+			bufr->rowoff = 0;
+		}
+}
+
 void editorSuspend(int UNUSED(sig)) {
 	signal(SIGTSTP, SIG_DFL);
 	disableRawMode();
@@ -1216,10 +1225,7 @@ void editorProcessKeypress(int c) {
 		}
 		break;
 	case CTRL('l'):
-		bufr->rowoff = bufr->cy - ((E.screenrows/E.nwindows)/2);
-		if (bufr->rowoff < 0) {
-			bufr->rowoff = 0;
-		}
+		editorRecenter(bufr);
 		break;
 	case QUIT:
 		if (bufr->dirty) {
@@ -1558,6 +1564,10 @@ void editorProcessKeypress(int c) {
 
 	case PIPE_CMD:
 		editorPipe(&E, bufr);
+		break;
+
+	case QUERY_REPLACE:
+		editorQueryReplace(&E, bufr);
 		break;
 
 	case CTRL('x'):

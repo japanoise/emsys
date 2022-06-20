@@ -150,6 +150,10 @@ Control-x, `M-x` means Alt-x or Escape then x).
 * `M-d` - Delete forwards word
 * `C-u` - Delete to beginning of line
 * `C-k` - Delete to end of line
+* `M-%` - Query replace, that is, interactive search and replace. Emsys' version
+  works very much like [GNU Emacs'][queryreplace], save for the fact that we
+  don't have recursive editing, so `C-r` just replaces the current occurrence
+  with the string prompted for without changing the replacement.
 * `M-x replace-string` - Replace one string with another in the region
 * `M-x indent-tabs` - Use tabs for indentation in current buffer (the default)
 * `M-x indent-spaces` - Use spaces for indentation in current buffer. You will
@@ -167,6 +171,8 @@ other characters will be ignored.
 
 If you want to change how paragraph and word endings are calculated, edit the
 file `bound.c`.
+
+[queryreplace]: https://www.gnu.org/software/emacs/manual/html_node/emacs/Query-Replace.html
 
 ### Windows
 
