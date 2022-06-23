@@ -13,10 +13,10 @@ void editorUpdateRow(erow *row) {
 		if (row->chars[j] == '\t') {
 			tabs++;
 		} else if (ISCTRL(row->chars[j])) {
-			/* 
+			/*
 			 * These need an extra few bytes to display
 			 * CSI 7 m - 4 bytes
-			 * CSI m - 3 bytes 
+			 * CSI m - 3 bytes
 			 * preceding ^ - 1 byte
 			 */
 			extra+=8;

@@ -1633,7 +1633,7 @@ void editorProcessKeypress(int c) {
 			}
 		}
 		int perc = ((point-1)*100)/npoint;
-		
+
 		if (c == 127) {
 			editorSetStatusMessage("char: ^? (%d #o%03o #x%02X)"
 					       " point=%d of %d (%d%%)",

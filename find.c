@@ -30,7 +30,7 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 			bufr->rowoff = bufr->numrows;
 			return;
 		}
-		
+
 	}
 	for (int i = 0; i < bufr->numrows; i++) {
 		current += direction;

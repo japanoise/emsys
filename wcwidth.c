@@ -197,7 +197,7 @@ int mk_wcwidth(int ucs)
   	  return 1;
   }
 
-  return 1 + 
+  return 1 +
     (ucs >= 0x1100 &&
      (ucs <= 0x115f ||                    /* Hangul Jamo init. consonants */
       ucs == 0x2329 || ucs == 0x232a ||

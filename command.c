@@ -150,7 +150,7 @@ void editorReplaceString(struct editorConfig *ed,
 		editorSetStatusMessage("Canceled replace-string.");
 		return;
 	}
-	
+
 	editorTransformRegion(ed, buf, transformerReplaceString);
 
 	free(orig);
