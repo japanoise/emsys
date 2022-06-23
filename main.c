@@ -187,8 +187,19 @@ int editorReadKey() {
 			return QUERY_REPLACE;
 		}
 
-	ESC_UNKNOWN:
-		editorSetStatusMessage("Unknown command M-%s", seq);
+	ESC_UNKNOWN:;
+		char seqR[32];
+		seqR[0] = 0;
+		char buf[8];
+		for (int i = 0; seq[i]; i++) {
+			if (seq[i] < ' ') {
+				sprintf(buf, "C-%c ", seq[i]+'`');
+			} else {
+				sprintf(buf, "%c ", seq[i]);
+			}
+			strcat(seqR, buf);
+		}
+		editorSetStatusMessage("Unknown command M-%s", seqR);
 		return 033;
 	} else if (c == CTRL('x')) {
 		/* Welcome to Emacs! */
@@ -229,8 +240,19 @@ int editorReadKey() {
 			return WHAT_CURSOR;
 		}
 
-	CX_UNKNOWN:
-		editorSetStatusMessage("Unknown command C-x %s", seq);
+	CX_UNKNOWN:;
+		char seqR[32];
+		seqR[0] = 0;
+		char buf[8];
+		for (int i = 0; seq[i]; i++) {
+			if (seq[i] < ' ') {
+				sprintf(buf, "C-%c ", seq[i]+'`');
+			} else {
+				sprintf(buf, "%c ", seq[i]);
+			}
+			strcat(seqR, buf);
+		}
+		editorSetStatusMessage("Unknown command C-x %s", seqR);
 		return CTRL('x');
 	} else if (c == CTRL('p')) {
 		return ARROW_UP;
