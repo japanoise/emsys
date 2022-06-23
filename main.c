@@ -820,20 +820,28 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt, void(*callback
 
 	size_t buflen = 0;
 	size_t bufwidth = 0;
+	size_t curs = 0;
+	size_t cursScr = 0;
 	buf[0] = 0;
 	char cbuf[32];
 
 	for (;;) {
 		editorSetStatusMessage(prompt, buf);
 		editorRefreshScreen();
+#ifdef EMSYS_DEBUG_PROMPT
+		char dbg[32];
+		snprintf(dbg, sizeof(dbg), CSI"%d;%dHc: %ld cs: %ld", 0, 0,
+			 curs, cursScr);
+		write(STDOUT_FILENO, dbg, strlen(dbg));
+#endif
 		if (E.nwindows == 1) {
 			snprintf(cbuf, sizeof(cbuf), CSI"%d;%ldH", E.screenrows,
-				 promptlen + bufwidth + 1);
+				 promptlen + cursScr + 1);
 		} else {
 			int windowSize = (E.screenrows-1)/E.nwindows;
 			snprintf(cbuf, sizeof(cbuf), CSI"%d;%ldH",
 				 (windowSize*E.nwindows)+1,
-				 promptlen + bufwidth + 1);
+				 promptlen + cursScr + 1);
 		}
 		write(STDOUT_FILENO, cbuf, strlen(cbuf));
 
@@ -855,15 +863,67 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt, void(*callback
 			break;
 		case CTRL('h'):
 		case BACKSPACE:
-		case DEL_KEY:
+PROMPT_BACKSPACE:
+			if (curs <= 0) break;
 			if (buflen==0) {
 				break;
 			}
-			while (utf8_isCont(buf[buflen-1])) {
-				buf[--buflen] = 0;
+			int w = 1;
+			curs--;
+			while (utf8_isCont(buf[curs])) {
+				curs--;
+				w++;
 			}
-			buf[--buflen] = 0;
+			cursScr-=charInStringWidth(buf, curs);
+			memmove(&(buf[curs]), &(buf[curs+w]),
+				bufsize-(curs+w));
+			buflen -= w;
 			bufwidth = stringWidth(buf);
+			break;
+		case CTRL('a'):
+		case HOME_KEY:
+			curs = 0;
+			cursScr = 0;
+			break;
+		case CTRL('e'):
+		case END_KEY:
+			curs = buflen;
+			cursScr = bufwidth;
+			break;
+		case CTRL('k'):
+			buf[curs] = 0;
+			buflen = curs;
+			bufwidth = stringWidth(buf);
+			break;
+		case CTRL('u'):
+			if (curs == buflen) {
+				buflen = 0;
+				bufwidth = 0;
+				buf[0] = 0;
+			} else {
+				memmove(buf, &(buf[curs]), bufsize-curs);
+				buflen = strlen(buf);
+				bufwidth = stringWidth(buf);
+			}
+			cursScr = 0;
+			curs = 0;
+			break;
+		case ARROW_LEFT:
+			if (curs <= 0) break;
+			curs--;
+			while (utf8_isCont(buf[curs])) curs--;
+			cursScr-=charInStringWidth(buf, curs);
+			break;
+		case DEL_KEY:
+		case CTRL('d'):
+		case ARROW_RIGHT:
+			if (curs >= buflen) break;
+			cursScr+=charInStringWidth(buf, curs);
+			curs++;
+			while (utf8_isCont(buf[curs])) curs++;
+			if (c == CTRL('d') || c == DEL_KEY) {
+				goto PROMPT_BACKSPACE;
+			}
 			break;
 		case UNICODE:;
 			buflen += E.nunicode;
@@ -871,10 +931,22 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt, void(*callback
 				bufsize *= 2;
 				buf = realloc(buf, bufsize);
 			}
-			for (int i = 0; i < E.nunicode; i++) {
-				buf[(buflen-E.nunicode)+i] = E.unicode[i];
+			if (curs == buflen) {
+				for (int i = 0; i < E.nunicode; i++) {
+					buf[(buflen-E.nunicode)+i] =
+						E.unicode[i];
+				}
+				buf[buflen] = 0;
+			} else {
+				memmove(&(buf[curs+E.nunicode]), &(buf[curs]),
+					bufsize-(curs+E.nunicode));
+				for (int i = 0; i < E.nunicode; i++) {
+					buf[curs+i] =
+						E.unicode[i];
+				}
 			}
-			buf[buflen] = 0;
+			cursScr+=charInStringWidth(buf, curs);
+			curs+=E.nunicode;
 			bufwidth = stringWidth(buf);
 			break;
 		default:
@@ -883,9 +955,18 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt, void(*callback
 					bufsize *= 2;
 					buf = realloc(buf, bufsize);
 				}
-				buf[buflen++] = c;
-				buf[buflen] = 0;
+				if (curs==buflen) {
+					buf[buflen++] = c;
+					buf[buflen] = 0;
+				} else {
+					memmove(&(buf[curs+1]), &(buf[curs]),
+						bufsize-1);
+					buf[curs] = c;
+					buflen++;
+				}
 				bufwidth++;
+				curs++;
+				cursScr++;
 			}
 		}
 
