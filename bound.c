@@ -3,7 +3,9 @@
 #include "emsys.h"
 
 int isWordBoundary(uint8_t c) {
-	return (c == ' ' || c == CTRL('i') || c == '_' || c == 10 || c == 0);
+	return (c == ' ' || c == CTRL('i') || c == '_' || c == 10 || c == 0 ||
+		c == '(' || c == ')' || c == '[' || c == ']' ||
+		c == '{' || c == '}');
 }
 
 int isParaBoundary(erow *row) {
