@@ -158,6 +158,8 @@ Control-x, `M-x` means Alt-x or Escape then x).
 * `M-x indent-tabs` - Use tabs for indentation in current buffer (the default)
 * `M-x indent-spaces` - Use spaces for indentation in current buffer. You will
   be prompted for the number of spaces to use.
+* `M-x whitespace-cleanup` - Cleanup whitespace in current buffer. Beware, this
+  clears the undos and redos.
 * `C-t` - Transpose (swap) characters around cursor, e.g. `a|b` -> `b|a`
 * `M-t` - Transpose words
 * `M-u` - Uppercase word (`foo` -> `FOO`)
