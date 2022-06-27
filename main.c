@@ -149,42 +149,47 @@ int editorReadKey() {
 				case 'D': return ARROW_LEFT;
 				}
 			}
-		} else if (seq[0]=='v' || seq[0] =='V') {
-			return PAGE_UP;
+		} else if ('0' <= seq[0] && seq[0] <= '9') {
+			return ALT_0 + (seq[0] - '0');
 		} else if (seq[0]=='<') {
 			return BEG_OF_FILE;
 		} else if (seq[0]=='>') {
 			return END_OF_FILE;
-		} else if (seq[0]=='w' || seq[0] == 'W') {
-			return COPY;
-		} else if (seq[0]=='f' || seq[0]=='F') {
-			return FORWARD_WORD;
-		} else if (seq[0]=='b' || seq[0]=='B') {
-			return BACKWARD_WORD;
-		} else if (seq[0]=='p' || seq[0]=='P') {
-			return BACKWARD_PARA;
-		} else if (seq[0]=='n' || seq[0]=='N') {
-			return FORWARD_PARA;
-		} else if (seq[0]=='h' || seq[0]=='H' || seq[0]==127) {
-			return BACKSPACE_WORD;
-		} else if (seq[0]=='d' || seq[0]=='D') {
-			return DELETE_WORD;
-		} else if ('0' <= seq[0] && seq[0] <= '9') {
-			return ALT_0 + (seq[0] - '0');
-		} else if (seq[0]=='c' || seq[0]=='c') {
-			return CAPCASE_WORD;
-		} else if (seq[0]=='u' || seq[0]=='U') {
-			return UPCASE_WORD;
-		} else if (seq[0]=='l' || seq[0]=='L') {
-			return DOWNCASE_WORD;
-		} else if (seq[0]=='t' || seq[0]=='T') {
-			return TRANSPOSE_WORDS;
-		} else if (seq[0]=='x' || seq[0]=='X') {
-			return EXEC_CMD;
 		} else if (seq[0]=='|') {
 			return PIPE_CMD;
 		} else if (seq[0]=='%') {
 			return QUERY_REPLACE;
+		} else if (seq[0]==127) {
+			return BACKSPACE_WORD;
+		} else {
+			switch ((seq[0]&0x1f)|0x40) {
+			case 'B':
+				return BACKWARD_WORD;
+			case 'C':
+				return CAPCASE_WORD;
+			case 'D':
+				return DELETE_WORD;
+			case 'F':
+				return FORWARD_WORD;
+			case 'H':
+				return BACKSPACE_WORD;
+			case 'L':
+				return DOWNCASE_WORD;
+			case 'N':
+				return FORWARD_PARA;
+			case 'P':
+				return BACKWARD_PARA;
+			case 'T':
+				return TRANSPOSE_WORDS;
+			case 'U':
+				return UPCASE_WORD;
+			case 'V':
+				return PAGE_UP;
+			case 'W':
+				return COPY;
+			case 'X':
+				return EXEC_CMD;
+			}
 		}
 
 	ESC_UNKNOWN:;
