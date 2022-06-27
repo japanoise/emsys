@@ -7,6 +7,7 @@
 #include "emsys.h"
 #include "command.h"
 #include "region.h"
+#include "row.h"
 #include "transform.h"
 #include "undo.h"
 #include "unicode.h"
@@ -328,6 +329,26 @@ void editorCapitalizeRegion(struct editorConfig *ed,
 	editorTransformRegion(ed, buf, transformerCapitalCase);
 }
 
+void editorWhitespaceCleanup(struct editorConfig *UNUSED(ed),
+			     struct editorBuffer *buf) {
+	clearUndosAndRedos(buf);
+	for (int i = 0; i < buf->numrows; i++) {
+		erow *row = &buf->row[i];
+		for (int j = row->size-1; j >= 0; j--) {
+			if (row->chars[j] == ' ' ||
+			    row->chars[j] == '\t') {
+				row->size--;
+			} else {
+				break;
+			}
+		}
+		editorUpdateRow(row);
+	}
+	if (buf->cx > buf->row[buf->cy].size) {
+		buf->cx = buf->row[buf->cy].size;
+	}
+}
+
 #define ADDCMD(name, func) newCmd = malloc(sizeof *newCmd); newCmdName = name ; newCmd->cmd = func ; HASH_ADD_KEYPTR(hh, ed->cmd, newCmdName, strlen(newCmdName), newCmd)
 
 void setupCommands(struct editorConfig *ed) {
@@ -343,6 +364,7 @@ void setupCommands(struct editorConfig *ed) {
 	ADDCMD("indent-spaces", editorIndentSpaces);
 	ADDCMD("indent-tabs", editorIndentTabs);
 	ADDCMD("revert", editorRevert);
+	ADDCMD("whitespace-cleanup", editorWhitespaceCleanup);
 }
 
 void runCommand(char * cmd, struct editorConfig *ed, struct editorBuffer *buf) {
