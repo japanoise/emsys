@@ -60,7 +60,8 @@ static uint8_t *transformerPipeCmd(uint8_t *input) {
 void editorPipe(struct editorConfig *ed, struct editorBuffer *bf) {
 	buf = calloc(1, BUFSIZ + 1);
 	cmd = NULL;
-	cmd = editorPrompt(bf, (uint8_t*)"Pipe command: %s", NULL);
+	cmd = editorPrompt(bf, (uint8_t*)"Pipe command: %s",
+			   PROMPT_BASIC, NULL);
 	if (cmd == NULL) {
 		editorSetStatusMessage("Canceled pipe command.");
 		free(buf);

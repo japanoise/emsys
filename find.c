@@ -1,4 +1,5 @@
 #include "find.h"
+#include "emsys.h"
 
 void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 	static int last_match = -1;
@@ -54,7 +55,8 @@ void editorFind(struct editorBuffer *bufr) {
 	int saved_cy = bufr->cy;
 	int saved_rowoff = bufr->rowoff;
 
-	uint8_t *query = editorPrompt(bufr, "Search (C-g to cancel): %s", editorFindCallback);
+	uint8_t *query = editorPrompt(bufr, "Search (C-g to cancel): %s",
+				      PROMPT_BASIC, editorFindCallback);
 
 	bufr->query = NULL;
 	if (query) {

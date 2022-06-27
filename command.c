@@ -76,7 +76,8 @@ void editorIndentTabs(struct editorConfig *UNUSED(ed),
 
 void editorIndentSpaces(struct editorConfig *UNUSED(ed),
 		   struct editorBuffer *buf) {
-	uint8_t *indentS = editorPrompt(buf, "Set indentation to: %s", NULL);
+	uint8_t *indentS = editorPrompt(buf, "Set indentation to: %s",
+					PROMPT_BASIC, NULL);
 	if (indentS == NULL) {
 		goto cancel;
 	}
@@ -136,7 +137,7 @@ void editorReplaceString(struct editorConfig *ed,
 		   struct editorBuffer *buf) {
 	orig = NULL;
 	repl = NULL;
-	orig = editorPrompt(buf, "Replace: %s", NULL);
+	orig = editorPrompt(buf, "Replace: %s", PROMPT_BASIC, NULL);
 	if (orig == NULL) {
 		editorSetStatusMessage("Canceled replace-string.");
 		return;
@@ -144,7 +145,7 @@ void editorReplaceString(struct editorConfig *ed,
 
 	uint8_t *prompt = malloc(strlen(orig)+20);
 	sprintf(prompt, "Replace %s with: %%s", orig);
-	repl = editorPrompt(buf, prompt, NULL);
+	repl = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 	free(prompt);
 	if (repl == NULL) {
 		free(orig);
@@ -187,7 +188,7 @@ void editorQueryReplace(struct editorConfig *ed,
 			struct editorBuffer *buf) {
 	orig = NULL;
 	repl = NULL;
-	orig = editorPrompt(buf, "Query replace: %s", NULL);
+	orig = editorPrompt(buf, "Query replace: %s", PROMPT_BASIC, NULL);
 	if (orig == NULL) {
 		editorSetStatusMessage("Canceled query-replace.");
 		return;
@@ -195,7 +196,7 @@ void editorQueryReplace(struct editorConfig *ed,
 
 	uint8_t *prompt = malloc(strlen(orig)+25);
 	sprintf(prompt, "Query replace %s with: %%s", orig);
-	repl = editorPrompt(buf, prompt, NULL);
+	repl = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 	free(prompt);
 	if (repl == NULL) {
 		free(orig);
@@ -277,7 +278,7 @@ void editorQueryReplace(struct editorConfig *ed,
 		case CTRL('r'):
 			prompt = malloc(strlen(orig)+25);
 			sprintf(prompt, "Replace this %s with: %%s", orig);
-			newStr = editorPrompt(buf, prompt, NULL);
+			newStr = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 			free(prompt);
 			if (newStr == NULL) {
 				goto RESET_PROMPT;
@@ -294,7 +295,7 @@ void editorQueryReplace(struct editorConfig *ed,
 		case 'E':
 			prompt = malloc(strlen(orig)+25);
 			sprintf(prompt, "Query replace %s with: %%s", orig);
-			newStr = editorPrompt(buf, prompt, NULL);
+			newStr = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 			free(prompt);
 			if (newStr == NULL) {
 				goto RESET_PROMPT;

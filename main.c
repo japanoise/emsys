@@ -21,6 +21,7 @@
 #include"pipe.h"
 #include"region.h"
 #include"row.h"
+#include"tab.h"
 #include"transform.h"
 #include"undo.h"
 #include"unicode.h"
@@ -535,7 +536,7 @@ void editorOpen(struct editorBuffer *bufr, char *filename) {
 
 void editorSave(struct editorBuffer *bufr) {
 	if (bufr->filename==NULL) {
-		bufr->filename = editorPrompt(bufr, "Save as: %s", NULL);
+		bufr->filename = editorPrompt(bufr, "Save as: %s", PROMPT_FILES, NULL);
 		if (bufr->filename==NULL) {
 			editorSetStatusMessage("Save aborted.");
 			return;
@@ -841,7 +842,7 @@ void editorResume(int sig) {
 
 /*** input ***/
 
-uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt, void(*callback)(struct editorBuffer *, uint8_t *, int)) {
+uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt, enum promptType t, void(*callback)(struct editorBuffer *, uint8_t *, int)) {
 	size_t bufsize = 128;
 	uint8_t *buf = malloc(bufsize);
 
@@ -909,6 +910,20 @@ PROMPT_BACKSPACE:
 			buflen -= w;
 			bufwidth = stringWidth(buf);
 			break;
+		case CTRL('i'):
+			if (t == PROMPT_FILES) {
+				uint8_t *tc = tabCompleteFiles(&E, buf);
+				if (tc != buf) {
+					free(buf);
+					buf = tc;
+					buflen = strlen((char*)buf);
+					bufsize = buflen+1;
+					bufwidth = stringWidth(buf);
+					curs = buflen;
+					cursScr = bufwidth;
+				}
+			}
+			break;
 		case CTRL('a'):
 		case HOME_KEY:
 			curs = 0;
@@ -956,7 +971,7 @@ PROMPT_BACKSPACE:
 			break;
 		case UNICODE:;
 			buflen += E.nunicode;
-			if (buflen >= (bufsize-1)) {
+			if (buflen >= (bufsize-5)) {
 				bufsize *= 2;
 				buf = realloc(buf, bufsize);
 			}
@@ -980,7 +995,7 @@ PROMPT_BACKSPACE:
 			break;
 		default:
 			if (!ISCTRL(c) && c < 256) {
-				if (buflen >= bufsize - 1) {
+				if (buflen >= bufsize - 5) {
 					bufsize *= 2;
 					buf = realloc(buf, bufsize);
 				}
@@ -1513,7 +1528,7 @@ void editorProcessKeypress(int c) {
 		break;
 
 	case FIND_FILE:
-		prompt = editorPrompt(E.focusBuf, "Find File: %s", NULL);
+		prompt = editorPrompt(E.focusBuf, "Find File: %s", PROMPT_FILES, NULL);
 		if (prompt == NULL) {
 			editorSetStatusMessage("Canceled.");
 			break;
@@ -1665,7 +1680,7 @@ void editorProcessKeypress(int c) {
 		break;
 
 	case EXEC_CMD:;
-		uint8_t *cmd = editorPrompt(bufr, "cmd: %s", NULL);
+		uint8_t *cmd = editorPrompt(bufr, "cmd: %s", PROMPT_BASIC, NULL);
 		if (cmd != NULL) {
 			runCommand(cmd, &E, bufr);
 			free(cmd);
