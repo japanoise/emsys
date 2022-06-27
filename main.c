@@ -147,6 +147,8 @@ int editorReadKey() {
 				case 'B': return ARROW_DOWN;
 				case 'C': return ARROW_RIGHT;
 				case 'D': return ARROW_LEFT;
+				case 'F': return END_KEY;
+				case 'H': return HOME_KEY;
 				}
 			}
 		} else if ('0' <= seq[0] && seq[0] <= '9') {
