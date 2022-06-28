@@ -398,7 +398,11 @@ void editorDelChar(struct editorBuffer *bufr) {
 }
 
 void editorBackSpace(struct editorBuffer *bufr) {
-	if (bufr->cy == bufr->numrows) return;
+	if (!bufr->numrows) return;
+	if (bufr->cy == bufr->numrows) {
+		bufr->cx = bufr->row[--bufr->cy].size;
+		return;
+	}
 	if (bufr->cy == 0 && bufr->cx == 0) return;
 
 	erow *row = &bufr->row[bufr->cy];
