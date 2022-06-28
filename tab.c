@@ -1,14 +1,12 @@
 #include <glob.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include "emsys.h"
 #include "tab.h"
 #include "unicode.h"
 
-uint8_t *tabCompleteFiles(struct editorConfig *ed, uint8_t *prompt) {
+uint8_t *tabCompleteFiles(uint8_t *prompt) {
 	glob_t globlist;
 	uint8_t *ret = prompt;
 
@@ -35,24 +33,13 @@ uint8_t *tabCompleteFiles(struct editorConfig *ed, uint8_t *prompt) {
 	if (globlist.gl_pathc == 1)
 		goto TC_FILES_ACCEPT;
 
-	char cbuf[32];
 	int curw = stringWidth((uint8_t*)globlist.gl_pathv[cur]);
 
 	for (;;) {
 		editorSetStatusMessage("Multiple options: %s",
 				       globlist.gl_pathv[cur]);
 		editorRefreshScreen();
-
-		if (ed->nwindows == 1) {
-			snprintf(cbuf, sizeof(cbuf), CSI"%d;%dH", ed->screenrows,
-				 curw + 19);
-		} else {
-			int windowSize = (ed->screenrows-1)/ed->nwindows;
-			snprintf(cbuf, sizeof(cbuf), CSI"%d;%dH",
-				 (windowSize*ed->nwindows)+1,
-				 curw + 19);
-		}
-		write(STDOUT_FILENO, cbuf, strlen(cbuf));
+		editorCursorBottomLine(curw+19);
 
 		int c = editorReadKey();
 		switch (c) {

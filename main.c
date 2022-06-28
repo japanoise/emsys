@@ -810,6 +810,34 @@ void editorRefreshScreen() {
 	abFree(&ab);
 }
 
+void editorCursorBottomLine(int curs) {
+	char cbuf[32];
+	if (E.nwindows == 1) {
+		snprintf(cbuf, sizeof(cbuf), CSI"%d;%dH", E.screenrows,
+			 curs);
+	} else {
+		int windowSize = (E.screenrows-1)/E.nwindows;
+		snprintf(cbuf, sizeof(cbuf), CSI"%d;%dH",
+			 (windowSize*E.nwindows)+1,
+			 curs);
+	}
+	write(STDOUT_FILENO, cbuf, strlen(cbuf));
+}
+
+void editorCursorBottomLineLong(long curs) {
+	char cbuf[32];
+	if (E.nwindows == 1) {
+		snprintf(cbuf, sizeof(cbuf), CSI"%d;%ldH", E.screenrows,
+			 curs);
+	} else {
+		int windowSize = (E.screenrows-1)/E.nwindows;
+		snprintf(cbuf, sizeof(cbuf), CSI"%d;%ldH",
+			 (windowSize*E.nwindows)+1,
+			 curs);
+	}
+	write(STDOUT_FILENO, cbuf, strlen(cbuf));
+}
+
 void editorSetStatusMessage(const char *fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
@@ -855,7 +883,6 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt, enum promptTyp
 	size_t curs = 0;
 	size_t cursScr = 0;
 	buf[0] = 0;
-	char cbuf[32];
 
 	for (;;) {
 		editorSetStatusMessage(prompt, buf);
@@ -866,16 +893,7 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt, enum promptTyp
 			 curs, cursScr);
 		write(STDOUT_FILENO, dbg, strlen(dbg));
 #endif
-		if (E.nwindows == 1) {
-			snprintf(cbuf, sizeof(cbuf), CSI"%d;%ldH", E.screenrows,
-				 promptlen + cursScr + 1);
-		} else {
-			int windowSize = (E.screenrows-1)/E.nwindows;
-			snprintf(cbuf, sizeof(cbuf), CSI"%d;%ldH",
-				 (windowSize*E.nwindows)+1,
-				 promptlen + cursScr + 1);
-		}
-		write(STDOUT_FILENO, cbuf, strlen(cbuf));
+		editorCursorBottomLineLong(promptlen + cursScr + 1);
 
 		int c = editorReadKey();
 		switch (c) {
@@ -914,7 +932,7 @@ PROMPT_BACKSPACE:
 			break;
 		case CTRL('i'):
 			if (t == PROMPT_FILES) {
-				uint8_t *tc = tabCompleteFiles(&E, buf);
+				uint8_t *tc = tabCompleteFiles(buf);
 				if (tc != buf) {
 					free(buf);
 					buf = tc;

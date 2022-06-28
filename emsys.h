@@ -173,7 +173,11 @@ struct editorConfig {
 
 void editorSetStatusMessage(const char *fmt, ...);
 void editorRefreshScreen();
-uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt, enum promptType t, void (*callback)(struct editorBuffer *, uint8_t *, int));
+uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
+                      enum promptType t,
+                      void (*callback)(struct editorBuffer *, uint8_t *, int));
+void editorCursorBottomLine(int);
+void editorCursorBottomLineLong(long);
 void editorUpdateBuffer(struct editorBuffer *buf);
 void editorInsertNewline(struct editorBuffer *bufr);
 void editorInsertChar(struct editorBuffer *bufr, int c);

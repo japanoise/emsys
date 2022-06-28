@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 #include "emsys.h"
 #include "command.h"
 #include "region.h"
@@ -209,7 +208,6 @@ void editorQueryReplace(struct editorConfig *ed,
 	int bufwidth = stringWidth(prompt);
 	int savedMx = buf->markx;
 	int savedMy = buf->marky;
-	char cbuf[32];
 	struct editorUndo *first = buf->undo;
 	uint8_t *newStr = NULL;
 	buf->query = orig;
@@ -221,15 +219,7 @@ void editorQueryReplace(struct editorConfig *ed,
 	for (;;) {
 		editorSetStatusMessage(prompt);
 		editorRefreshScreen();
-		if (ed->nwindows == 1) {
-			snprintf(cbuf, sizeof(cbuf), CSI"%d;%dH",
-				 ed->screenrows, bufwidth + 2);
-		} else {
-			int windowSize = (ed->screenrows-1)/ed->nwindows;
-			snprintf(cbuf, sizeof(cbuf), CSI"%d;%dH",
-				 (windowSize*ed->nwindows)+1, bufwidth + 2);
-		}
-		write(STDOUT_FILENO, cbuf, strlen(cbuf));
+		editorCursorBottomLine(bufwidth + 2);
 
 		int c = editorReadKey();
 		switch (c) {
