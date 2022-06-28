@@ -199,6 +199,12 @@ file `bound.c`.
 * `C-x =` - Describe cursor position (displays information about character at
   point)
 
+## Forks
+
+* [By Nicholas Carroll](https://github.com/nicholascarroll/emsys) - personal
+  preference changes, pre-built Windows executable, some 'CUA'-type bindings
+  (`C-v` for yank/paste, `C-z` for undo).
+
 ## Copying
 
 Licensed MIT.
