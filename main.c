@@ -174,6 +174,8 @@ int editorReadKey() {
 				return DELETE_WORD;
 			case 'F':
 				return FORWARD_WORD;
+			case 'G':
+				return GOTO_LINE;
 			case 'H':
 				return BACKSPACE_WORD;
 			case 'L':
@@ -1236,6 +1238,33 @@ void editorForwardPara(struct editorBuffer *bufr) {
 	bufr->cy = bufr->numrows;
 }
 
+void editorGotoLine(struct editorBuffer *bufr) {
+	uint8_t *nls;
+	int nl;
+
+	for(;;) {
+		nls = editorPrompt(bufr, "Goto line: %s", PROMPT_BASIC, NULL);
+		if (!nls) {
+			return;
+		}
+
+		nl = atoi((char*)nls);
+		free(nls);
+
+		if (nl) {
+			bufr->cx = 0;
+			if (nl < 0) {
+				bufr->cy = 0;
+			} else if (nl > bufr->numrows) {
+				bufr->cy = bufr->numrows;
+			} else {
+				bufr->cy = nl;
+			}
+			return;
+		}
+	}
+}
+
 void editorTransposeWords(struct editorConfig *ed, struct editorBuffer *bufr) {
 	if (bufr->numrows == 0) {
 		editorSetStatusMessage("Buffer is empty");
@@ -1693,6 +1722,10 @@ void editorProcessKeypress(int c) {
 
 	case QUERY_REPLACE:
 		editorQueryReplace(&E, bufr);
+		break;
+
+	case GOTO_LINE:
+		editorGotoLine(bufr);
 		break;
 
 	case CTRL('x'):

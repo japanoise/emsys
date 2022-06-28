@@ -133,6 +133,7 @@ Control-x, `M-x` means Alt-x or Escape then x).
 * `C-v` or PGDN - Move cursor down a page/screen
 * `C-z` or `M-v` or PGUP - Move cursor up a page/screen
 * `C-s` - *S*earch
+* `M-g` - *G*oto line number
 
 ### Text Editing
 

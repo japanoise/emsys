@@ -80,7 +80,8 @@ enum editorKey {
 	FIND_FILE,
 	WHAT_CURSOR,
 	PIPE_CMD,
-	QUERY_REPLACE
+	QUERY_REPLACE,
+	GOTO_LINE,
 };
 
 enum promptType {
