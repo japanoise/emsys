@@ -876,7 +876,7 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt, enum promptTyp
 	size_t bufsize = 128;
 	uint8_t *buf = malloc(bufsize);
 
-	int promptlen = strlen(prompt) - 2;
+	int promptlen = stringWidth(prompt) - 2;
 
 	size_t buflen = 0;
 	size_t bufwidth = 0;
