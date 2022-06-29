@@ -1065,6 +1065,8 @@ void editorMoveCursor(struct editorBuffer *bufr, int key) {
 	case ARROW_UP:
 		if (bufr->cy > 0) {
 			bufr->cy--;
+			if (bufr->row[bufr->cy].chars == NULL)
+				break;
 			while (utf8_isCont(bufr->row[bufr->cy].chars[bufr->cx]))
 				bufr->cx++;
 		}
@@ -1073,6 +1075,8 @@ void editorMoveCursor(struct editorBuffer *bufr, int key) {
 		if (bufr->cy < bufr->numrows) {
 			bufr->cy++;
 			if (bufr->cy < bufr->numrows) {
+				if (bufr->row[bufr->cy].chars == NULL)
+					break;
 				while (utf8_isCont(bufr->row[bufr->cy].chars[bufr->cx]))
 					bufr->cx++;
 			}
