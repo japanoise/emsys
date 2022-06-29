@@ -10,6 +10,10 @@ void editorSetMark(struct editorBuffer *buf) {
 	buf->markx = buf->cx;
 	buf->marky = buf->cy;
 	editorSetStatusMessage("Mark set.");
+	if (buf->marky >= buf->numrows) {
+		buf->marky = buf->numrows - 1;
+		buf->markx = buf->row[buf->marky].size;
+	}
 }
 
 static int markInvalid(struct editorBuffer *buf) {
@@ -25,8 +29,8 @@ static int markInvalid(struct editorBuffer *buf) {
 	return ret;
 }
 
-/* put cx,cy first */
 static void validateRegion(struct editorBuffer *buf) {
+	/* Put cx,cy first */
 	if (buf->cy > buf->marky || (buf->cy == buf->marky && buf->cx > buf->markx)) {
 		int swapx, swapy;
 		swapx = buf->cx;
@@ -35,6 +39,11 @@ static void validateRegion(struct editorBuffer *buf) {
 		buf->cx = buf->markx;
 		buf->markx = swapx;
 		buf->marky = swapy;
+	}
+	/* Make sure mark is not outside buffer */
+	if (buf->marky >= buf->numrows) {
+		buf->marky = buf->numrows - 1;
+		buf->markx = buf->row[buf->marky].size;
 	}
 }
 
