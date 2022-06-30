@@ -22,7 +22,12 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 	prompt[end+1] = 0;
 #endif
 
-	if (glob((char*)prompt, 0, NULL, &globlist))
+#ifndef GLOB_TILDE
+	/* This isn't in POSIX, so define a fallback. */
+#define GLOB_TILDE 0
+#endif
+
+	if (glob((char*)prompt, GLOB_TILDE|GLOB_MARK, NULL, &globlist))
 		goto TC_FILES_CLEANUP;
 
 	size_t cur = 0;
