@@ -380,6 +380,82 @@ void editorInsertNewlineAndIndent(struct editorBuffer *bufr) {
 	}
 }
 
+void editorIndent(struct editorBuffer *bufr, int rept) {
+	int ocx = bufr->cx;
+	int indWidth = 1;
+	if (bufr->indent) {
+		indWidth = bufr->indent;
+	}
+	bufr->cx = 0;
+	for (int i = 0; i < rept; i++) {
+		if (bufr->indent) {
+			for(int i = 0; i < bufr->indent; i++) {
+				editorUndoAppendChar(bufr, ' ');
+				editorInsertChar(bufr, ' ');
+			}
+		} else {
+			editorUndoAppendChar(bufr, '\t');
+			editorInsertChar(bufr, '\t');
+		}
+	}
+	bufr->cx = ocx + indWidth*rept;
+}
+
+void editorUnindent(struct editorBuffer *bufr, int rept) {
+	if (bufr->cy >= bufr->numrows) {
+		editorSetStatusMessage("End of buffer.");
+		return;
+	}
+
+	/* Setup for indent mode */
+	int indWidth = 1;
+	char indCh = '\t';
+	struct erow *row = &bufr->row[bufr->cy];
+	if (bufr->indent) {
+		indWidth = bufr->indent;
+		indCh = ' ';
+	}
+
+	/* Calculate size of unindent */
+	int trunc = 0;
+	for (int i = 0; i < rept; i++) {
+		for (int j = 0; j < indWidth; j++) {
+			if (row->chars[trunc] != indCh)
+				goto UNINDENT_PERFORM;
+			trunc++;
+		}
+	}
+
+UNINDENT_PERFORM:
+	if (trunc == 0)
+		return;
+
+	/* Create undo */
+	struct editorUndo *new = newUndo();
+	new->prev = bufr->undo;
+	new->startx = 0;
+	new->starty = bufr->cy;
+	new->endx = trunc;
+	new->endy = bufr->cy;
+	new->delete = 1;
+	new->append = 0;
+	bufr->undo = new;
+	if (new->datasize < trunc-1) {
+		new->datasize = trunc+1;
+		new->data = realloc(new->data, new->datasize);
+	}
+	memset(new->data, indCh, trunc);
+	new->data[trunc] = 0;
+	new->datalen = trunc;
+
+	/* Perform row operation & dirty buffer */
+	memmove(&row->chars[0], &row->chars[trunc], row->size - trunc);
+	row->size -= trunc;
+	bufr->cx -= trunc;
+	editorUpdateRow(row);
+	bufr->dirty = 1;
+}
+
 void editorDelChar(struct editorBuffer *bufr) {
 	if (bufr->cy == bufr->numrows) return;
 	if (bufr->cy == bufr->numrows - 1 &&
@@ -1500,17 +1576,7 @@ void editorProcessKeypress(int c) {
 		}
 		break;
 	case CTRL('i'):
-		for (int i = 0; i < rept; i++) {
-			if (bufr->indent) {
-				for(int i = 0; i < bufr->indent; i++) {
-					editorUndoAppendChar(bufr, ' ');
-					editorInsertChar(bufr, ' ');
-				}
-			} else {
-				editorUndoAppendChar(bufr, c);
-				editorInsertChar(bufr, c);
-			}
-		}
+		editorIndent(bufr, rept);
 		break;
 	case CTRL('_'):
 		for (int i = 0; i < rept; i++) {
@@ -1766,7 +1832,7 @@ void editorProcessKeypress(int c) {
 		break;
 
 	case BACKTAB:
-		editorSetStatusMessage("Unknown command BACKTAB");
+		editorUnindent(bufr, rept);
 		break;
 
 	default:

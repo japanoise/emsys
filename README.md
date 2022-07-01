@@ -145,6 +145,10 @@ Control-x, `M-x` means Alt-x or Escape then x).
 * `C-y` - Yank (paste)
 * `M-|` - Filter region through shell command. This even works with pipes!
 * `C-j` - Insert a newline and indent (indentation copied from previous line)
+* `C-i` (TAB) - Indent current line by either one tab or the current space
+  indentation level. To insert a literal tab, `C-q C-i`
+* SHIFT-TAB/BACKTAB - Unindent current line by either one tab or the current
+  space indentation level.
 * BACKSPACE - Delete backwards
 * `C-d` or DELETE - Delete forwards
 * `M-BACKSPACE` - Delete backwards word
