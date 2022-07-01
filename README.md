@@ -104,9 +104,9 @@ Control-x, `M-x` means Alt-x or Escape then x).
 
 * Buffer = An open file or pseudo-file which can be typed into
 * Window = A section on the screen displaying a buffer
-* Mark = The start or end of the region (where the end or start is the
-  current cursor position)
-* Region = The area between the cursor and the mark
+* Point = The position of the cursor in the file
+* Mark = A position in the file marked using `C-@`
+* Region = The area between point and mark
 
 ### Basic Commands
 
@@ -140,6 +140,7 @@ Control-x, `M-x` means Alt-x or Escape then x).
 * `C-_` - Undo (this is Control-/ on most terminals)
 *  `C-x C-_` - Redo (keep pressing `C-_` to keep redoing)
 * `C-@` - Set mark (this is Control-SPACE on most terminals)
+* `C-x C-x` - Swap mark and point
 * `C-w` - Kill (cut) current region
 * `M-w` - Copy current region
 * `C-y` - Yank (paste)

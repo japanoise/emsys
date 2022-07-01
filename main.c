@@ -225,6 +225,8 @@ int editorReadKey() {
 			return FIND_FILE;
 		} else if (seq[0] == CTRL('_')) {
 			return REDO;
+		} else if (seq[0] == CTRL('x')) {
+			return SWAP_MARK;
 		} else if (seq[0] == 'b' || seq[0] == 'B' || seq[0] == CTRL('b')) {
 			return SWITCH_BUFFER;
 		} else if (seq[0]=='o' || seq[0]=='O') {
@@ -1833,6 +1835,15 @@ void editorProcessKeypress(int c) {
 
 	case BACKTAB:
 		editorUnindent(bufr, rept);
+		break;
+
+	case SWAP_MARK:;
+		int swapx = bufr->cx;
+		int swapy = bufr->cy;
+		bufr->cx = bufr->markx;
+		bufr->cy = bufr->marky;
+		bufr->markx = swapx;
+		bufr->marky = swapy;
 		break;
 
 	default:

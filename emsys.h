@@ -83,6 +83,7 @@ enum editorKey {
 	QUERY_REPLACE,
 	GOTO_LINE,
 	BACKTAB,
+	SWAP_MARK,
 };
 
 enum promptType {
