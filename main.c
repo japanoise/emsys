@@ -150,6 +150,7 @@ int editorReadKey() {
 				case 'D': return ARROW_LEFT;
 				case 'F': return END_KEY;
 				case 'H': return HOME_KEY;
+				case 'Z': return BACKTAB;
 				}
 			}
 		} else if ('0' <= seq[0] && seq[0] <= '9') {
@@ -1762,6 +1763,10 @@ void editorProcessKeypress(int c) {
 	case CTRL('g'):
 		/* Expected behavior */
 		editorSetStatusMessage("Quit");
+		break;
+
+	case BACKTAB:
+		editorSetStatusMessage("Unknown command BACKTAB");
 		break;
 
 	default:

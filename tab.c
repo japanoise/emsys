@@ -61,6 +61,14 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 			}
 			curw = stringWidth((uint8_t*)globlist.gl_pathv[cur]);
 			break;
+		case BACKTAB:
+			if (cur == 0) {
+				cur = globlist.gl_pathc - 1;
+			} else {
+				cur--;
+			}
+			curw = stringWidth((uint8_t*)globlist.gl_pathv[cur]);
+			break;
 		case CTRL('g'):
 			goto TC_FILES_CLEANUP;
 			break;

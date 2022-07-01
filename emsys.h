@@ -82,6 +82,7 @@ enum editorKey {
 	PIPE_CMD,
 	QUERY_REPLACE,
 	GOTO_LINE,
+	BACKTAB,
 };
 
 enum promptType {
