@@ -1,74 +1,39 @@
-# emsys - emacs-family editor for msys
+# emsys - ersatz-emacs text editor
 
-[Gomacs][gomacs]' little sister - lighter, more compatible. As before, based
-on the [tutorial][tutorial].
+An ersatz-emacs text editor for unix-like systems (and msys, hence the name!)
+with no dependencies. It's not much, but it punches above its weight class!
 
-## Why you might want to try it
+## Pros
 
-emsys gives you an editor with Emacs keybindings without having to use full-on
-Emacs - useful if you're used to the Vi(m) way of relying more on the shell than
-the editor's features for advanced tasks, but hate modal editors or prefer Emacs
-bindings.
+* Small terminal executable editor with Emacs keybindings
+* Supports many useful Emacs features like infinite undo, filtering regions,
+  keyboard macros, etc.
+* Simple codebase based on the venerable tutorial [Build Your Own Text
+  Editor][tutorial].
+* Decent UTF-8 support out of the box with no configuration.
+* No dependencies, just a VT100/xterm-type terminal and termios.h to build.
 
-emsys is very hackable. Being based on [Build Your Own Text Editor][tutorial],
-the basic internals of the editor are very well documented and a small community
-exists around hacking on very similar editors. The code is laid out quite
-logically, and I'm working on moving it into separate files with a logical
-layout so there's no hunt-the-function rubbish going on. It uses the very simple
-and logical "array of rows" data structure rather than the confusing ropes, gap
-buffer, or mmap data structures.
+## Cons
 
-emsys supports UTF-8 editing out of the box. UTF-8 bugs are the highest priority
-tickets to fix besides crashes or corruption.
-
-emsys is compatible with any unix-like environment that uses VT100/xterm escape
-characters. The name actually comes from its intended use-case in my own setup -
-as the "em" that will turn up on msys2. msys2 compatibility is thus another high
-priority. If you've tried to use Godit, Gomacs, or uemacs on msys2 and run into
-trouble, this is the editor for you!
-
-If you care about that sort of thing, emsys is very small - as of 1bd6009 only
-41k unstripped on my x86_64 Linux box, a little less than ed (the standard text
-editor) but a little more than the world's smallest,
-[e](https://github.com/japanoise/e).  A feature planned in future will be
-release builds that you can easily wget onto a box run by a luddite sysadmin
-that only installed Vi(m).
-
-On topic with that, emsys has very little in the way of dependencies - to build,
-just a C compiler, standard library, and a termios - none for runtime. I'm
-thinking maybe of using PCRE2 for more advanced features, but that's installed
-basically everywhere anyway. Other than that, any new features added will
-endeavor to only introduce single-header libraries at most.
-
-## Why you might hate it
-
-emsys is, like many in the ersatz-emacs sphere, "religious". This means:
-
-* There's no configuration except through editing the source code (I may go for
-  a config.h header like suckless)
+* No configuration except through editing the source code
 * Lines in files are always separated by one linefeed (\n, ^J), including a
   final LF at the end of the file.
 * Files and keyboard input are always in the One True Encoding, UTF-8.
 * Files are plain text and do not contain nulls (though they may contain other
   control characters)
-* Files are not outrageously huge (there's specialist tools for those)
-* Features are "put up or hack up" - I am very welcoming of good PRs. Let's work
-  together to get the new feature you wrote into the editor - but I will not do
-  it for you.
-  
-emsys currently has some minor bugs around rendering; nothing serious, they
-could likely be fixed by a steady hand that took the time to understand the
-code. They don't bother me too much for now, so I'm leaving them alone until
-they do.
+* Files are loaded entirely into memory using the "array of lines" data
+  structure, making emsys unsuitable for large files or those that don't fit in
+  memory (use [joe](https://joe-editor.sourceforge.io/) in Emacs emulation mode)
 
-Features I don't currently plan to support:
+## Anti-features
 
 - Syntax highlighting - too complex, would bloat the executable. I am open to a
   good PR, though.
 - Vi(m) keys - just use vim. If you care about space or dependencies or
   whatever, you can use elvis or busybox vi or something. If you fork and make a
   vi version, however, open a ticket and I will link it here.
-- Lisp - just use Real Emacs™ or [Gomacs][gomacs].
+- Lisp - just use [Real Emacs™](https://www.gnu.org/software/emacs/) or
+  [Gomacs][gomacs].
 - Horizontal splits - it would complicate the rendering code, especially if I
   continue to support multilines. Explore the [Gomacs][gomacs] commit/issue
   history if you don't believe me!
