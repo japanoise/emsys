@@ -105,10 +105,22 @@ void enableRawMode() {
 		die("enableRawMode tcsetattr");
 }
 
+void editorDeserializeUnicode() {
+	E.unicode[0] = E.macro.keys[E.playback++];
+	E.nunicode = utf8_nBytes(E.unicode[0]);
+	for (int i = 1; i < E.nunicode; i++) {
+		E.unicode[i] = E.macro.keys[E.playback++];
+	}
+}
+
 /* Raw reading a keypress */
 int editorReadKey() {
 	if (E.playback) {
-		return E.macro.keys[E.playback++];
+		int ret = E.macro.keys[E.playback++];
+		if (ret == UNICODE) {
+			editorDeserializeUnicode();
+		}
+		return ret;
 	}
 	int nread;
 	uint8_t c;
@@ -581,6 +593,17 @@ void editorRecordKey(int c) {
 				E.macro.keys,
 				E.macro.skeys * sizeof (int));
 		}
+		if (c == UNICODE) {
+			for (int i = 0; i < E.nunicode; i++) {
+				E.macro.keys[E.macro.nkeys++] = E.unicode[i];
+				if (E.macro.nkeys>=E.macro.skeys) {
+					E.macro.skeys *= 2;
+					E.macro.keys = realloc(
+						E.macro.keys,
+						E.macro.skeys * sizeof (int));
+				}
+			}
+		}
 	}
 }
 
@@ -803,6 +826,12 @@ void editorDrawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
 			bufr->undo->endy,
 			bufr->cx,
 			bufr->cy);
+	}
+#endif
+#ifdef EMSYS_DEBUG_MACROS
+	/* This can get quite wide, you may want to boost the size of status */
+	for (int i = 0; i < E.macro.nkeys; i++) {
+		len += sprintf(&status[len], "%d: %d ", i, E.macro.keys[i]);
 	}
 #endif
 
@@ -2003,6 +2032,9 @@ int main(int argc, char *argv[]) {
 				/* HACK: increment here, so that
 				 * readkey sees playback != 0 */
 				int key = E.macro.keys[E.playback++];
+				if (key == UNICODE) {
+					editorDeserializeUnicode();
+				}
 				editorProcessKeypress(key);
 			}
 			E.playback = 0;
