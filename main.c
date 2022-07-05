@@ -107,6 +107,9 @@ void enableRawMode() {
 
 /* Raw reading a keypress */
 int editorReadKey() {
+	if (E.playback) {
+		return E.macro.keys[E.playback++];
+	}
 	int nread;
 	uint8_t c;
 	while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
@@ -569,6 +572,18 @@ void editorKillLineBackwards(struct editorBuffer *bufr) {
 	bufr->dirty = 1;
 }
 
+void editorRecordKey(int c) {
+	if (E.recording) {
+		E.macro.keys[E.macro.nkeys++] = c;
+		if (E.macro.nkeys>=E.macro.skeys) {
+			E.macro.skeys *= 2;
+			E.macro.keys = realloc(
+				E.macro.keys,
+				E.macro.skeys * sizeof (int));
+		}
+	}
+}
+
 /*** file i/o ***/
 
 char *editorRowsToString(struct editorBuffer *bufr, int *buflen) {
@@ -979,6 +994,7 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt, enum promptTyp
 		editorCursorBottomLineLong(promptlen + cursScr + 1);
 
 		int c = editorReadKey();
+		editorRecordKey(c);
 		switch (c) {
 		case '\r':
 			if (buflen != 0) {
@@ -1487,6 +1503,9 @@ void editorProcessKeypress(int c) {
 		editorRecenter(bufr);
 		break;
 	case QUIT:
+		if (E.recording) {
+			E.recording = 0;
+		}
 		if (bufr->dirty) {
 			editorSetStatusMessage(
 				"%.20s has unsaved changes, really quit? Y/N",
@@ -1907,6 +1926,7 @@ void initEditor() {
 	E.macro.nkeys = 0;
 	E.macro.keys = NULL;
 	E.micro = 0;
+	E.playback = 0;
 	setupCommands(&E);
 
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
@@ -1978,20 +1998,17 @@ int main(int argc, char *argv[]) {
 					"Keyboard macro defined");
 				E.recording = 0;
 			}
-			for (int idx = 0; idx < E.macro.nkeys; idx++) {
-				editorProcessKeypress(E.macro.keys[idx]);
+			E.playback = 0;
+			while (E.playback < E.macro.nkeys) {
+				/* HACK: increment here, so that
+				 * readkey sees playback != 0 */
+				int key = E.macro.keys[E.playback++];
+				editorProcessKeypress(key);
 			}
+			E.playback = 0;
 			E.micro = MACRO_EXEC;
 		} else {
-			if (E.recording) {
-				E.macro.keys[E.macro.nkeys++] = c;
-				if (E.macro.nkeys>=E.macro.skeys) {
-					E.macro.skeys *= 2;
-					E.macro.keys = realloc(
-						E.macro.keys,
-						E.macro.skeys * sizeof (int));
-				}
-			}
+			editorRecordKey(c);
 			editorProcessKeypress(c);
 		}
 	}

@@ -222,6 +222,7 @@ void editorQueryReplace(struct editorConfig *ed,
 		editorCursorBottomLine(bufwidth + 2);
 
 		int c = editorReadKey();
+		editorRecordKey(c);
 		switch (c) {
 		case ' ':
 		case 'y':

@@ -167,6 +167,7 @@ struct editorConfig {
 	struct editorWindow **windows;
 	int recording;
 	struct editorMacro macro;
+	int playback;
 	int micro;
 	struct editorCommand *cmd;
 };
@@ -188,6 +189,7 @@ void die(const char *s);
 struct editorBuffer *newBuffer();
 void destroyBuffer(struct editorBuffer *);
 int editorReadKey();
+void editorRecordKey(int c);
 void editorRecenter(struct editorBuffer *);
 
 #endif
