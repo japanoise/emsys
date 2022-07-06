@@ -20,6 +20,7 @@
 #include"find.h"
 #include"pipe.h"
 #include"region.h"
+#include"register.h"
 #include"row.h"
 #include"tab.h"
 #include"transform.h"
@@ -264,6 +265,36 @@ int editorReadKey() {
 			return UPCASE_REGION;
 		} else if (seq[0]=='l' || seq[0]=='L' || seq[0]==CTRL('l')) {
 			return DOWNCASE_REGION;
+		} else if (seq[0]=='r' || seq[0]=='R') {
+			if (read(STDIN_FILENO, &seq[1], 1) != 1)
+				goto CX_UNKNOWN;
+			switch (seq[1]) {
+			case 'j':
+			case 'J':
+				return JUMP_REGISTER;
+			case 'a':
+			case 'A':
+			case 'm':
+			case 'M':
+				return MACRO_REGISTER;
+			case CTRL('@'):
+			case ' ':
+				return POINT_REGISTER;
+			case 'n':
+			case 'N':
+				return NUMBER_REGISTER;
+			case 's':
+			case 'S':
+				return REGION_REGISTER;
+			case '+':
+				return INC_REGISTER;
+			case 'i':
+			case 'I':
+				return INSERT_REGISTER;
+			case 'v':
+			case 'V':
+				return VIEW_REGISTER;
+			}
 		} else if (seq[0]=='=') {
 			return WHAT_CURSOR;
 		}
@@ -1894,6 +1925,31 @@ void editorProcessKeypress(int c) {
 		bufr->marky = swapy;
 		break;
 
+	case JUMP_REGISTER:
+		editorJumpToRegister(&E);
+		break;
+	case MACRO_REGISTER:
+		editorMacroToRegister(&E);
+		break;
+	case POINT_REGISTER:
+		editorPointToRegister(&E);
+		break;
+	case NUMBER_REGISTER:
+		editorNumberToRegister(&E, rept);
+		break;
+	case REGION_REGISTER:
+		editorRegionToRegister(&E, bufr);
+		break;
+	case INC_REGISTER:
+		editorIncrementRegister(&E, bufr);
+		break;
+	case INSERT_REGISTER:
+		editorInsertRegister(&E, bufr);
+		break;
+	case VIEW_REGISTER:
+		editorViewRegister(&E, bufr);
+		break;
+
 	default:
 		if (ISCTRL(c)) {
 			editorSetStatusMessage("Unknown command C-%c", c|0x60);
@@ -1956,9 +2012,35 @@ void initEditor() {
 	E.macro.keys = NULL;
 	E.micro = 0;
 	E.playback = 0;
+	memset(E.registers, 0, sizeof(E.registers));
 	setupCommands(&E);
 
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
+}
+
+void editorExecMacro(struct editorMacro *macro) {
+	struct editorMacro tmp;
+	tmp.keys = NULL;
+	if (macro != &E.macro) {
+		/* HACK: Annoyance here with readkey needs us to futz
+		 * around with E.macro */
+		memcpy(&tmp, &E.macro, sizeof(struct editorMacro));
+		memcpy(&E.macro, macro, sizeof(struct editorMacro));
+	}
+	E.playback = 0;
+	while (E.playback < E.macro.nkeys) {
+		/* HACK: increment here, so that
+		 * readkey sees playback != 0 */
+		int key = E.macro.keys[E.playback++];
+		if (key == UNICODE) {
+			editorDeserializeUnicode();
+		}
+		editorProcessKeypress(key);
+	}
+	E.playback = 0;
+	if (tmp.keys != NULL) {
+		memcpy(&E.macro, &tmp, sizeof(struct editorMacro));
+	}
 }
 
 int main(int argc, char *argv[]) {
@@ -2027,17 +2109,7 @@ int main(int argc, char *argv[]) {
 					"Keyboard macro defined");
 				E.recording = 0;
 			}
-			E.playback = 0;
-			while (E.playback < E.macro.nkeys) {
-				/* HACK: increment here, so that
-				 * readkey sees playback != 0 */
-				int key = E.macro.keys[E.playback++];
-				if (key == UNICODE) {
-					editorDeserializeUnicode();
-				}
-				editorProcessKeypress(key);
-			}
-			E.playback = 0;
+			editorExecMacro(&E.macro);
 			E.micro = MACRO_EXEC;
 		} else {
 			editorRecordKey(c);

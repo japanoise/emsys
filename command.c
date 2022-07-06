@@ -6,6 +6,7 @@
 #include "emsys.h"
 #include "command.h"
 #include "region.h"
+#include "register.h"
 #include "row.h"
 #include "transform.h"
 #include "undo.h"
@@ -367,6 +368,7 @@ void setupCommands(struct editorConfig *ed) {
 	ADDCMD("indent-tabs", editorIndentTabs);
 	ADDCMD("revert", editorRevert);
 	ADDCMD("whitespace-cleanup", editorWhitespaceCleanup);
+	ADDCMD("view-register", editorViewRegister);
 }
 
 void runCommand(char * cmd, struct editorConfig *ed, struct editorBuffer *buf) {

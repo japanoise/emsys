@@ -2,7 +2,7 @@ PROGNAME=emsys
 PREFIX=/usr/local
 VERSION?=git-$(shell git rev-parse --short HEAD)
 BINDIR=$(PREFIX)/bin
-OBJECTS=main.o wcwidth.o unicode.o row.o region.o undo.o transform.o bound.o command.o find.o pipe.o tab.o
+OBJECTS=main.o wcwidth.o unicode.o row.o region.o undo.o transform.o bound.o command.o find.o pipe.o tab.o register.o
 CFLAGS+=-Wall -Wextra -pedantic -Wno-pointer-sign -Werror=incompatible-pointer-types -DEMSYS_BUILD_DATE=\"$(shell date '+%Y-%m-%dT%H:%M:%S%z')\" -DEMSYS_VERSION=\"$(VERSION)\"
 
 all: $(PROGNAME)

@@ -4,6 +4,8 @@
 #include<stdint.h>
 #include"emsys.h"
 
+int markInvalid(struct editorBuffer *buf);
+
 void editorSetMark(struct editorBuffer *buf);
 
 void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf);

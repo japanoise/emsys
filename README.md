@@ -168,6 +168,21 @@ file `bound.c`.
   use `sed`, `go fmt`, etc. to do text operations on files.
 * `C-x =` - Describe cursor position (displays information about character at
   point)
+  
+#### Registers
+
+Registers let you store a point, string (region), number, or keyboard
+macro. Every register has a name, which must be one ASCII character (including
+control characters, except `C-g` since that's the universal cancel button).
+
+* `C-x r j` - *J*ump to point stored in register
+* `C-x r a` - Store m*a*cro in register. Also `C-x r m`, for now at least.
+* `C-x r n` - Store *n*umber (i.e. universal argument entered with alt-numbers)
+  in register.
+* `C-x r C-@` or `C-x r SPACE` - Store point in register.
+* `C-x r s` - Store region (*s*tring) in register.
+* `C-x r +` - Increment number in register, or add region to string in register.
+* `C-x r v` or `M-x view-register` - View contents of register.
 
 ## Forks
 

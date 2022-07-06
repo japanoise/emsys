@@ -84,6 +84,14 @@ enum editorKey {
 	GOTO_LINE,
 	BACKTAB,
 	SWAP_MARK,
+	JUMP_REGISTER,
+	MACRO_REGISTER,
+	POINT_REGISTER,
+	NUMBER_REGISTER,
+	REGION_REGISTER,
+	INC_REGISTER,
+	INSERT_REGISTER,
+	VIEW_REGISTER,
 };
 
 enum promptType {
@@ -152,6 +160,32 @@ struct editorCommand {
 	UT_hash_handle hh;
 };
 
+enum registerType {
+	REGISTER_NULL,
+	REGISTER_REGION,
+	REGISTER_NUMBER,
+	REGISTER_POINT,
+	REGISTER_MACRO,
+};
+
+struct editorPoint {
+	int cx;
+	int cy;
+	struct editorBuffer *buf;
+};
+
+union registerData {
+	uint8_t *region;
+	int64_t number;
+	struct editorMacro *macro;
+	struct editorPoint *point;
+};
+
+struct editorRegister {
+	enum registerType rtype;
+	union registerData rdata;
+};
+
 struct editorConfig {
 	uint8_t *kill;
 	int screenrows;
@@ -170,6 +204,7 @@ struct editorConfig {
 	int playback;
 	int micro;
 	struct editorCommand *cmd;
+	struct editorRegister registers[127];
 };
 
 /*** prototypes ***/
@@ -191,5 +226,6 @@ void destroyBuffer(struct editorBuffer *);
 int editorReadKey();
 void editorRecordKey(int c);
 void editorRecenter(struct editorBuffer *);
+void editorExecMacro(struct editorMacro *macro);
 
 #endif

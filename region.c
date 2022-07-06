@@ -16,7 +16,7 @@ void editorSetMark(struct editorBuffer *buf) {
 	}
 }
 
-static int markInvalid(struct editorBuffer *buf) {
+int markInvalid(struct editorBuffer *buf) {
 	int ret = (buf->markx < 0 || buf->marky < 0 || buf->numrows == 0 ||
 		   buf->marky >= buf->numrows ||
 		   buf->markx > (buf->row[buf->marky].size) ||
@@ -97,7 +97,7 @@ void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 }
 
 void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf) {
-	if (markInvalid(buf)) return;
+	if (markInvalid(buf)) return; 
 	int origCx = buf->cx;
 	int origCy = buf->cy;
 	int origMarkx = buf->markx;
