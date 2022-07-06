@@ -1621,7 +1621,7 @@ void editorProcessKeypress(int c) {
 		break;
 	case END_KEY:
 	case CTRL('e'):
-		if (bufr->row != NULL) {
+		if (bufr->row != NULL && bufr->cy < bufr->numrows) {
 			bufr->cx = bufr->row[bufr->cy].size;
 		}
 		break;
@@ -1916,13 +1916,16 @@ void editorProcessKeypress(int c) {
 		editorUnindent(bufr, rept);
 		break;
 
-	case SWAP_MARK:;
-		int swapx = bufr->cx;
-		int swapy = bufr->cy;
-		bufr->cx = bufr->markx;
-		bufr->cy = bufr->marky;
-		bufr->markx = swapx;
-		bufr->marky = swapy;
+	case SWAP_MARK:
+		if (0 < bufr->markx &&
+		    (0 < bufr->marky && bufr->marky < bufr->numrows)) {
+			int swapx = bufr->cx;
+			int swapy = bufr->cy;
+			bufr->cx = bufr->markx;
+			bufr->cy = bufr->marky;
+			bufr->markx = swapx;
+			bufr->marky = swapy;
+		}
 		break;
 
 	case JUMP_REGISTER:
