@@ -192,6 +192,9 @@ struct editorRegister {
 
 struct editorConfig {
 	uint8_t *kill;
+	uint8_t *rectKill;
+	int rx;
+	int ry;
 	int screenrows;
 	int screencols;
 	uint8_t unicode[4];

@@ -2044,6 +2044,7 @@ void destroyBuffer(struct editorBuffer *buf) {
 void initEditor() {
 	E.minibuffer[0] = 0;
 	E.kill = NULL;
+	E.rectKill = NULL;
 	E.windows = malloc(sizeof(struct editorWindow *)*1);
 	E.windows[0] = malloc(sizeof(struct editorWindow));
 	E.windows[0]->focused = 1;
