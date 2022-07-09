@@ -859,19 +859,24 @@ void editorDrawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
 			       bufr->cy+1, bufr->cx);
 	}
 #ifdef EMSYS_DEBUG_UNDO
-	if (bufr->undo != NULL) {
+	#ifdef EMSYS_DEBUG_REDO
+	#define DEBUG_UNDO bufr->redo
+	#else
+	#define DEBUG_UNDO bufr->undo
+	#endif
+	if (DEBUG_UNDO != NULL) {
 		len = 0;
-		for (len = 0; len < bufr->undo->datalen; len++) {
-			status[len] = bufr->undo->data[len];
-			if (bufr->undo->data[len] == '\n')
+		for (len = 0; len < DEBUG_UNDO->datalen; len++) {
+			status[len] = DEBUG_UNDO->data[len];
+			if (DEBUG_UNDO->data[len] == '\n')
 				status[len] = '#';
 		}
 		status[len++] = '"';
 		len += sprintf(&status[len], "sx %d sy %d ex %d ey %d cx %d cy %d",
-			bufr->undo->startx,
-			bufr->undo->starty,
-			bufr->undo->endx,
-			bufr->undo->endy,
+			DEBUG_UNDO->startx,
+			DEBUG_UNDO->starty,
+			DEBUG_UNDO->endx,
+			DEBUG_UNDO->endy,
 			bufr->cx,
 			bufr->cy);
 	}
