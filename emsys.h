@@ -92,6 +92,10 @@ enum editorKey {
 	INC_REGISTER,
 	INSERT_REGISTER,
 	VIEW_REGISTER,
+	STRING_RECT,
+	COPY_RECT,
+	KILL_RECT,
+	YANK_RECT,
 };
 
 enum promptType {

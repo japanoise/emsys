@@ -269,6 +269,13 @@ int editorReadKey() {
 			if (read(STDIN_FILENO, &seq[1], 1) != 1)
 				goto CX_UNKNOWN;
 			switch (seq[1]) {
+			case 033:
+				if (read(STDIN_FILENO, &seq[2], 1) != 1)
+					goto CX_UNKNOWN;
+				if (seq[2] == 'W' || seq[2] == 'w') {
+					return COPY_RECT;
+				}
+				goto CX_UNKNOWN;
 			case 'j':
 			case 'J':
 				return JUMP_REGISTER;
@@ -286,14 +293,24 @@ int editorReadKey() {
 			case 's':
 			case 'S':
 				return REGION_REGISTER;
+			case 't':
+			case 'T':
+				return STRING_RECT;
 			case '+':
 				return INC_REGISTER;
 			case 'i':
 			case 'I':
 				return INSERT_REGISTER;
+			case 'k':
+			case 'K':
+			case CTRL('W'):
+				return KILL_RECT;
 			case 'v':
 			case 'V':
 				return VIEW_REGISTER;
+			case 'y':
+			case 'Y':
+				return YANK_RECT;
 			}
 		} else if (seq[0]=='=') {
 			return WHAT_CURSOR;
@@ -1951,6 +1968,22 @@ void editorProcessKeypress(int c) {
 		break;
 	case VIEW_REGISTER:
 		editorViewRegister(&E, bufr);
+		break;
+
+	case STRING_RECT:
+		editorStringRectangle(&E, bufr);
+		break;
+
+	case COPY_RECT:
+		editorStringRectangle(&E, bufr);
+		break;
+
+	case KILL_RECT:
+		editorKillRectangle(&E, bufr);
+		break;
+
+	case YANK_RECT:
+		editorYankRectangle(&E, bufr);
 		break;
 
 	default:

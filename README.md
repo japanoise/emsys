@@ -184,6 +184,15 @@ control characters, except `C-g` since that's the universal cancel button).
 * `C-x r +` - Increment number in register, or add region to string in register.
 * `C-x r v` or `M-x view-register` - View contents of register.
 
+#### Rectangles
+
+Rectangles are the rectangular space between point and mark; all characters from
+the leftmost column to the rightmost column within the topmost line to the
+bottommost line.
+
+* `C-x r t` - string-rectangle: Replace rectangle contents with given string on
+  each line.
+
 ## Forks
 
 * [By Nicholas Carroll](https://github.com/nicholascarroll/emsys) - personal

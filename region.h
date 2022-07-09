@@ -17,4 +17,12 @@ void editorYank(struct editorConfig *ed, struct editorBuffer *buf);
 void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
 			   uint8_t *(*transformer)(uint8_t*));
 
+void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf);
+
+void editorCopyRectangle(struct editorConfig *ed, struct editorBuffer *buf);
+
+void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf);
+
+void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf);
+
 #endif
