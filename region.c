@@ -311,7 +311,11 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	memcpy(&row->chars[topx], string, slen);
 	row->size += extra;
 	row->chars[row->size] = 0;
-	strcat((char*)new->data, (char*)&row->chars[topx]);
+	if (boty==topy) {
+		strcat((char*)new->data, (char*)string);
+	} else {
+		strcat((char*)new->data, (char*)&row->chars[topx]);
+	}
 
 	for (int i = topy+1; i < boty; i++) {
 		strcat((char*)new->data, "\n");
