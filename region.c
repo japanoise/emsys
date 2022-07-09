@@ -97,7 +97,7 @@ void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 }
 
 void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf) {
-	if (markInvalid(buf)) return; 
+	if (markInvalid(buf)) return;
 	int origCx = buf->cx;
 	int origCy = buf->cy;
 	int origMarkx = buf->markx;
@@ -210,15 +210,20 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		strcpy((char*)okill, (char*)ed->kill);
 	}
 
-	/* Do all the bookkeeping for killing the region. */
-	editorCopyRegion(ed, buf);
+	/* Do all the bookkeeping for killing the region, with a little extra
+	 * for rectangles :) */
+
+	/* Normalize the region (putting cx, cy before markx,marky) because this
+	 * is a useful assumption to have. */
 	validateRegion(buf);
 
-	/* With a little extra for rectangles :) */
+	/* All the various dimensions we need for rectangles */
 	int slen = strlen((char*) string);
 	int topx, topy, botx, boty;
 	boty = buf->marky;
 	topy = buf->cy;
+	/* If we don't do this, we end up creating undos that go out of the
+	 * buffer. */
 	if (buf->cx > buf->markx) {
 		topx = buf->markx;
 		botx = buf->cx;
@@ -227,15 +232,25 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		topx = buf->cx;
 	}
 	int rwidth = botx - topx;
-	int extra = slen - rwidth;
+	int extra = slen - rwidth; /* new bytes per line */
 
+	buf->cx = topx;
+	buf->cy = topy;
+	buf->marky = boty;
+	if (botx > buf->row[boty].size) {
+		buf->markx = buf->row[boty].size;
+	} else {
+		buf->markx = botx;
+	}
+	editorCopyRegion(ed, buf);
 	clearRedos(buf);
 
+	/* This is mostly a normal kill-region type undo. */
 	struct editorUndo *new = newUndo();
-	new->startx = topx;
-	new->starty = topy;
-	new->endx = botx;
-	new->endy = boty;
+	new->startx = buf->cx;
+	new->starty = buf->cy;
+	new->endx = buf->markx;
+	new->endy = buf->marky;
 	free(new->data);
 	new->datalen = strlen((char*)ed->kill);
 	new->datasize = new->datalen + 1;
@@ -249,8 +264,7 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->prev = buf->undo;
 	buf->undo = new;
 
-	/* However, we actually want to make a rectangle change. */
-	/* Bookkeeping for a yank region */
+	/* Undo for a yank region */
 	new = newUndo();
 	new->prev = buf->undo;
 	new->startx = topx;
@@ -298,6 +312,7 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	row->size += extra;
 	row->chars[row->size] = 0;
 	strcat((char*)new->data, (char*)&row->chars[topx]);
+
 	for (int i = topy+1; i < boty; i++) {
 		strcat((char*)new->data, "\n");
 		/* Next, middle lines */
@@ -320,6 +335,7 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		row->chars[row->size] = 0;
 		strcat((char*)new->data, (char*)row->chars);
 	}
+
 	/* Finally, end line */
 	if (topy != boty) {
 		strcat((char*)new->data, "\n");
@@ -343,24 +359,6 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		strncat((char*)new->data, (char*)row->chars, botx+extra);
 	}
 	new->datalen = strlen((char*)new->data);
-	
-	/* if (buf->cy == buf->marky) { */
-	/* 	memmove(&row->chars[buf->cx], &row->chars[buf->markx], */
-	/* 		row->size-buf->markx); */
-	/* 	row->size -= buf->markx - buf->cx; */
-	/* 	row->chars[row->size] = 0; */
-	/* } else { */
-	/* 	for (int i = buf->cy + 1; i < buf->marky; i++) { */
-	/* 		editorDelRow(buf, buf->cy+1); */
-	/* 	} */
-	/* 	struct erow *last = &buf->row[buf->cy+1]; */
-	/* 	row->size = buf->cx; */
-	/* 	row->size += last->size - buf->markx; */
-	/* 	row->chars = realloc(row->chars, row->size); */
-	/* 	memcpy(&row->chars[buf->cx], &last->chars[buf->markx], */
-	/* 	       last->size-buf->markx); */
-	/* 	editorDelRow(buf, buf->cy+1); */
-	/* } */
 
 	buf->dirty = 1;
 	editorUpdateBuffer(buf);
