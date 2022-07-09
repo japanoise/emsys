@@ -1,5 +1,25 @@
 # Hacking on emsys
 
+## Debugging
+
+Run `make clean && make debug` to get a build with debug symbols for use with
+your favorite debugger.
+
+gcc knows roughly what to do with programs that mess with the terminal, so don't
+be afraid to `gdb ./emsys` with a debug build. When it crashes or hits your
+breakpoint, it will unmess with the terminal for you. If it still looks fucky,
+run `shell reset`.
+
+emsys has the following preprocessor `#define`s to help you with various
+scenarios:
+
+* `EMSYS_DEBUG_UNDO` - Shows the current undo in the status bar. Define
+  `EMSYS_DEBUG_REDO` *as well* to show redos instead.
+* `EMSYS_DEBUG_MACROS` - Shows the current macro in the status bar. Note that
+  this can get long and cause you to crash with stack smashing detected, so you
+  may want to bump the size of the status bar macro.
+* `EMSYS_DEBUG_PROMPT` - Shows function variables when `editorPrompt` is shown.
+
 ## Static builds
 
 You can build emsys statically with musl using (arch linux with [just][just]):
