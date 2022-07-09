@@ -192,6 +192,7 @@ bottommost line.
 
 * `C-x r t` - string-rectangle: Replace rectangle contents with given string on
   each line.
+* `C-x r k` or `C-x r C-w` - kill-rectangle: Kill (cut) rectangle.
 
 ## Forks
 
