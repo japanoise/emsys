@@ -354,6 +354,22 @@ void editorWhitespaceCleanup(struct editorConfig *UNUSED(ed),
 
 #define ADDCMD(name, func) newCmd = malloc(sizeof *newCmd); newCmdName = name ; newCmd->cmd = func ; HASH_ADD_KEYPTR(hh, ed->cmd, newCmdName, strlen(newCmdName), newCmd)
 
+#ifdef EMSYS_DEBUG_UNDO
+void debugUnpair(struct editorConfig *UNUSED(ed), struct editorBuffer *buf) {
+	int undos = 0;
+	int redos = 0;
+	for (struct editorUndo *i = buf->undo; i; i = i->prev) {
+		i->paired = 0;
+		undos++;
+	}
+	for (struct editorUndo *i = buf->redo; i; i = i->prev) {
+		i->paired = 0;
+		redos++;
+	}
+	editorSetStatusMessage("Unpaired %d undos, %d redos.", undos, redos);
+}
+#endif
+
 void setupCommands(struct editorConfig *ed) {
 	ed->cmd = NULL;
 	struct editorCommand *newCmd;
@@ -369,6 +385,9 @@ void setupCommands(struct editorConfig *ed) {
 	ADDCMD("revert", editorRevert);
 	ADDCMD("whitespace-cleanup", editorWhitespaceCleanup);
 	ADDCMD("view-register", editorViewRegister);
+	#ifdef EMSYS_DEBUG_UNDO
+	ADDCMD("debug-unpair", debugUnpair);
+	#endif
 }
 
 void runCommand(char * cmd, struct editorConfig *ed, struct editorBuffer *buf) {
