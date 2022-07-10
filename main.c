@@ -290,6 +290,9 @@ int editorReadKey() {
 			case 'n':
 			case 'N':
 				return NUMBER_REGISTER;
+			case 'r':
+			case 'R':
+				return RECT_REGISTER;
 			case 's':
 			case 'S':
 				return REGION_REGISTER;
@@ -1989,6 +1992,10 @@ void editorProcessKeypress(int c) {
 
 	case YANK_RECT:
 		editorYankRectangle(&E, bufr);
+		break;
+
+	case RECT_REGISTER:
+		editorRectRegister(&E, bufr);
 		break;
 
 	default:

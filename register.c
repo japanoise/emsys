@@ -59,6 +59,11 @@ static void clearRegister(struct editorConfig *ed, int reg) {
 		free(ed->registers[reg].rdata.macro);
 		ed->registers[reg].rdata.macro = NULL;
 		break;
+	case REGISTER_RECTANGLE:
+		free(ed->registers[reg].rdata.rect->rect);
+		free(ed->registers[reg].rdata.rect);
+		ed->registers[reg].rdata.rect = NULL;
+		break;
 	}
 	ed->registers[reg].rtype = REGISTER_NULL;
 }
@@ -100,6 +105,9 @@ void editorJumpToRegister(struct editorConfig *ed) {
 	case REGISTER_MACRO:
 		registerMessage("Executing macro in register %s...", reg);
 		editorExecMacro(ed->registers[reg].rdata.macro);
+		break;
+	case REGISTER_RECTANGLE:
+		registerMessage("Cannot jump to rectangle in register %s", reg);
 		break;
 	}
 }
@@ -153,6 +161,26 @@ void editorRegionToRegister(struct editorConfig *ed,
 	registerMessage("Saved region to register %s", reg);
 }
 
+void editorRectRegister(struct editorConfig *ed, struct editorBuffer *bufr) {
+	if (markInvalid(bufr)) return;
+	GET_REGISTER(reg, "Rectangle to register");
+	clearRegister(ed, reg);
+	uint8_t *tmp = ed->rectKill;
+	int rx = ed->rx;
+	int ry = ed->ry;
+	ed->rectKill = NULL;
+	editorCopyRectangle(ed, bufr);
+	ed->registers[reg].rtype = REGISTER_RECTANGLE;
+	ed->registers[reg].rdata.rect = malloc(sizeof(struct editorRectangle));
+	ed->registers[reg].rdata.rect->rect = ed->rectKill;
+	ed->registers[reg].rdata.rect->rx = ed->rx;
+	ed->registers[reg].rdata.rect->ry = ed->ry;
+	ed->rectKill = tmp;
+	ed->rx = rx;
+	ed->ry = ry;
+	registerMessage("Saved rectangle to register %s", reg);
+}
+
 void editorIncrementRegister(struct editorConfig *ed,
 			     struct editorBuffer *bufr) {
 	GET_REGISTER(reg, "Increment register");
@@ -181,6 +209,10 @@ void editorIncrementRegister(struct editorConfig *ed,
 		break;
 	case REGISTER_MACRO:
 		registerMessage("Cannot increment macro in register %s", reg);
+		break;
+	case REGISTER_RECTANGLE:
+		registerMessage("Cannot increment rectangle in register %s",
+				reg);
 		break;
 	}
 }
@@ -211,6 +243,19 @@ void editorInsertRegister(struct editorConfig *ed, struct editorBuffer *bufr) {
 		break;
 	case REGISTER_MACRO:
 		registerMessage("Cannot insert macro in register %s", reg);
+		break;
+	case REGISTER_RECTANGLE:;
+		int ox = ed->rx;
+		int oy = ed->ry;
+		uint8_t *okill = ed->rectKill;
+		ed->rectKill = ed->registers[reg].rdata.rect->rect;
+		ed->rx = ed->registers[reg].rdata.rect->rx;
+		ed->ry = ed->registers[reg].rdata.rect->ry;
+		editorYankRectangle(ed, bufr);
+		ed->rectKill = okill;
+		ed->rx = ox;
+		ed->ry = oy;
+		registerMessage("Inserted rectangle register %s", reg);
 		break;
 	}
 }
@@ -247,6 +292,12 @@ void editorViewRegister(struct editorConfig *ed,
 		editorSetStatusMessage(
 			"Register %s contains a macro of length %d",
 			str, ed->registers[reg].rdata.macro->nkeys);
+		break;
+	case REGISTER_RECTANGLE:
+		editorSetStatusMessage("%s (rect): w: %d h: %d \"%.50s\"", str,
+				       ed->registers[reg].rdata.rect->rx,
+				       ed->registers[reg].rdata.rect->ry,
+				       ed->registers[reg].rdata.rect->rect);
 		break;
 	}
 }

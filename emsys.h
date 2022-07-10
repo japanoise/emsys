@@ -96,6 +96,7 @@ enum editorKey {
 	COPY_RECT,
 	KILL_RECT,
 	YANK_RECT,
+	RECT_REGISTER,
 };
 
 enum promptType {
@@ -170,6 +171,7 @@ enum registerType {
 	REGISTER_NUMBER,
 	REGISTER_POINT,
 	REGISTER_MACRO,
+	REGISTER_RECTANGLE,
 };
 
 struct editorPoint {
@@ -178,11 +180,18 @@ struct editorPoint {
 	struct editorBuffer *buf;
 };
 
+struct editorRectangle {
+	int rx;
+	int ry;
+	uint8_t *rect;
+};
+
 union registerData {
 	uint8_t *region;
 	int64_t number;
 	struct editorMacro *macro;
 	struct editorPoint *point;
+	struct editorRectangle *rect;
 };
 
 struct editorRegister {

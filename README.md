@@ -171,9 +171,10 @@ file `bound.c`.
   
 #### Registers
 
-Registers let you store a point, string (region), number, or keyboard
-macro. Every register has a name, which must be one ASCII character (including
-control characters, except `C-g` since that's the universal cancel button).
+Registers let you store a point, string (region), rectangle (see below), number,
+or keyboard macro. Every register has a name, which must be one ASCII character
+(including control characters, except `C-g` since that's the universal cancel
+button).
 
 * `C-x r j` - *J*ump to point stored in register
 * `C-x r a` - Store m*a*cro in register. Also `C-x r m`, for now at least.
@@ -183,6 +184,7 @@ control characters, except `C-g` since that's the universal cancel button).
 * `C-x r s` - Store region (*s*tring) in register.
 * `C-x r +` - Increment number in register, or add region to string in register.
 * `C-x r v` or `M-x view-register` - View contents of register.
+* `C-x r r` - Copy rectangle to register.
 
 #### Rectangles
 
@@ -195,6 +197,7 @@ bottommost line.
 * `C-x r k` or `C-x r C-w` - kill-rectangle: Kill (cut) rectangle.
 * `C-x r M-w` - copy-rectangle: Copy rectangle
 * `C-x r y` - yank-rectangle: Yank (paste) rectangle.
+* `C-x r r` - rectangle-to-register: Copy rectangle to register.
 
 ## Forks
 
