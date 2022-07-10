@@ -1,5 +1,6 @@
 #ifndef EMSYS_ROW_H
 #define EMSYS_ROW_H
+#include "emsys.h"
 void editorUpdateRow(erow *row);
 void editorInsertRow(struct editorBuffer *bufr, int at, char *s, size_t len);
 void editorFreeRow(erow *row);
