@@ -138,6 +138,8 @@ Control-x, `M-x` means Alt-x or Escape then x).
 * `M-c` - Capitalize word (`foo` -> `Foo`)
 * `C-q` - Insert next character raw (allowing you to enter e.g. raw control
   characters - be careful with nulls!)
+* `M-/` - Autocomplete current "word" (one or more alphanumeric or unicode
+  characters). E.g. `foo -> foobar`.
 
 Note that commands dealing with capitalization only work for ASCII letters - any
 other characters will be ignored.

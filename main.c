@@ -179,6 +179,8 @@ int editorReadKey() {
 			return PIPE_CMD;
 		} else if (seq[0]=='%') {
 			return QUERY_REPLACE;
+		} else if (seq[0]=='/') {
+			return EXPAND;
 		} else if (seq[0]==127) {
 			return BACKSPACE_WORD;
 		} else {
@@ -1996,6 +1998,10 @@ void editorProcessKeypress(int c) {
 
 	case RECT_REGISTER:
 		editorRectRegister(&E, bufr);
+		break;
+
+	case EXPAND:
+		editorCompleteWord(&E, bufr);
 		break;
 
 	default:

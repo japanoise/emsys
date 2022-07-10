@@ -97,6 +97,7 @@ enum editorKey {
 	KILL_RECT,
 	YANK_RECT,
 	RECT_REGISTER,
+	EXPAND,
 };
 
 enum promptType {

@@ -3,4 +3,5 @@
 #include <stdint.h>
 
 uint8_t *tabCompleteFiles(uint8_t *);
+void editorCompleteWord(struct editorConfig *, struct editorBuffer *);
 #endif
