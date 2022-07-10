@@ -1980,7 +1980,7 @@ void editorProcessKeypress(int c) {
 		break;
 
 	case COPY_RECT:
-		editorStringRectangle(&E, bufr);
+		editorCopyRectangle(&E, bufr);
 		break;
 
 	case KILL_RECT:
