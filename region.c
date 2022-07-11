@@ -1,7 +1,9 @@
-#include<stdint.h>
+#include <stdint.h>
+#include <stdio.h>
 #include<stdlib.h>
 #include<string.h>
-#include"emsys.h"
+#include "emsys.h"
+#include "re.h"
 #include"region.h"
 #include"row.h"
 #include"undo.h"
@@ -190,6 +192,156 @@ void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
 		free(ed->kill);
 	}
 	ed->kill = okill;
+}
+
+void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
+	if (markInvalid(buf)) return;
+	normalizeRegion(buf);
+
+	const char *cancel = "Canceled regex-replace.";
+	int madeReplacements = 0;
+
+	uint8_t *regex = editorPrompt(buf, "Regex replace: %s", PROMPT_BASIC,
+				      NULL);
+	if (regex == NULL) {
+		editorSetStatusMessage(cancel);
+		return;
+	}
+
+	char prompt[64];
+	sprintf(prompt, "Regex replace %.35s with: %%s", regex);
+	uint8_t *repl = editorPrompt(buf, (uint8_t*)prompt, PROMPT_BASIC, NULL);
+	if (repl == NULL) {
+		free(regex);
+		editorSetStatusMessage(cancel);
+		return;
+	}
+	int replen = strlen((char*) repl);
+
+	uint8_t *okill = NULL;
+	if (ed->kill != NULL) {
+		okill = malloc(strlen((char*)ed->kill) + 1);
+		strcpy((char*)okill, (char*)ed->kill);
+	}
+	editorCopyRegion(ed, buf);
+
+	/* This is a transformation, so create a delete undo. However, we're not
+	 * actually doing any deletion yet in this case. */
+	struct editorUndo *new = newUndo();
+	new->startx = buf->cx;
+	new->starty = buf->cy;
+	new->endx = buf->markx;
+	new->endy = buf->marky;
+	new->datalen = strlen((char*)ed->kill);
+	if (new->datasize < new->datalen + 1) {
+		new->datasize = new->datalen + 1;
+		new->data = realloc(new->data, new->datasize);
+	}
+	for (int i = 0; i < new->datalen; i++) {
+		new->data[i] = ed->kill[new->datalen-i-1];
+	}
+	new->data[new->datalen] = 0;
+	new->append = 0;
+	new->delete = 1;
+	new->prev = buf->undo;
+	buf->undo = new;
+
+	/* Create insert undo */
+	new = newUndo();
+	new->startx = buf->cx;
+	new->starty = buf->cy;
+	new->endy = buf->marky;
+	new->datalen = buf->undo->datalen;
+	if (new->datasize < new->datalen + 1) {
+		new->datasize = new->datalen + 1;
+		new->data = realloc(new->data, new->datasize);
+	}
+	new->prev = buf->undo;
+	new->append = 0;
+	new->delete = 0;
+	new->paired = 1;
+	buf->undo = new;
+
+	/* Regex boilerplate & setup */
+	int match_length;
+	re_t pattern = re_compile((char*)regex);
+
+	for (int i = buf->cy; i <= buf->marky; i++) {
+		struct erow *row = &buf->row[i];
+		int match_idx = re_matchp(pattern, (char*)row->chars,
+					  &match_length);
+		if (i != 0)
+			strcat((char*)new->data, "\n");
+		if (match_idx < 0) {
+			if (buf->cy == buf->marky) {
+				strncat((char*)new->data,
+					(char*)&row->chars[buf->cx],
+					buf->markx-buf->cx);
+			} else if (i == buf->cy) {
+				strcat((char*)new->data,
+				       (char*)&row->chars[buf->cx]);
+			} else if (i == buf->marky) {
+				strncat((char*)new->data, (char*)row->chars,
+					buf->markx);
+			} else {
+				strcat((char*)new->data, (char*)row->chars);
+			}
+			continue;
+		} else if (i == buf->cy && match_idx < buf->cx) {
+			strcat((char*)new->data,
+			       (char*)&row->chars[buf->cx]);
+			continue;
+		} else if (i == buf->marky &&
+			   match_idx+match_length > buf->markx) {
+			strncat((char*)new->data, (char*)row->chars,
+				buf->markx);
+			continue;
+		}
+		madeReplacements++;
+		/* Replace row data */
+		row = &buf->row[i];
+		int extra = replen-match_length;
+		if (extra > 0) {
+			row->chars = realloc(row->chars,
+					     row->size+1+extra);
+			new->datasize += extra;
+			new->data = realloc(new->data, new->datasize);
+		}
+		memmove(&row->chars[match_idx+replen],
+		       &row->chars[match_idx+match_length],
+			row->size-(match_idx+match_length));
+		memcpy(&row->chars[match_idx], repl, replen);
+		row->size += extra;
+		row->chars[row->size] = 0;
+		if (buf->cy == buf->marky) {
+			buf->markx+=extra;
+			strncat((char*)new->data, (char*)&row->chars[buf->cx],
+				buf->markx-buf->cx);
+		} else if (i == buf->cy) {
+			strcat((char*)new->data, (char*)&row->chars[buf->cx]);
+		} else if (i == buf->marky) {
+			buf->markx+=extra;
+			strncat((char*)new->data, (char*)row->chars,
+				buf->markx);
+		} else {
+			strcat((char*)new->data, (char*)row->chars);
+		}
+	}
+	/* Now take care of insert undo */
+	new->data[new->datasize-1] = 0;
+	new->datalen = strlen((char*)new->data);
+	new->endx = buf->markx;
+
+	buf->cx = new->endx;
+	buf->cy = new->endy;
+
+	editorUpdateBuffer(buf);
+	free(regex);
+	free(repl);
+
+	ed->kill = okill;
+
+	editorSetStatusMessage("Replaced %d instances", madeReplacements);
 }
 
 /*** Rectangles ***/

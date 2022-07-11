@@ -126,6 +126,8 @@ Control-x, `M-x` means Alt-x or Escape then x).
   don't have recursive editing, so `C-r` just replaces the current occurrence
   with the string prompted for without changing the replacement.
 * `M-x replace-string` - Replace one string with another in the region
+* `M-x replace-regexp` - Replace first match of given regular expression per
+  line in the region with given string
 * `M-x indent-tabs` - Use tabs for indentation in current buffer (the default)
 * `M-x indent-spaces` - Use spaces for indentation in current buffer. You will
   be prompted for the number of spaces to use.
@@ -200,6 +202,29 @@ bottommost line.
 * `C-x r M-w` - copy-rectangle: Copy rectangle
 * `C-x r y` - yank-rectangle: Yank (paste) rectangle.
 * `C-x r r` - rectangle-to-register: Copy rectangle to register.
+
+### Regular Expression Syntax
+
+emsys uses [kokke's tiny-regex-c][tiny-regex] for regular expression support,
+and has the following syntax for regular expressions:
+
+  -  `.`         Dot, matches any character
+  -  `^`         Start anchor, matches beginning of string
+  -  `$`         End anchor, matches end of string
+  -  `*`         Asterisk, match zero or more (greedy)
+  -  `+`         Plus, match one or more (greedy)
+  -  `?`         Question, match zero or one (non-greedy)
+  -  `[abc]`     Character class, match if one of {'a', 'b', 'c'}
+  -  `[^abc]`   Inverted class, match if NOT one of {'a', 'b', 'c'}
+  -  `[a-zA-Z]` Character ranges, the character set of the ranges { a-z | A-Z }
+  -  `\s`       Whitespace, \t \f \r \n \v and spaces
+  -  `\S`       Non-whitespace
+  -  `\w`       Alphanumeric, [a-zA-Z0-9_]
+  -  `\W`       Non-alphanumeric
+  -  `\d`       Digits, [0-9]
+  -  `\D`       Non-digits
+
+[tiny-regex]: https://github.com/kokke/tiny-regex-c
 
 ## Forks
 

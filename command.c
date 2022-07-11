@@ -385,6 +385,7 @@ void setupCommands(struct editorConfig *ed) {
 	ADDCMD("revert", editorRevert);
 	ADDCMD("whitespace-cleanup", editorWhitespaceCleanup);
 	ADDCMD("view-register", editorViewRegister);
+	ADDCMD("replace-regexp", editorReplaceRegex);
 	#ifdef EMSYS_DEBUG_UNDO
 	ADDCMD("debug-unpair", debugUnpair);
 	#endif
