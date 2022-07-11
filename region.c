@@ -29,7 +29,7 @@ int markInvalid(struct editorBuffer *buf) {
 	return ret;
 }
 
-static void validateRegion(struct editorBuffer *buf) {
+static void normalizeRegion(struct editorBuffer *buf) {
 	/* Put cx,cy first */
 	if (buf->cy > buf->marky || (buf->cy == buf->marky && buf->cx > buf->markx)) {
 		int swapx, swapy;
@@ -50,7 +50,7 @@ static void validateRegion(struct editorBuffer *buf) {
 void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 	if (markInvalid(buf)) return;
 	editorCopyRegion(ed, buf);
-	validateRegion(buf);
+	normalizeRegion(buf);
 
 	clearRedos(buf);
 
@@ -102,7 +102,7 @@ void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 	int origCy = buf->cy;
 	int origMarkx = buf->markx;
 	int origMarky = buf->marky;
-	validateRegion(buf);
+	normalizeRegion(buf);
 	free(ed->kill);
 	int regionSize = 32;
 	ed->kill = malloc(regionSize);
@@ -170,7 +170,7 @@ void editorYank(struct editorConfig *ed, struct editorBuffer *buf) {
 void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
 			   uint8_t *(*transformer)(uint8_t*)) {
 	if (markInvalid(buf)) return;
-	validateRegion(buf);
+	normalizeRegion(buf);
 
 	uint8_t *okill = NULL;
 	if (ed->kill != NULL) {
@@ -215,7 +215,7 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	/* Normalize the region (putting cx, cy before markx,marky) because this
 	 * is a useful assumption to have. */
-	validateRegion(buf);
+	normalizeRegion(buf);
 
 	/* All the various dimensions we need for rectangles */
 	int slen = strlen((char*) string);
@@ -371,7 +371,7 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 
 void editorCopyRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	if (markInvalid(buf)) return;
-	validateRegion(buf);
+	normalizeRegion(buf);
 
 	free(ed->rectKill);
 
@@ -459,7 +459,7 @@ void editorCopyRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 
 void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	if (markInvalid(buf)) return;
-	validateRegion(buf);
+	normalizeRegion(buf);
 
 	uint8_t *okill = NULL;
 	if (ed->kill != NULL) {
