@@ -1944,8 +1944,8 @@ void editorProcessKeypress(int c) {
 		break;
 
 	case SWAP_MARK:
-		if (0 < bufr->markx &&
-		    (0 < bufr->marky && bufr->marky < bufr->numrows)) {
+		if (0 <= bufr->markx &&
+		    (0 <= bufr->marky && bufr->marky < bufr->numrows)) {
 			int swapx = bufr->cx;
 			int swapy = bufr->cy;
 			bufr->cx = bufr->markx;
