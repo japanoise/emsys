@@ -3,3 +3,4 @@
 *.stackdump
 emsys
 unicodetest
+/build
