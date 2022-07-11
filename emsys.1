@@ -1,0 +1,49 @@
+.\" https://linux.die.net/man/7/groff_mdoc
+.Dd $Mdocdate: July 11 2022 $
+.Dt EMSYS 1
+.Os
+.Sh NAME
+.Nm emsys
+.Nd ersatz-emacs text editor
+.Sh SYNOPSIS
+.Nm
+.Op Ar options
+.Op Ar
+.Sh DESCRIPTION
+.Nm
+is a simple TUI text editor that uses the well-known Emacs
+keybindings. While
+.Nm
+does not support extension through Lisp programming, those that use
+Emacs and are unsatisfied with running or unable to run Emacs in the
+terminal will find
+.Nm
+a comfortable editing experience.
+.Sh USAGE
+For the most part,
+.Nm
+uses the same keybindings as other flavors of Emacs or ersatz-emacs.
+The file README.md describes each keybinding in detail.  You should
+have received a copy of this file with the program; if not, you can
+find it at the upstream repository (see the
+.Sx BUGS
+section). If you used the makefile to install
+.Nm
+then this file should also be at $(PREFIX)/share/doc/emsys.md (PREFIX
+is /usr/local by default)
+.Sh OPTIONS
+.Pp
+.Bl -tag -width xx
+.It + Ns Ns Ar number
+Go to the specified line number.
+.Sh BUGS
+Please report all bugs to me at the upstream repository:
+https://github.com/japanoise/emsys
+.Sh AUTHOR
+.Nm
+by japanoise/chameleon with a little help from my good friend
+score_under; based on the tutorial Build Your Own Text Editor, which
+can be found at https://viewsourcecode.org/snaptoken/kilo/index.html
+.Sh COPYRIGHT
+.Nm
+is Copyright © 2021-2022 japanoise/chameleon licensed under the MIT license.
