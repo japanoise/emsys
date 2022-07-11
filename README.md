@@ -172,6 +172,8 @@ file `bound.c`.
   use `sed`, `go fmt`, etc. to do text operations on files.
 * `C-x =` - Describe cursor position (displays information about character at
   point)
+* `M-0` to `M-9` - Type in universal argument (in most cases, this just repeats
+  the next command typed N times). E.g. `M-8 M-0 *` will type 80 asterisks.
   
 #### Registers
 
