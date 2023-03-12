@@ -79,6 +79,7 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 	}
 
 TC_FILES_CLEANUP:
+	globfree(&globlist);
 #ifndef EMSYS_NO_SIMPLE_GLOB
 	prompt[end] = 0;
 #endif
