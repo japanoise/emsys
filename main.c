@@ -943,8 +943,13 @@ void editorDrawMinibuffer(struct abuf *ab) {
 	abAppend(ab, "\x1b[K", 3);
 	int msglen = strlen(E.minibuffer);
 	if (msglen > E.screencols) msglen = E.screencols;
-	if (msglen && time(NULL) - E.statusmsg_time < 5)
+	if (msglen && time(NULL) - E.statusmsg_time < 5) {
+		if (E.focusBuf->query && !E.focusBuf->match) {
+			abAppend(ab, "\x1b[91m", 5);
+		}
 		abAppend(ab, E.minibuffer, msglen);
+		abAppend(ab, "\x1b[0m", 4);
+	}
 }
 
 void editorRefreshScreen() {
@@ -983,7 +988,7 @@ void editorRefreshScreen() {
 		 E.windows[idx]->buf->scy + 1 + (windowSize*idx),
 		 E.windows[idx]->buf->scx + 1);
 	abAppend(&ab, buf, strlen(buf));
-	if(E.focusBuf->query) {
+	if(E.focusBuf->query && E.focusBuf->match) {
 		abAppend(&ab, "\x1b[7m", 4);
 		abAppend(&ab, E.focusBuf->query, strlen(E.focusBuf->query));
 		abAppend(&ab, "\x1b[0m", 4);

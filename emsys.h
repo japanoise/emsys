@@ -142,6 +142,7 @@ struct editorBuffer {
 	erow *row;
 	char *filename;
 	uint8_t *query;
+	uint8_t match;
         struct editorUndo *undo;
         struct editorUndo *redo;
 	struct editorBuffer *next;

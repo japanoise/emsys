@@ -5,6 +5,7 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 	static int last_match = -1;
 	static int direction = 1;
 	bufr->query = query;
+	bufr->match = 0;
 
 	if (key == CTRL('g') || key == CTRL('c') || key == '\r') {
 		last_match = -1;
@@ -29,6 +30,7 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 			bufr->cy = current;
 			bufr->cx = match - row->chars;
 			bufr->rowoff = bufr->numrows;
+			bufr->match = 1;
 			return;
 		}
 
@@ -45,6 +47,7 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 			bufr->cy = current;
 			bufr->cx = match - row->chars;
 			bufr->rowoff = bufr->numrows;
+			bufr->match = 1;
 			break;
 		}
 	}
