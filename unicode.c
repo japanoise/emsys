@@ -28,10 +28,78 @@ static int utf8ToUCS(uint8_t *str, int idx) {
 	return ret;
 }
 
+/* Convert a 32 bit value to UTF-8, assuming that dest is big enough
+ * to store it. returns number of bytes (1-4) written. */
+static ssize_t rune_to_utf8(uint8_t *dest, uint32_t ru) {
+	/*
+	 * for continuation bytes
+	 * 00111111 = 3F
+	 * 10000000 = 80
+	 * 10111111 = BF
+	 *
+	 * for 2-bytes
+	 * 00011111 = 1F
+	 * 11000000 = C0
+	 * 11011111 = DF
+	 *
+	 * for 3-bytes
+	 * 00001111 = 0F
+	 * 11100000 = E0
+	 * 11101111 = EF
+	 *
+	 * for 4-bytes
+	 * 00000111 = 07
+	 * 11110000 = F0
+	 * 11110111 = F7
+	 */
+	if (ru < 0x80) {
+		/* ASCII */
+		dest[0] = (uint8_t) ru;
+		return 1;
+	} else if (ru < 0x0800) {
+		/* 2 bytes */
+		dest[0] = ((uint8_t)(ru >> 6)&0x1F)|0xC0;
+		dest[1] = ((uint8_t) ru & 0x3F)|0x80;
+		return 2;
+	} else if (ru < 0x10000) {
+		/* 3 bytes */
+		dest[0] = ((uint8_t) (ru>>12) & 0x0F)|0xE0;
+		dest[1] = ((uint8_t) (ru>>6) & 0x3F)|0x80;
+		dest[2] = ((uint8_t) ru & 0x3F)|0x80;
+		return 3;
+	} else {
+		/* 4 bytes */
+		dest[0] = ((uint8_t) (ru>>18) & 0x07)|0xF0;
+		dest[1] = ((uint8_t) (ru>>12) & 0x3F)|0x80;
+		dest[2] = ((uint8_t) (ru>>6) & 0x3F)|0x80;
+		dest[3] = ((uint8_t) ru & 0x3F)|0x80;
+		return 4;
+	}
+}
+
 static int testCaseUCS(char *testCh, int expected) {
 	int ucs = utf8ToUCS(testCh, 0);
 	printf("%s\tgot %04x\texpected %04x\n", testCh, ucs, expected);
 	return expected != ucs;
+}
+
+static int testCaseReverseUCS(char *expectedChars, int expectedWidth, int input) {
+	uint8_t result[4];
+	ssize_t actualWidth;
+	int resultsNotMatch = 0;
+	int i = 0;
+
+	actualWidth = rune_to_utf8(result, input);
+
+	while (expectedChars[i] != 0) {
+		printf("%i actual: %02x expected: %02x\n", i, result[i], (uint8_t) expectedChars[i]);
+		resultsNotMatch += result[i] != (uint8_t) expectedChars[i];
+		i++;
+	}
+
+	printf("expected width %i actual %li\n", expectedWidth, actualWidth);
+
+	return (actualWidth != expectedWidth) + resultsNotMatch;
 }
 
 static int testCaseStringWidth(char *str, int expected) {
@@ -53,6 +121,13 @@ int unicodeTest() {
 	retval += testCaseStringWidth("bruh", 4);
 	retval += testCaseStringWidth("生存戦略", 8);
 	retval += testCaseStringWidth("😇", 2);
+	printf("UCS -> UTF8 conversion test\n");
+	retval = retval + testCaseReverseUCS("\xC2\xA2", 2, 0xA2);
+	retval = retval + testCaseReverseUCS("\xE0\xA4\xB9", 3, 0x939);
+	retval = retval + testCaseReverseUCS("\xE2\x82\xAC", 3, 0x20AC);
+	retval = retval + testCaseReverseUCS("\xED\x95\x9C", 3, 0xD55C);
+	retval = retval + testCaseReverseUCS("\xF0\x90\x8D\x88", 4, 0x10348);
+	retval = retval + testCaseReverseUCS("\xF0\x9f\x98\x87", 4, 0x1f607);
 	return retval;
 }
 
