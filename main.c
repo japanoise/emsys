@@ -438,6 +438,14 @@ void editorInsertNewline(struct editorBuffer *bufr) {
 	bufr->cx = 0;
 }
 
+void editorOpenLine(struct editorBuffer *bufr) {
+	int ccx = bufr->cx;
+	int ccy = bufr->cy;
+	editorInsertNewline(bufr);
+	bufr->cx = ccx;
+	bufr->cy = ccy;
+}
+
 void editorInsertNewlineAndIndent(struct editorBuffer *bufr) {
 	editorUndoAppendChar(bufr, '\n');
 	editorInsertNewline(bufr);
@@ -1707,6 +1715,11 @@ void editorProcessKeypress(int c) {
 	case CTRL('j'):
 		for (int i = 0; i < rept; i++) {
 			editorInsertNewlineAndIndent(bufr);
+		}
+		break;
+	case CTRL('o'):
+		for (int i = 0; i < rept; i++) {
+			editorOpenLine(bufr);
 		}
 		break;
 	case CTRL('q'):;

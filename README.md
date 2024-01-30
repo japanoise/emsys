@@ -111,6 +111,7 @@ Control-x, `M-x` means Alt-x or Escape then x).
 * `C-y` - Yank (paste)
 * `M-|` - Filter region through shell command. This even works with pipes!
 * `C-j` - Insert a newline and indent (indentation copied from previous line)
+* `C-o` - Insert a newline but do not move the point
 * `C-i` (TAB) - Indent current line by either one tab or the current space
   indentation level. To insert a literal tab, `C-q C-i`
 * SHIFT-TAB/BACKTAB - Unindent current line by either one tab or the current
