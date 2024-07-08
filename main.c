@@ -260,8 +260,6 @@ int editorReadKey() {
 		} else if (seq[0] == CTRL('x')) {
 			return SWAP_MARK;
 		} else if (seq[0] == 'b' || seq[0] == 'B' || seq[0] == CTRL('b')) {
-		} else if (seq[0] == 'h') {
-            return MARK_BUFFER;
 			return SWITCH_BUFFER;
 		} else if (seq[0]=='o' || seq[0]=='O') {
 			return OTHER_WINDOW;
@@ -1128,7 +1126,6 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt, enum promptTyp
 			free(buf);
 			return NULL;
 			break;
-		case CTRL('h'):
 		case BACKSPACE:
 PROMPT_BACKSPACE:
 			if (curs <= 0) break;
@@ -1639,7 +1636,7 @@ void editorProcessKeypress(int c) {
 		}
 		break;
 	case BACKSPACE:
-	case CTRL('h'):
+
 		for (int i = 0; i < rept; i++) {
 			editorBackSpace(bufr);
 		}
