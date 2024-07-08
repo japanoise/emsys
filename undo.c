@@ -10,6 +10,7 @@
 void editorDoUndo(struct editorBuffer *buf) {
 	if (buf->undo == NULL) {
 		editorSetStatusMessage("No further undo information.");
+		buf->dirty = 0; 
 		return;
 	}
 	int paired = buf->undo->paired;

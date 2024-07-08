@@ -176,7 +176,7 @@ int editorReadKey() {
 		} else if (seq[0]=='>') {
 			return END_OF_FILE;
 		} else if (seq[0]=='|') {
-			return PIPE_CMD;
+			return PREVIEW_PIPE_CMD;
 		} else if (seq[0]=='%') {
 			return QUERY_REPLACE;
 		} else if (seq[0]=='/') {
@@ -230,6 +230,20 @@ int editorReadKey() {
 		}
 		editorSetStatusMessage("Unknown command M-%s", seqR);
 		return 033;
+		} else if (c == CTRL('u')) {
+			//if the next keystroke is M-|, return pipe_cmd
+			// Check if the next keystroke is M-|
+			if (read(STDIN_FILENO, &c, 1) != 1) {
+				goto CX_UNKNOWN;
+			}
+			if (c == 033) { // Escape sequence for Meta key
+				if (read(STDIN_FILENO, &c, 1) != 1) {
+					goto CX_UNKNOWN;
+				}
+				if (c == '|') { 
+					return PIPE_CMD; // Set c to PIPE_CMD if M-| is pressed
+				}
+			}
 	} else if (c == CTRL('x')) {
 		/* Welcome to Emacs! */
 		char seq[5] = { 0, 0, 0, 0, 0 };
@@ -246,6 +260,8 @@ int editorReadKey() {
 		} else if (seq[0] == CTRL('x')) {
 			return SWAP_MARK;
 		} else if (seq[0] == 'b' || seq[0] == 'B' || seq[0] == CTRL('b')) {
+		} else if (seq[0] == 'h') {
+            return MARK_BUFFER;
 			return SWITCH_BUFFER;
 		} else if (seq[0]=='o' || seq[0]=='O') {
 			return OTHER_WINDOW;
@@ -255,6 +271,8 @@ int editorReadKey() {
 			return DESTROY_WINDOW;
 		} else if (seq[0]=='1') {
 			return DESTROY_OTHER_WINDOWS;
+		} else if (seq[0]=='k') {
+                        return KILL_BUFFER;
 		} else if (seq[0]=='(') {
 			return MACRO_RECORD;
 		} else if (seq[0]=='e' || seq[0]=='E') {
@@ -696,7 +714,7 @@ void editorOpen(struct editorBuffer *bufr, char *filename) {
 	FILE *fp = fopen(filename, "r");
 	if (!fp) {
 		if (errno == ENOENT) {
-			editorSetStatusMessage("%s: no such file or directory",
+			editorSetStatusMessage("(New file)",
 					       bufr->filename);
 			return;
 		}
@@ -1158,19 +1176,6 @@ PROMPT_BACKSPACE:
 			buflen = curs;
 			bufwidth = stringWidth(buf);
 			break;
-		case CTRL('u'):
-			if (curs == buflen) {
-				buflen = 0;
-				bufwidth = 0;
-				buf[0] = 0;
-			} else {
-				memmove(buf, &(buf[curs]), bufsize-curs);
-				buflen = strlen(buf);
-				bufwidth = stringWidth(buf);
-			}
-			cursScr = 0;
-			curs = 0;
-			break;
 		case ARROW_LEFT:
 			if (curs <= 0) break;
 			curs--;
@@ -1457,6 +1462,52 @@ void editorForwardPara(struct editorBuffer *bufr) {
 	}
 
 	bufr->cy = bufr->numrows;
+}
+
+void editorPipeCmd(struct editorBuffer *bufr, int cu_prefix) {
+    uint8_t *pipeOutput = editorPipe(&E, bufr, cu_prefix);
+    if (pipeOutput != NULL) {
+        size_t outputLen = strlen((char*)pipeOutput);
+        if (outputLen < sizeof(E.minibuffer) - 1) {
+            editorSetStatusMessage("%s", pipeOutput);
+        } else {
+            struct editorBuffer* newBuf = newBuffer();
+            newBuf->filename = strdup("[Shell Output]");
+
+            // Use a temporary buffer to build each row
+            size_t rowStart = 0;
+            size_t rowLen = 0;
+            for (size_t i = 0; i < outputLen; i++) {
+                if (pipeOutput[i] == '\n' || i == outputLen - 1) {
+                    // Found a newline or end of output, insert the row
+                    editorInsertRow(newBuf, newBuf->numrows, 
+                                    (char*)&pipeOutput[rowStart], rowLen);
+                    rowStart = i + 1; // Start of the next row
+                    rowLen = 0;       // Reset row length
+                } else {
+                    rowLen++;
+                }
+            }
+
+            // Link the new buffer and update focus
+            if (E.firstBuf == NULL) {
+                E.firstBuf = newBuf;
+            } else {
+                struct editorBuffer *temp = E.firstBuf;
+                while (temp->next != NULL) {
+                    temp = temp->next;
+                }
+                temp->next = newBuf;
+            }
+            E.focusBuf = newBuf;
+
+            // Update the focused window
+            int idx = windowFocusedIdx(&E);
+            E.windows[idx]->buf = E.focusBuf;
+            editorRefreshScreen();
+        }
+        free(pipeOutput);
+    }
 }
 
 void editorGotoLine(struct editorBuffer *bufr) {
@@ -1781,6 +1832,33 @@ void editorProcessKeypress(int c) {
 			editorSetStatusMessage("Canceled.");
 			break;
 		}
+			if (prompt[strlen(prompt) - 1] == '/') {
+				editorSetStatusMessage("Directory editing not supported.");
+					break;
+			}
+
+	// Check if a buffer with the same filename already exists
+	struct editorBuffer *buf = E.firstBuf;
+    while (buf != NULL) {
+        if (buf->filename != NULL && strcmp(buf->filename, (char*)prompt) == 0) {
+            editorSetStatusMessage("File '%s' already open in a buffer.", prompt);
+            free(prompt);
+            E.focusBuf = buf; // Switch to the existing buffer
+
+            // Update the focused window to display the found buffer
+            idx = windowFocusedIdx(&E);
+            E.windows[idx]->buf = E.focusBuf; 
+
+            editorRefreshScreen(); // Refresh to reflect the change
+            break; // Exit the loop and the case
+        }
+        buf = buf->next;
+	}
+
+	// If a buffer with the same filename was found, don't create a new one
+	if (buf != NULL) {
+		break;
+	}
 
 		E.firstBuf = newBuffer();
 		editorOpen(E.firstBuf, prompt);
@@ -1846,6 +1924,63 @@ void editorProcessKeypress(int c) {
 		free(E.windows);
 		E.windows = windows;
 		break;
+           case KILL_BUFFER:
+		    // Bypass confirmation for special buffers
+			if (bufr->dirty && bufr->filename != NULL &&
+				strcmp(bufr->filename, "[Shell Output]") != 0 &&
+				strcmp(bufr->filename, "[untitled]") != 0) {
+				editorSetStatusMessage("Buffer %.20s modified; kill anyway? (y or n)",
+										bufr->filename);
+            editorRefreshScreen();
+            int c = editorReadKey(E.focusBuf);
+            if (c != 'y' && c != 'Y') {
+                editorSetStatusMessage("");
+                break;
+            }
+        }
+
+        // Find the previous buffer (if any)
+        struct editorBuffer *prevBuf = NULL;
+        if (E.focusBuf != E.firstBuf) {
+            prevBuf = E.firstBuf;
+            while (prevBuf->next != E.focusBuf) {
+                prevBuf = prevBuf->next;
+            }
+        }
+
+    // Update window focus
+    for (int i = 0; i < E.nwindows; i++) {
+        if (E.windows[i]->buf == bufr) {
+            // If it's the last buffer, create a new scratch buffer
+            if (bufr->next == NULL && prevBuf == NULL) { 
+                E.windows[i]->buf = newBuffer();
+                E.windows[i]->buf->filename = strdup("[scratch]");
+                E.firstBuf = E.windows[i]->buf;
+                E.focusBuf = E.firstBuf; // Ensure E.focusBuf is updated
+            } else if (bufr->next == NULL) {
+                E.windows[i]->buf = E.firstBuf;
+                E.focusBuf = E.firstBuf; // Ensure E.focusBuf is updated
+            } else {
+                E.windows[i]->buf = bufr->next;
+                E.focusBuf = bufr->next; // Ensure E.focusBuf is updated
+            }
+        }
+    }
+
+        // Update the main buffer list
+        if (E.firstBuf == bufr) {
+            E.firstBuf = bufr->next;
+        } else if (prevBuf != NULL) {
+            prevBuf->next = bufr->next;
+        }
+
+        // Update the focused buffer
+        if (E.focusBuf == bufr) {
+            E.focusBuf = (bufr->next != NULL) ? bufr->next : prevBuf; 
+        }
+
+        destroyBuffer(bufr);
+        break;
 
 	case SUSPEND:
 		raise(SIGTSTP);
@@ -1934,9 +2069,12 @@ void editorProcessKeypress(int c) {
 			free(cmd);
 		}
 		break;
+ 	case PREVIEW_PIPE_CMD:
+		editorPipeCmd(bufr, 0);
+        break;
 
 	case PIPE_CMD:
-		editorPipe(&E, bufr);
+		editorPipeCmd(bufr, 1);
 		break;
 
 	case QUERY_REPLACE:
