@@ -260,6 +260,8 @@ int editorReadKey() {
 		} else if (seq[0] == CTRL('x')) {
 			return SWAP_MARK;
 		} else if (seq[0] == 'b' || seq[0] == 'B' || seq[0] == CTRL('b')) {
+		} else if (seq[0] == 'h') {
+            return MARK_BUFFER;
 			return SWITCH_BUFFER;
 		} else if (seq[0]=='o' || seq[0]=='O') {
 			return OTHER_WINDOW;
@@ -1822,6 +1824,16 @@ void editorProcessKeypress(int c) {
 			}
 		}
 		break;
+        case MARK_BUFFER:
+          if (bufr->numrows > 0) {
+		bufr->cy = bufr->numrows;
+                bufr->cx = bufr->row[--bufr->cy].size;
+                editorSetMark(bufr);
+                bufr->cy = 0;
+                bufr->cx = 0;
+                bufr->rowoff = 0;
+          }
+                break;
 
 	case FIND_FILE:
 		prompt = editorPrompt(E.focusBuf, "Find File: %s", PROMPT_FILES, NULL);
