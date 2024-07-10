@@ -260,9 +260,9 @@ int editorReadKey() {
 		} else if (seq[0] == CTRL('x')) {
 			return SWAP_MARK;
 		} else if (seq[0] == 'b' || seq[0] == 'B' || seq[0] == CTRL('b')) {
-		} else if (seq[0] == 'h') {
-            return MARK_BUFFER;
 			return SWITCH_BUFFER;
+		} else if (seq[0] == 'h') {
+			return MARK_BUFFER;
 		} else if (seq[0]=='o' || seq[0]=='O') {
 			return OTHER_WINDOW;
 		} else if (seq[0]=='2') {
