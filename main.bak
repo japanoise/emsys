@@ -1660,11 +1660,11 @@ void editorProcessKeypress(int c) {
 		if (E.recording) {
 			E.recording = 0;
 		}
-    // Check all buffers for unsaved changes, except the special buffers 
+    // Check all buffers for unsaved changes, except the scratch buffer
     struct editorBuffer *current = E.firstBuf;
     int hasUnsavedChanges = 0;
     while (current != NULL) {
-        if (current->dirty && current->filename != NULL && !current->special_buffer) { 
+        if (current->dirty && current->filename != NULL) { // Check for scratch buffer
             hasUnsavedChanges = 1;
             break;
         }
@@ -1948,7 +1948,7 @@ void editorProcessKeypress(int c) {
 		break;
            case KILL_BUFFER:
 		// Bypass confirmation for special buffers
-			if (bufr->dirty && bufr->filename != NULL && !bufr->special_buffer) {
+			if (bufr->dirty && !bufr->special_buffer) {
                           editorSetStatusMessage("Buffer %.20s modified; kill anyway? (y or n)",
                                                  bufr->filename);
             editorRefreshScreen();
@@ -1975,7 +1975,6 @@ void editorProcessKeypress(int c) {
             if (bufr->next == NULL && prevBuf == NULL) { 
                 E.windows[i]->buf = newBuffer();
                 E.windows[i]->buf->filename = strdup("[scratch]");
-                E.windows[i]->buf->special_buffer = 1;
                 E.firstBuf = E.windows[i]->buf;
                 E.focusBuf = E.firstBuf; // Ensure E.focusBuf is updated
             } else if (bufr->next == NULL) {
@@ -2284,6 +2283,7 @@ int main(int argc, char *argv[]) {
 	if (argc >= 2) {
 		int i = 1;
 		int linum = -1;
+		E.focusBuf = NULL;
 		if (argv[1][0] == '+' && argc > 2) {
 			linum = atoi(argv[1]+1);
 			i++;
@@ -2301,6 +2301,9 @@ int main(int argc, char *argv[]) {
 			}
 			E.focusBuf = E.firstBuf;
 		}
+	} else {
+		E.firstBuf = newBuffer();
+		E.focusBuf = E.firstBuf;
 	}
 	E.windows[0]->buf = E.focusBuf;
 

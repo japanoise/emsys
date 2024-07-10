@@ -142,6 +142,7 @@ struct editorBuffer {
 	int dirty;
 	int uarg;
 	int uarg_active;
+	int special_buffer;  
 	erow *row;
 	char *filename;
 	uint8_t *query;
