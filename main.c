@@ -1128,6 +1128,7 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt, enum promptTyp
 			free(buf);
 			return NULL;
 			break;
+			case CTRL('h'):
 		case BACKSPACE:
 PROMPT_BACKSPACE:
 			if (curs <= 0) break;
