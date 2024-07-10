@@ -1824,16 +1824,16 @@ void editorProcessKeypress(int c) {
 			}
 		}
 		break;
-        case MARK_BUFFER:
-          if (bufr->numrows > 0) {
-		bufr->cy = bufr->numrows;
-                bufr->cx = bufr->row[--bufr->cy].size;
-                editorSetMark(bufr);
-                bufr->cy = 0;
-                bufr->cx = 0;
-                bufr->rowoff = 0;
-          }
-                break;
+	case MARK_BUFFER:
+		if (bufr->numrows > 0) {
+			bufr->cy = bufr->numrows;
+			bufr->cx = bufr->row[--bufr->cy].size;
+			editorSetMark(bufr);
+			bufr->cy = 0;
+			bufr->cx = 0;
+			bufr->rowoff = 0;
+		}
+		break;
 
 	case FIND_FILE:
 		prompt = editorPrompt(E.focusBuf, "Find File: %s", PROMPT_FILES, NULL);
