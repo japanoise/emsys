@@ -10,9 +10,6 @@
 #include "unicode.h"
 
 uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input, struct editorBuffer *currentBuffer) {
-    editorSetStatusMessage("tabCompleteBufferNames called with input: %s", input);
-    editorRefreshScreen();
-    usleep(1000000);  // Sleep for 0.5 seconds
 
     char **completions = NULL;
     int count = 0;
@@ -29,9 +26,6 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input, struct 
         }
     }
 
-    editorSetStatusMessage("Found %d completions", count);
-    editorRefreshScreen();
-    usleep(1000000);
 
     if (count < 1) {
         goto cleanup;
@@ -71,9 +65,6 @@ cleanup:
     }
     free(completions);
 
-    editorSetStatusMessage("Returning from tabCompleteBufferNames");
-    editorRefreshScreen();
-    usleep(1000000);
     return ret;
 }
 
