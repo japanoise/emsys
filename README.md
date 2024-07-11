@@ -157,6 +157,8 @@ file `bound.c`.
 ### Windows
 
 * `C-x b` - Switch buffer
+* `C-x <left>` - Previous buffer
+* `C-x <right>` - Next buffer
 * `C-x o` - Switch window
 * `C-x 0` - Kill current window
 * `C-x 1` - Kill other windows (make current the only *one*)

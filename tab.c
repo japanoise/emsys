@@ -9,6 +9,74 @@
 #include "undo.h"
 #include "unicode.h"
 
+uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input, struct editorBuffer *currentBuffer) {
+    editorSetStatusMessage("tabCompleteBufferNames called with input: %s", input);
+    editorRefreshScreen();
+    usleep(1000000);  // Sleep for 0.5 seconds
+
+    char **completions = NULL;
+    int count = 0;
+    uint8_t *ret = input;
+
+    // Collect matching buffer names
+    for (struct editorBuffer *b = ed->firstBuf; b != NULL; b = b->next) {
+        if (b == currentBuffer) continue;
+
+        char *name = b->filename ? b->filename : "*scratch*";
+        if (strncmp(name, (char*)input, strlen((char*)input)) == 0) {
+            completions = realloc(completions, (count + 1) * sizeof(char*));
+            completions[count++] = strdup(name);
+        }
+    }
+
+    editorSetStatusMessage("Found %d completions", count);
+    editorRefreshScreen();
+    usleep(1000000);
+
+    if (count < 1) {
+        goto cleanup;
+    }
+
+    if (count == 1) {
+        ret = (uint8_t*)strdup(completions[0]);
+        goto cleanup;
+    }
+
+    // Multiple matches, allow cycling through them
+    int cur = 0;
+    for (;;) {
+        editorSetStatusMessage("Multiple options: %s", completions[cur]);
+        editorRefreshScreen();
+        editorCursorBottomLine(strlen(completions[cur]) + 19);
+
+        int c = editorReadKey();
+        switch (c) {
+            case '\r':
+                ret = (uint8_t*)strdup(completions[cur]);
+                goto cleanup;
+            case CTRL('i'):
+                cur = (cur + 1) % count;
+                break;
+            case BACKTAB:
+                cur = (cur == 0) ? count - 1 : cur - 1;
+                break;
+            case CTRL('g'):
+                goto cleanup;
+        }
+    }
+
+cleanup:
+    for (int i = 0; i < count; i++) {
+        free(completions[i]);
+    }
+    free(completions);
+
+    editorSetStatusMessage("Returning from tabCompleteBufferNames");
+    editorRefreshScreen();
+    usleep(1000000);
+    return ret;
+}
+
 uint8_t *tabCompleteFiles(uint8_t *prompt) {
 	glob_t globlist;
 	uint8_t *ret = prompt;

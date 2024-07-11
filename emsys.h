@@ -50,6 +50,8 @@ enum editorKey {
 	FORWARD_PARA,
 	BACKWARD_PARA,
 	SWITCH_BUFFER,
+	NEXT_BUFFER,
+	PREVIOUS_BUFFER,
 	MARK_BUFFER,
 	DELETE_WORD,
 	BACKSPACE_WORD,
@@ -169,6 +171,13 @@ struct editorCommand {
 	char *key;
 	void (*cmd)(struct editorConfig*, struct editorBuffer*);
 	UT_hash_handle hh;
+};
+
+struct bufferCompletion {
+    char **completions;
+    int count;
+    int current;
+  char *prefix;
 };
 
 enum registerType {

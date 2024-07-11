@@ -43,7 +43,6 @@ void die(const char *s) {
 	exit(1);
 }
 
-
 void editorUpdateBuffer(struct editorBuffer *buf) {
 	for (int i = 0; i < buf->numrows; i++) {
 		editorUpdateRow(&buf->row[i]);
@@ -261,6 +260,21 @@ int editorReadKey() {
 			return SWAP_MARK;
 		} else if (seq[0] == 'b' || seq[0] == 'B' || seq[0] == CTRL('b')) {
 			return SWITCH_BUFFER;
+ 		} else if (seq[0] == '\x1b') {
+			// C-x left and C-x right
+			if (read(STDIN_FILENO, &seq[1], 1) != 1) goto CX_UNKNOWN;
+			if (read(STDIN_FILENO, &seq[2], 1) != 1) goto CX_UNKNOWN;
+				if (seq[1] == '[') {
+					switch (seq[2]) {
+						case 'C': return NEXT_BUFFER;
+						case 'D': return PREVIOUS_BUFFER;
+						}
+				} else if (seq[1] == 'O') { // Check for C-x C-right/left
+				switch (seq[2]) {
+					case 'C': return NEXT_BUFFER; // C-x C-right
+					case 'D': return PREVIOUS_BUFFER; // C-x C-left
+					}
+				}
 		} else if (seq[0] == 'h') {
 			return MARK_BUFFER;
 		} else if (seq[0]=='o' || seq[0]=='O') {
@@ -601,30 +615,14 @@ void editorKillLine(struct editorBuffer *bufr) {
 	if (bufr->cx == row->size) {
 		editorDelChar(bufr);
 	} else {
-		clearRedos(bufr);
-		struct editorUndo *new = newUndo();
-		new->starty = bufr->cy;
-		new->endy = bufr->cy;
-		new->startx = bufr->cx;
-		new->endx = row->size;
-		new->delete = 1;
-		new->prev = bufr->undo;
-		bufr->undo = new;
-		int i = 0;
-		for (int j = row->size-1; j >= bufr->cx; j--) {
-			new->data[i++] = row->chars[j];
-			new->datalen++;
-			if (new->datalen >= new->datasize - 2) {
-				new->datasize *= 2;
-				new->data = realloc(new->data, new->datasize);
-			}
-		}
-		new->data[i] = 0;
+        // Set the mark to the end of the line
+        bufr->markx = row->size;
+        bufr->marky = bufr->cy;
 
-		row->chars[bufr->cx] = 0;
-		row->size = bufr->cx;
-		editorUpdateRow(row);
-		bufr->dirty = 1;
+        // Call editorKillRegion to delete from the current cursor position to the end of the line
+        editorKillRegion(&E, bufr);
+
+        // Unmark the region
         bufr->markx = -1;
         bufr->marky = -1;
 	}
@@ -881,13 +879,13 @@ void editorDrawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
 	if (win->focused) {
 		len = snprintf(status, sizeof(status),
 			       "-- %.20s %c%c %2d:%2d --",
-			       bufr->filename ? bufr->filename : "[scratch]",
+			       bufr->filename ? bufr->filename : "*scratch*",
 			       bufr->dirty ? '*': '-', bufr->dirty ? '*': '-',
 			       bufr->cy+1, bufr->cx);
 	} else {
 		len = snprintf(status, sizeof(status),
 			       "   %.20s %c%c %2d:%2d   ",
-			       bufr->filename ? bufr->filename : "[scratch]",
+			       bufr->filename ? bufr->filename : "*scratch*",
 			       bufr->dirty ? '*': '-', bufr->dirty ? '*': '-',
 			       bufr->cy+1, bufr->cx);
 	}
@@ -1161,8 +1159,18 @@ PROMPT_BACKSPACE:
 					curs = buflen;
 					cursScr = bufwidth;
 				}
-			}
-			break;
+            } else if (t == PROMPT_BASIC) {  // For buffer switching
+                uint8_t *tc = tabCompleteBufferNames(&E, buf, bufr);
+                if (tc && tc != buf) {
+                    free(buf);
+                    buf = tc;
+                    buflen = strlen((char*)buf);
+                    bufsize = buflen + 1;
+                    bufwidth = stringWidth(buf);
+                    curs = buflen;
+                    cursScr = bufwidth;
+                }
+            }			break;
 		case CTRL('a'):
 		case HOME_KEY:
 			curs = 0;
@@ -1474,7 +1482,7 @@ void editorPipeCmd(struct editorBuffer *bufr, int cu_prefix) {
             editorSetStatusMessage("%s", pipeOutput);
         } else {
             struct editorBuffer* newBuf = newBuffer();
-            newBuf->filename = strdup("[Shell Output]");
+            newBuf->filename = strdup("*Shell Output*");
             newBuf->special_buffer = 1;
 
             // Use a temporary buffer to build each row
@@ -1598,6 +1606,53 @@ void editorTransposeChars(struct editorConfig *ed, struct editorBuffer *bufr) {
 	bufr->marky = scy;
 	editorTransformRegion(ed, bufr, transformerTransposeChars);
 }
+///
+
+void editorSwitchToNamedBuffer(struct editorConfig *ed, struct editorBuffer *current) {
+    char prompt[512];
+    snprintf(prompt, sizeof(prompt), "Switch to buffer: %%s");
+
+    editorSetStatusMessage("Calling editorPrompt...");
+    uint8_t *buffer_name = editorPrompt(current, (uint8_t*)prompt, PROMPT_BASIC, NULL);
+    editorSetStatusMessage("editorPrompt returned");
+
+    if (!buffer_name) {
+        editorSetStatusMessage("Buffer switch canceled");
+        return;
+    }
+    if (buffer_name[0] == '\0') {
+        editorSetStatusMessage("No buffer name entered");
+        free(buffer_name);
+        return;
+    }
+
+    struct editorBuffer *found = NULL;
+    for (struct editorBuffer *buf = ed->firstBuf; buf != NULL; buf = buf->next) {
+        if (buf == current) continue; // Skip the current buffer
+
+        char *name = buf->filename ? buf->filename : "*scratch*";
+        if (strcmp((char*)buffer_name, name) == 0) {
+            found = buf;
+            break;
+        }
+    }
+
+    if (found) {
+        ed->focusBuf = found;
+        editorSetStatusMessage("Switched to buffer %s", (char*)buffer_name);
+
+        for (int i = 0; i < ed->nwindows; i++) {
+            if (ed->windows[i]->focused) {
+                ed->windows[i]->buf = ed->focusBuf;
+            }
+        }
+    } else {
+        editorSetStatusMessage("No buffer named '%s'", buffer_name);
+    }
+
+    free(buffer_name);
+}
+
 
 /* Where the magic happens */
 void editorProcessKeypress(int c) {
@@ -1642,16 +1697,24 @@ void editorProcessKeypress(int c) {
 		}
 		break;
 	case BACKSPACE:
+	    if (bufr->markx != -1 && bufr->marky != -1) {
+	        editorKillRegion(&E, bufr);
+	    } else {
 
 		for (int i = 0; i < rept; i++) {
 			editorBackSpace(bufr);
 		}
+	    }
 		break;
 	case DEL_KEY:
 	case CTRL('d'):
+	    if (bufr->markx != -1 && bufr->marky != -1) {
+	        editorKillRegion(&E, bufr);
+	    } else {
 		for (int i = 0; i < rept; i++) {
 			editorDelChar(bufr);
 		}
+	    }
 		break;
 	case CTRL('l'):
 		editorRecenter(bufr);
@@ -1745,6 +1808,8 @@ void editorProcessKeypress(int c) {
 		break;
 	case COPY:
 		editorCopyRegion(&E, bufr);
+                bufr->markx = -1;
+                bufr->marky = -1;
 		break;
 	case CTRL('@'):
 		editorSetMark(bufr);
@@ -1825,8 +1890,10 @@ void editorProcessKeypress(int c) {
 			}
 		}
 		break;
-
-	case SWITCH_BUFFER:
+        case SWITCH_BUFFER:
+          editorSwitchToNamedBuffer(&E, E.focusBuf);
+          break;
+	case NEXT_BUFFER:
 		E.focusBuf = E.focusBuf->next;
 		if (E.focusBuf == NULL) {
 			E.focusBuf = E.firstBuf;
@@ -1837,6 +1904,28 @@ void editorProcessKeypress(int c) {
 			}
 		}
 		break;
+case PREVIOUS_BUFFER:
+    if (E.focusBuf == E.firstBuf) {
+        // If we're at the first buffer, go to the last buffer
+        E.focusBuf = E.firstBuf;
+        while (E.focusBuf->next != NULL) {
+            E.focusBuf = E.focusBuf->next;
+        }
+    } else {
+        // Otherwise, go to the previous buffer
+        struct editorBuffer *temp = E.firstBuf;
+        while (temp->next != E.focusBuf) {
+            temp = temp->next;
+        }
+        E.focusBuf = temp;
+    }
+    // Update the focused buffer in all windows
+    for (int i = 0; i < E.nwindows; i++) {
+        if (E.windows[i]->focused) {
+            E.windows[i]->buf = E.focusBuf;
+        }
+    }
+    break;
 	case MARK_BUFFER:
 		if (bufr->numrows > 0) {
 			bufr->cy = bufr->numrows;
@@ -1974,7 +2063,7 @@ void editorProcessKeypress(int c) {
             // If it's the last buffer, create a new scratch buffer
             if (bufr->next == NULL && prevBuf == NULL) { 
                 E.windows[i]->buf = newBuffer();
-                E.windows[i]->buf->filename = strdup("[scratch]");
+                E.windows[i]->buf->filename = strdup("*scratch*");
                 E.windows[i]->buf->special_buffer = 1;
                 E.firstBuf = E.windows[i]->buf;
                 E.focusBuf = E.firstBuf; // Ensure E.focusBuf is updated
@@ -2113,6 +2202,8 @@ void editorProcessKeypress(int c) {
 
 	case CTRL('g'):
 		/* Expected behavior */
+          bufr->markx = -1;
+          bufr->marky = -1;
 		editorSetStatusMessage("Quit");
 		break;
 
@@ -2245,6 +2336,7 @@ void initEditor() {
 	E.macro.keys = NULL;
 	E.micro = 0;
 	E.playback = 0;
+        E.firstBuf = NULL;
 	memset(E.registers, 0, sizeof(E.registers));
 	setupCommands(&E);
 
