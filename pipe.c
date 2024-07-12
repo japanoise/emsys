@@ -57,32 +57,33 @@ static uint8_t *transformerPipeCmd(uint8_t *input) {
 	return (uint8_t*) buf;
 }
 
-uint8_t *editorPipe(struct editorConfig *ed, struct editorBuffer *bf, int cu_prefix) {
+uint8_t *editorPipe(struct editorConfig *ed, struct editorBuffer *bf) {
 	buf = calloc(1, BUFSIZ + 1);
 	cmd = NULL;
-    cmd = editorPrompt(bf, (uint8_t*)"Shell command on region: %s", PROMPT_BASIC, NULL);
+	cmd = editorPrompt(bf, (uint8_t*)"Shell command on region: %s", PROMPT_BASIC, NULL);
 
 	if (cmd == NULL) {
-        editorSetStatusMessage("Canceled shell command.");
+	  editorSetStatusMessage("Canceled shell command.");
     } else {
-        if (cu_prefix) {
-            cu_prefix = 0;
+        if (bf->uarg_active) {
+            bf->uarg_active = 0;
+            bf->uarg = 0;
             editorTransformRegion(ed, bf, transformerPipeCmd); 
                 // unmark region
                 bf->markx = -1;
                 bf->marky = -1;
                 free(cmd);
-                return NULL;
+		return NULL;
         } else {
             // 1. Extract the selected region
             if (markInvalid(bf)) { 
                 editorSetStatusMessage("Mark invalid.");
                 free(cmd);
 		free(buf);
-                return NULL;
+		return NULL;
 	}
 
-            editorCopyRegion(ed, bf); // ed->kill now holds the selected text
+	    editorCopyRegion(ed, bf); // ed->kill now holds the selected text
 
             // 2. Pass the extracted text to transformerPipeCmd
             uint8_t *result = transformerPipeCmd(ed->kill); 
