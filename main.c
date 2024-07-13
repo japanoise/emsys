@@ -1611,11 +1611,7 @@ void editorTransposeChars(struct editorConfig *ed, struct editorBuffer *bufr) {
 void editorSwitchToNamedBuffer(struct editorConfig *ed, struct editorBuffer *current) {
     char prompt[512];
     snprintf(prompt, sizeof(prompt), "Switch to buffer: %%s");
-
-    editorSetStatusMessage("Calling editorPrompt...");
     uint8_t *buffer_name = editorPrompt(current, (uint8_t*)prompt, PROMPT_BASIC, NULL);
-    editorSetStatusMessage("editorPrompt returned");
-
     if (!buffer_name) {
         editorSetStatusMessage("Buffer switch canceled");
         return;
