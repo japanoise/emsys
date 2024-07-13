@@ -173,13 +173,6 @@ struct editorCommand {
 	UT_hash_handle hh;
 };
 
-struct bufferCompletion {
-    char **completions;
-    int count;
-    int current;
-  char *prefix;
-};
-
 enum registerType {
 	REGISTER_NULL,
 	REGISTER_REGION,
