@@ -1,7 +1,7 @@
 #ifndef EMSYS_UNDO_H
 #define EMSYS_UNDO_H 1
 
-#include"emsys.h"
+#include "emsys.h"
 
 void editorDoUndo(struct editorBuffer *buf);
 void editorDoRedo(struct editorBuffer *buf);

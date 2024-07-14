@@ -1,9 +1,9 @@
-#include<stdint.h>
-#include<stdlib.h>
-#include<string.h>
-#include"emsys.h"
-#include"row.h"
-#include"unicode.h"
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include "emsys.h"
+#include "row.h"
+#include "unicode.h"
 
 void editorUpdateRow(erow *row) {
 	int tabs = 0;
@@ -19,12 +19,13 @@ void editorUpdateRow(erow *row) {
 			 * CSI m - 3 bytes
 			 * preceding ^ - 1 byte
 			 */
-			extra+=8;
+			extra += 8;
 		}
 	}
 
 	free(row->render);
-	row->render = malloc(row->size + tabs*(EMSYS_TAB_STOP - 1) + extra + 1);
+	row->render =
+		malloc(row->size + tabs * (EMSYS_TAB_STOP - 1) + extra + 1);
 	row->renderwidth = 0;
 
 	int idx = 0;
@@ -32,7 +33,8 @@ void editorUpdateRow(erow *row) {
 		if (row->chars[j] == '\t') {
 			row->renderwidth += EMSYS_TAB_STOP;
 			row->render[idx++] = ' ';
-			while (idx % EMSYS_TAB_STOP != 0) row->render[idx++] = ' ';
+			while (idx % EMSYS_TAB_STOP != 0)
+				row->render[idx++] = ' ';
 		} else if (row->chars[j] == 0x7f) {
 			row->renderwidth += 2;
 			row->render[idx++] = 0x1b;
@@ -51,7 +53,7 @@ void editorUpdateRow(erow *row) {
 			row->render[idx++] = '7';
 			row->render[idx++] = 'm';
 			row->render[idx++] = '^';
-			row->render[idx++] = row->chars[j]|0x40;
+			row->render[idx++] = row->chars[j] | 0x40;
 			row->render[idx++] = 0x1b;
 			row->render[idx++] = '[';
 			row->render[idx++] = 'm';
@@ -67,14 +69,16 @@ void editorUpdateRow(erow *row) {
 		}
 	}
 	row->render[idx] = 0;
-	row->rsize=idx;
+	row->rsize = idx;
 }
 
 void editorInsertRow(struct editorBuffer *bufr, int at, char *s, size_t len) {
-	if (at < 0 || at > bufr->numrows) return;
+	if (at < 0 || at > bufr->numrows)
+		return;
 
 	bufr->row = realloc(bufr->row, sizeof(erow) * (bufr->numrows + 1));
-	memmove(&bufr->row[at + 1], &bufr->row[at], sizeof(erow) * (bufr->numrows - at));
+	memmove(&bufr->row[at + 1], &bufr->row[at],
+		sizeof(erow) * (bufr->numrows - at));
 
 	bufr->row[at].size = len;
 	bufr->row[at].chars = malloc(len + 1);
@@ -95,7 +99,8 @@ void editorFreeRow(erow *row) {
 }
 
 void editorDelRow(struct editorBuffer *bufr, int at) {
-	if (at < 0 || at >= bufr->numrows) return;
+	if (at < 0 || at >= bufr->numrows)
+		return;
 	editorFreeRow(&bufr->row[at]);
 	memmove(&bufr->row[at], &bufr->row[at + 1],
 		sizeof(erow) * (bufr->numrows - at - 1));
@@ -104,8 +109,9 @@ void editorDelRow(struct editorBuffer *bufr, int at) {
 }
 
 void editorRowInsertChar(struct editorBuffer *bufr, erow *row, int at, int c) {
-	if (at < 0 || at > row->size) at = row->size;
-	row->chars = realloc(row->chars, row->size +2);
+	if (at < 0 || at > row->size)
+		at = row->size;
+	row->chars = realloc(row->chars, row->size + 2);
 	memmove(&row->chars[at + 1], &row->chars[at], row->size - at + 1);
 	row->size++;
 	row->chars[at] = c;
@@ -113,17 +119,21 @@ void editorRowInsertChar(struct editorBuffer *bufr, erow *row, int at, int c) {
 	bufr->dirty = 1;
 }
 
-void editorRowInsertUnicode(struct editorConfig *ed, struct editorBuffer *bufr, erow *row, int at) {
-	if (at < 0 || at > row->size) at = row->size;
+void editorRowInsertUnicode(struct editorConfig *ed, struct editorBuffer *bufr,
+			    erow *row, int at) {
+	if (at < 0 || at > row->size)
+		at = row->size;
 	row->chars = realloc(row->chars, row->size + 1 + ed->nunicode);
-	memmove(&row->chars[at + ed->nunicode], &row->chars[at], row->size - at + 1);
+	memmove(&row->chars[at + ed->nunicode], &row->chars[at],
+		row->size - at + 1);
 	row->size += ed->nunicode;
 	memcpy(&row->chars[at], ed->unicode, ed->nunicode);
 	editorUpdateRow(row);
 	bufr->dirty = 1;
 }
 
-void editorRowAppendString(struct editorBuffer *bufr, erow *row, char *s, size_t len) {
+void editorRowAppendString(struct editorBuffer *bufr, erow *row, char *s,
+			   size_t len) {
 	row->chars = realloc(row->chars, row->size + len + 1);
 	memcpy(&row->chars[row->size], s, len);
 	row->size += len;
@@ -133,10 +143,11 @@ void editorRowAppendString(struct editorBuffer *bufr, erow *row, char *s, size_t
 }
 
 void editorRowDelChar(struct editorBuffer *bufr, erow *row, int at) {
-	if (at < 0 || at >= row->size) return;
+	if (at < 0 || at >= row->size)
+		return;
 	int size = utf8_nBytes(row->chars[at]);
-	memmove(&row->chars[at],
-		&row->chars[at+size], row->size - ((at+size)-1));
+	memmove(&row->chars[at], &row->chars[at + size],
+		row->size - ((at + size) - 1));
 	row->size -= size;
 	editorUpdateRow(row);
 	bufr->dirty = 1;

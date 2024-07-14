@@ -1,12 +1,12 @@
 #include <stdint.h>
 #include <stdio.h>
-#include<stdlib.h>
-#include<string.h>
+#include <stdlib.h>
+#include <string.h>
 #include "emsys.h"
 #include "re.h"
-#include"region.h"
-#include"row.h"
-#include"undo.h"
+#include "region.h"
+#include "row.h"
+#include "undo.h"
 
 void editorSetMark(struct editorBuffer *buf) {
 	buf->markx = buf->cx;
@@ -33,7 +33,8 @@ int markInvalid(struct editorBuffer *buf) {
 
 static void normalizeRegion(struct editorBuffer *buf) {
 	/* Put cx,cy first */
-	if (buf->cy > buf->marky || (buf->cy == buf->marky && buf->cx > buf->markx)) {
+	if (buf->cy > buf->marky ||
+	    (buf->cy == buf->marky && buf->cx > buf->markx)) {
 		int swapx, swapy;
 		swapx = buf->cx;
 		swapy = buf->cy;
@@ -50,7 +51,8 @@ static void normalizeRegion(struct editorBuffer *buf) {
 }
 
 void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
-	if (markInvalid(buf)) return;
+	if (markInvalid(buf))
+		return;
 	editorCopyRegion(ed, buf);
 	normalizeRegion(buf);
 
@@ -67,7 +69,7 @@ void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->data = malloc(new->datasize);
 	/* XXX: have to copy kill to undo in reverse */
 	for (int i = 0; i < new->datalen; i++) {
-		new->data[i] = ed->kill[new->datalen-i-1];
+		new->data[i] = ed->kill[new->datalen - i - 1];
 	}
 	new->data[new->datalen] = 0;
 	new->append = 0;
@@ -78,20 +80,20 @@ void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 	struct erow *row = &buf->row[buf->cy];
 	if (buf->cy == buf->marky) {
 		memmove(&row->chars[buf->cx], &row->chars[buf->markx],
-			row->size-buf->markx);
+			row->size - buf->markx);
 		row->size -= buf->markx - buf->cx;
 		row->chars[row->size] = 0;
 	} else {
 		for (int i = buf->cy + 1; i < buf->marky; i++) {
-			editorDelRow(buf, buf->cy+1);
+			editorDelRow(buf, buf->cy + 1);
 		}
-		struct erow *last = &buf->row[buf->cy+1];
+		struct erow *last = &buf->row[buf->cy + 1];
 		row->size = buf->cx;
 		row->size += last->size - buf->markx;
 		row->chars = realloc(row->chars, row->size);
 		memcpy(&row->chars[buf->cx], &last->chars[buf->markx],
-		       last->size-buf->markx);
-		editorDelRow(buf, buf->cy+1);
+		       last->size - buf->markx);
+		editorDelRow(buf, buf->cy + 1);
 	}
 
 	buf->dirty = 1;
@@ -99,7 +101,8 @@ void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 }
 
 void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf) {
-	if (markInvalid(buf)) return;
+	if (markInvalid(buf))
+		return;
 	int origCx = buf->cx;
 	int origCy = buf->cy;
 	int origMarkx = buf->markx;
@@ -114,7 +117,7 @@ void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 		uint8_t c = buf->row[buf->cy].chars[buf->cx];
 		if (buf->cx >= buf->row[buf->cy].size) {
 			buf->cy++;
-			buf->cx=0;
+			buf->cx = 0;
 			ed->kill[killpos++] = '\n';
 		} else {
 			ed->kill[killpos++] = c;
@@ -170,8 +173,9 @@ void editorYank(struct editorConfig *ed, struct editorBuffer *buf) {
 }
 
 void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
-			   uint8_t *(*transformer)(uint8_t*)) {
-	if (markInvalid(buf)) return;
+			   uint8_t *(*transformer)(uint8_t *)) {
+	if (markInvalid(buf))
+		return;
 	normalizeRegion(buf);
 
 	uint8_t *okill = NULL;
@@ -195,14 +199,15 @@ void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
 }
 
 void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
-	if (markInvalid(buf)) return;
+	if (markInvalid(buf))
+		return;
 	normalizeRegion(buf);
 
 	const char *cancel = "Canceled regex-replace.";
 	int madeReplacements = 0;
 
-	uint8_t *regex = editorPrompt(buf, "Regex replace: %s", PROMPT_BASIC,
-				      NULL);
+	uint8_t *regex =
+		editorPrompt(buf, "Regex replace: %s", PROMPT_BASIC, NULL);
 	if (regex == NULL) {
 		editorSetStatusMessage(cancel);
 		return;
@@ -210,18 +215,19 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	char prompt[64];
 	sprintf(prompt, "Regex replace %.35s with: %%s", regex);
-	uint8_t *repl = editorPrompt(buf, (uint8_t*)prompt, PROMPT_BASIC, NULL);
+	uint8_t *repl =
+		editorPrompt(buf, (uint8_t *)prompt, PROMPT_BASIC, NULL);
 	if (repl == NULL) {
 		free(regex);
 		editorSetStatusMessage(cancel);
 		return;
 	}
-	int replen = strlen((char*) repl);
+	int replen = strlen((char *)repl);
 
 	uint8_t *okill = NULL;
 	if (ed->kill != NULL) {
-		okill = malloc(strlen((char*)ed->kill) + 1);
-		strcpy((char*)okill, (char*)ed->kill);
+		okill = malloc(strlen((char *)ed->kill) + 1);
+		strcpy((char *)okill, (char *)ed->kill);
 	}
 	editorCopyRegion(ed, buf);
 
@@ -232,13 +238,13 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->starty = buf->cy;
 	new->endx = buf->markx;
 	new->endy = buf->marky;
-	new->datalen = strlen((char*)ed->kill);
+	new->datalen = strlen((char *)ed->kill);
 	if (new->datasize < new->datalen + 1) {
 		new->datasize = new->datalen + 1;
 		new->data = realloc(new->data, new->datasize);
 	}
 	for (int i = 0; i < new->datalen; i++) {
-		new->data[i] = ed->kill[new->datalen-i-1];
+		new->data[i] = ed->kill[new->datalen - i - 1];
 	}
 	new->data[new->datalen] = 0;
 	new->append = 0;
@@ -264,72 +270,70 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	/* Regex boilerplate & setup */
 	int match_length;
-	re_t pattern = re_compile((char*)regex);
+	re_t pattern = re_compile((char *)regex);
 
 	for (int i = buf->cy; i <= buf->marky; i++) {
 		struct erow *row = &buf->row[i];
-		int match_idx = re_matchp(pattern, (char*)row->chars,
-					  &match_length);
+		int match_idx =
+			re_matchp(pattern, (char *)row->chars, &match_length);
 		if (i != 0)
-			strcat((char*)new->data, "\n");
+			strcat((char *)new->data, "\n");
 		if (match_idx < 0) {
 			if (buf->cy == buf->marky) {
-				strncat((char*)new->data,
-					(char*)&row->chars[buf->cx],
-					buf->markx-buf->cx);
+				strncat((char *)new->data,
+					(char *)&row->chars[buf->cx],
+					buf->markx - buf->cx);
 			} else if (i == buf->cy) {
-				strcat((char*)new->data,
-				       (char*)&row->chars[buf->cx]);
+				strcat((char *)new->data,
+				       (char *)&row->chars[buf->cx]);
 			} else if (i == buf->marky) {
-				strncat((char*)new->data, (char*)row->chars,
+				strncat((char *)new->data, (char *)row->chars,
 					buf->markx);
 			} else {
-				strcat((char*)new->data, (char*)row->chars);
+				strcat((char *)new->data, (char *)row->chars);
 			}
 			continue;
 		} else if (i == buf->cy && match_idx < buf->cx) {
-			strcat((char*)new->data,
-			       (char*)&row->chars[buf->cx]);
+			strcat((char *)new->data, (char *)&row->chars[buf->cx]);
 			continue;
 		} else if (i == buf->marky &&
-			   match_idx+match_length > buf->markx) {
-			strncat((char*)new->data, (char*)row->chars,
+			   match_idx + match_length > buf->markx) {
+			strncat((char *)new->data, (char *)row->chars,
 				buf->markx);
 			continue;
 		}
 		madeReplacements++;
 		/* Replace row data */
 		row = &buf->row[i];
-		int extra = replen-match_length;
+		int extra = replen - match_length;
 		if (extra > 0) {
-			row->chars = realloc(row->chars,
-					     row->size+1+extra);
+			row->chars = realloc(row->chars, row->size + 1 + extra);
 			new->datasize += extra;
 			new->data = realloc(new->data, new->datasize);
 		}
-		memmove(&row->chars[match_idx+replen],
-		       &row->chars[match_idx+match_length],
-			row->size-(match_idx+match_length));
+		memmove(&row->chars[match_idx + replen],
+			&row->chars[match_idx + match_length],
+			row->size - (match_idx + match_length));
 		memcpy(&row->chars[match_idx], repl, replen);
 		row->size += extra;
 		row->chars[row->size] = 0;
 		if (buf->cy == buf->marky) {
-			buf->markx+=extra;
-			strncat((char*)new->data, (char*)&row->chars[buf->cx],
-				buf->markx-buf->cx);
+			buf->markx += extra;
+			strncat((char *)new->data, (char *)&row->chars[buf->cx],
+				buf->markx - buf->cx);
 		} else if (i == buf->cy) {
-			strcat((char*)new->data, (char*)&row->chars[buf->cx]);
+			strcat((char *)new->data, (char *)&row->chars[buf->cx]);
 		} else if (i == buf->marky) {
-			buf->markx+=extra;
-			strncat((char*)new->data, (char*)row->chars,
+			buf->markx += extra;
+			strncat((char *)new->data, (char *)row->chars,
 				buf->markx);
 		} else {
-			strcat((char*)new->data, (char*)row->chars);
+			strcat((char *)new->data, (char *)row->chars);
 		}
 	}
 	/* Now take care of insert undo */
-	new->data[new->datasize-1] = 0;
-	new->datalen = strlen((char*)new->data);
+	new->data[new->datasize - 1] = 0;
+	new->datalen = strlen((char *)new->data);
 	new->endx = buf->markx;
 
 	buf->cx = new->endx;
@@ -347,9 +351,10 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 /*** Rectangles ***/
 
 void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
-	if (markInvalid(buf)) return;
+	if (markInvalid(buf))
+		return;
 
-	uint8_t *string = editorPrompt(buf, (uint8_t*)"String rectangle: %s",
+	uint8_t *string = editorPrompt(buf, (uint8_t *)"String rectangle: %s",
 				       PROMPT_BASIC, NULL);
 	if (string == NULL) {
 		editorSetStatusMessage("Canceled.");
@@ -358,8 +363,8 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	uint8_t *okill = NULL;
 	if (ed->kill != NULL) {
-		okill = malloc(strlen((char*)ed->kill) + 1);
-		strcpy((char*)okill, (char*)ed->kill);
+		okill = malloc(strlen((char *)ed->kill) + 1);
+		strcpy((char *)okill, (char *)ed->kill);
 	}
 
 	/* Do all the bookkeeping for killing the region, with a little extra
@@ -370,7 +375,7 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	normalizeRegion(buf);
 
 	/* All the various dimensions we need for rectangles */
-	int slen = strlen((char*) string);
+	int slen = strlen((char *)string);
 	int topx, topy, botx, boty;
 	boty = buf->marky;
 	topy = buf->cy;
@@ -404,11 +409,11 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->endx = buf->markx;
 	new->endy = buf->marky;
 	free(new->data);
-	new->datalen = strlen((char*)ed->kill);
+	new->datalen = strlen((char *)ed->kill);
 	new->datasize = new->datalen + 1;
 	new->data = malloc(new->datasize);
 	for (int i = 0; i < new->datalen; i++) {
-		new->data[i] = ed->kill[new->datalen-i-1];
+		new->data[i] = ed->kill[new->datalen - i - 1];
 	}
 	new->data[new->datalen] = 0;
 	new->append = 0;
@@ -421,16 +426,15 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->prev = buf->undo;
 	new->startx = topx;
 	new->starty = topy;
-	new->endx = botx+extra;
+	new->endx = botx + extra;
 	new->endy = boty;
 	free(new->data);
 	new->datalen = 0;
 	if (extra > 0) {
-		new->datasize =
-			strlen((char*)ed->kill)+(extra*((boty-topy)+1)) + 1;
+		new->datasize = strlen((char *)ed->kill) +
+				(extra * ((boty - topy) + 1)) + 1;
 	} else {
-		new->datasize =
-			strlen((char*)ed->kill);
+		new->datasize = strlen((char *)ed->kill);
 	}
 	new->data = malloc(new->datasize);
 	new->data[0] = 0;
@@ -448,73 +452,70 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	/* First, topy */
 	struct erow *row = &buf->row[topy];
 	if (row->size < botx) {
-		row->chars = realloc(row->chars, botx+1);
-		memset(&row->chars[row->size], ' ', botx-row->size);
+		row->chars = realloc(row->chars, botx + 1);
+		memset(&row->chars[row->size], ' ', botx - row->size);
 		row->size = botx;
 		/* Better safe than sorry */
-		new->datasize+=row->size+1;
+		new->datasize += row->size + 1;
 		new->data = realloc(new->data, new->datasize);
 	}
 	if (extra > 0) {
-		row->chars = realloc(row->chars, row->size+1+extra);
+		row->chars = realloc(row->chars, row->size + 1 + extra);
 	}
-	memcpy(&row->chars[topx+slen], &row->chars[botx],
-	       row->size-botx);
+	memcpy(&row->chars[topx + slen], &row->chars[botx], row->size - botx);
 	memcpy(&row->chars[topx], string, slen);
 	row->size += extra;
 	row->chars[row->size] = 0;
-	if (boty==topy) {
-		strcat((char*)new->data, (char*)string);
+	if (boty == topy) {
+		strcat((char *)new->data, (char *)string);
 	} else {
-		strcat((char*)new->data, (char*)&row->chars[topx]);
+		strcat((char *)new->data, (char *)&row->chars[topx]);
 	}
 
-	for (int i = topy+1; i < boty; i++) {
-		strcat((char*)new->data, "\n");
+	for (int i = topy + 1; i < boty; i++) {
+		strcat((char *)new->data, "\n");
 		/* Next, middle lines */
 		row = &buf->row[i];
 		if (row->size < botx) {
-			row->chars = realloc(row->chars, botx+1);
-			memset(&row->chars[row->size], ' ', botx-row->size);
+			row->chars = realloc(row->chars, botx + 1);
+			memset(&row->chars[row->size], ' ', botx - row->size);
 			row->size = botx;
-			new->datasize+=row->size+1;
+			new->datasize += row->size + 1;
 			new->data = realloc(new->data, new->datasize);
 		}
 		if (extra > 0) {
-			row->chars = realloc(row->chars,
-					     row->size+1+extra);
+			row->chars = realloc(row->chars, row->size + 1 + extra);
 		}
-		memcpy(&row->chars[topx+slen], &row->chars[botx],
-		       row->size-botx);
+		memcpy(&row->chars[topx + slen], &row->chars[botx],
+		       row->size - botx);
 		memcpy(&row->chars[topx], string, slen);
 		row->size += extra;
 		row->chars[row->size] = 0;
-		strcat((char*)new->data, (char*)row->chars);
+		strcat((char *)new->data, (char *)row->chars);
 	}
 
 	/* Finally, end line */
 	if (topy != boty) {
-		strcat((char*)new->data, "\n");
+		strcat((char *)new->data, "\n");
 		row = &buf->row[boty];
 		if (row->size < botx) {
-			row->chars = realloc(row->chars, botx+1);
-			memset(&row->chars[row->size], ' ', botx-row->size);
+			row->chars = realloc(row->chars, botx + 1);
+			memset(&row->chars[row->size], ' ', botx - row->size);
 			row->size = botx;
-			new->datasize+=row->size+1;
+			new->datasize += row->size + 1;
 			new->data = realloc(new->data, new->datasize);
 		}
 		if (extra > 0) {
-			row->chars = realloc(row->chars,
-					     row->size+1+extra);
+			row->chars = realloc(row->chars, row->size + 1 + extra);
 		}
-		memcpy(&row->chars[topx+slen], &row->chars[botx],
-		       row->size-botx);
+		memcpy(&row->chars[topx + slen], &row->chars[botx],
+		       row->size - botx);
 		memcpy(&row->chars[topx], string, slen);
 		row->size += extra;
 		row->chars[row->size] = 0;
-		strncat((char*)new->data, (char*)row->chars, botx+extra);
+		strncat((char *)new->data, (char *)row->chars, botx + extra);
 	}
-	new->datalen = strlen((char*)new->data);
+	new->datalen = strlen((char *)new->data);
 
 	buf->dirty = 1;
 	editorUpdateBuffer(buf);
@@ -522,7 +523,8 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 }
 
 void editorCopyRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
-	if (markInvalid(buf)) return;
+	if (markInvalid(buf))
+		return;
 	normalizeRegion(buf);
 
 	free(ed->rectKill);
@@ -538,7 +540,7 @@ void editorCopyRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		topx = buf->cx;
 	}
 	ed->rx = botx - topx;
-	ed->ry = (boty-topy)+1;
+	ed->ry = (boty - topy) + 1;
 
 	buf->cx = topx;
 	buf->cy = topy;
@@ -549,41 +551,38 @@ void editorCopyRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		buf->markx = botx;
 	}
 
-	ed->rectKill = calloc((ed->rx*ed->ry)+1, 1);
+	ed->rectKill = calloc((ed->rx * ed->ry) + 1, 1);
 
 	/* First, topy */
 	int idx = 0;
-	struct erow *row = &buf->row[topy+idx];
+	struct erow *row = &buf->row[topy + idx];
 	if (row->size < botx) {
-		memset(&ed->rectKill[idx*ed->rx], ' ', ed->rx);
-		if (row->size > botx-ed->rx) {
-			strncpy((char*)&ed->rectKill[idx*ed->rx],
-				(char*)&row->chars[botx-ed->rx],
-				row->size - (botx-ed->rx));
+		memset(&ed->rectKill[idx * ed->rx], ' ', ed->rx);
+		if (row->size > botx - ed->rx) {
+			strncpy((char *)&ed->rectKill[idx * ed->rx],
+				(char *)&row->chars[botx - ed->rx],
+				row->size - (botx - ed->rx));
 		}
 	} else {
-		strncpy((char*)&ed->rectKill[idx*ed->rx],
-			(char*)&row->chars[botx-ed->rx],
-			ed->rx);
+		strncpy((char *)&ed->rectKill[idx * ed->rx],
+			(char *)&row->chars[botx - ed->rx], ed->rx);
 	}
 	idx++;
 
-	while ((topy+idx) < boty) {
+	while ((topy + idx) < boty) {
 		/* Middle lines */
-		row = &buf->row[topy+idx];
+		row = &buf->row[topy + idx];
 
 		if (row->size < botx) {
-			memset(&ed->rectKill[idx*ed->rx], ' ', ed->rx);
-			if (row->size > botx-ed->rx) {
-				strncpy((char*)
-					&ed->rectKill[idx*+ed->rx],
-					(char*)&row->chars[botx-ed->rx],
-					row->size - (botx-ed->rx));
+			memset(&ed->rectKill[idx * ed->rx], ' ', ed->rx);
+			if (row->size > botx - ed->rx) {
+				strncpy((char *)&ed->rectKill[idx * +ed->rx],
+					(char *)&row->chars[botx - ed->rx],
+					row->size - (botx - ed->rx));
 			}
 		} else {
-			strncpy((char*)&ed->rectKill[idx*ed->rx],
-				(char*)&row->chars[botx-ed->rx],
-				ed->rx);
+			strncpy((char *)&ed->rectKill[idx * ed->rx],
+				(char *)&row->chars[botx - ed->rx], ed->rx);
 		}
 
 		idx++;
@@ -591,32 +590,31 @@ void editorCopyRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	/* finally, end line */
 	if (topy != boty) {
-		row = &buf->row[topy+idx];
+		row = &buf->row[topy + idx];
 
 		if (row->size < botx) {
-			memset(&ed->rectKill[idx*ed->rx], ' ', ed->rx);
-			if (row->size > botx-ed->rx) {
-				strncpy((char*)
-					&ed->rectKill[idx*ed->rx],
-					(char*)&row->chars[botx-ed->rx],
-					row->size - (botx-ed->rx));
+			memset(&ed->rectKill[idx * ed->rx], ' ', ed->rx);
+			if (row->size > botx - ed->rx) {
+				strncpy((char *)&ed->rectKill[idx * ed->rx],
+					(char *)&row->chars[botx - ed->rx],
+					row->size - (botx - ed->rx));
 			}
 		} else {
-			strncpy((char*)&ed->rectKill[idx*ed->rx],
-				(char*)&row->chars[botx-ed->rx],
-				ed->rx);
+			strncpy((char *)&ed->rectKill[idx * ed->rx],
+				(char *)&row->chars[botx - ed->rx], ed->rx);
 		}
 	}
 }
 
 void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
-	if (markInvalid(buf)) return;
+	if (markInvalid(buf))
+		return;
 	normalizeRegion(buf);
 
 	uint8_t *okill = NULL;
 	if (ed->kill != NULL) {
-		okill = malloc(strlen((char*)ed->kill) + 1);
-		strcpy((char*)okill, (char*)ed->kill);
+		okill = malloc(strlen((char *)ed->kill) + 1);
+		strcpy((char *)okill, (char *)ed->kill);
 	}
 	free(ed->rectKill);
 
@@ -631,7 +629,7 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		topx = buf->cx;
 	}
 	ed->rx = botx - topx;
-	ed->ry = (boty-topy)+1;
+	ed->ry = (boty - topy) + 1;
 
 	buf->cx = topx;
 	buf->cy = topy;
@@ -644,7 +642,7 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	editorCopyRegion(ed, buf);
 	clearRedos(buf);
 
-	ed->rectKill = calloc((ed->rx*ed->ry)+1, 1);
+	ed->rectKill = calloc((ed->rx * ed->ry) + 1, 1);
 
 	struct editorUndo *new = newUndo();
 	new->startx = buf->cx;
@@ -652,11 +650,11 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->endx = buf->markx;
 	new->endy = buf->marky;
 	free(new->data);
-	new->datalen = strlen((char*)ed->kill);
+	new->datalen = strlen((char *)ed->kill);
 	new->datasize = new->datalen + 1;
 	new->data = malloc(new->datasize);
 	for (int i = 0; i < new->datalen; i++) {
-		new->data[i] = ed->kill[new->datalen-i-1];
+		new->data[i] = ed->kill[new->datalen - i - 1];
 	}
 	new->data[new->datalen] = 0;
 	new->append = 0;
@@ -669,10 +667,10 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->prev = buf->undo;
 	new->startx = topx;
 	new->starty = topy;
-	new->endx = botx-ed->rx;
+	new->endx = botx - ed->rx;
 	new->endy = boty;
 	free(new->data);
-	new->datalen = strlen((char*)ed->kill) - (ed->rx*ed->ry);
+	new->datalen = strlen((char *)ed->kill) - (ed->rx * ed->ry);
 	new->datasize = 1 + new->datalen;
 	new->data = malloc(new->datasize);
 	new->data[0] = 0;
@@ -682,90 +680,85 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	/* First, topy */
 	int idx = 0;
-	struct erow *row = &buf->row[topy+idx];
+	struct erow *row = &buf->row[topy + idx];
 	if (row->size < botx) {
-		memset(&ed->rectKill[idx*ed->rx], ' ', ed->rx);
-		if (row->size > botx-ed->rx) {
-			strncpy((char*)&ed->rectKill[idx*ed->rx],
-				(char*)&row->chars[botx-ed->rx],
-				row->size - (botx-ed->rx));
-			row->size -= (row->size - (botx-ed->rx));
+		memset(&ed->rectKill[idx * ed->rx], ' ', ed->rx);
+		if (row->size > botx - ed->rx) {
+			strncpy((char *)&ed->rectKill[idx * ed->rx],
+				(char *)&row->chars[botx - ed->rx],
+				row->size - (botx - ed->rx));
+			row->size -= (row->size - (botx - ed->rx));
 			row->chars[row->size] = 0;
-			if (boty!=topy) {
-				strcat((char*)new->data,
-				       (char*)&row->chars[botx-ed->rx]);
+			if (boty != topy) {
+				strcat((char *)new->data,
+				       (char *)&row->chars[botx - ed->rx]);
 			}
 		}
 	} else {
-		strncpy((char*)&ed->rectKill[idx*ed->rx],
-			(char*)&row->chars[botx-ed->rx],
-			ed->rx);
-		memcpy(&row->chars[topx], &row->chars[botx], row->size-botx);
+		strncpy((char *)&ed->rectKill[idx * ed->rx],
+			(char *)&row->chars[botx - ed->rx], ed->rx);
+		memcpy(&row->chars[topx], &row->chars[botx], row->size - botx);
 		row->size -= ed->rx;
 		row->chars[row->size] = 0;
-		if (boty!=topy) {
-			strcat((char*)new->data, (char*)&row->chars[topx]);
+		if (boty != topy) {
+			strcat((char *)new->data, (char *)&row->chars[topx]);
 		}
 	}
 	idx++;
 
-	while ((topy+idx) < boty) {
+	while ((topy + idx) < boty) {
 		/* Middle lines */
-		strcat((char*)new->data, "\n");
-		row = &buf->row[topy+idx];
+		strcat((char *)new->data, "\n");
+		row = &buf->row[topy + idx];
 
 		if (row->size < botx) {
-			memset(&ed->rectKill[idx*ed->rx], ' ', ed->rx);
-			if (row->size > botx-ed->rx) {
-				strncpy((char*)
-					&ed->rectKill[idx*ed->rx],
-					(char*)&row->chars[botx-ed->rx],
-					row->size - (botx-ed->rx));
-				row->size -= (row->size - (botx-ed->rx));
+			memset(&ed->rectKill[idx * ed->rx], ' ', ed->rx);
+			if (row->size > botx - ed->rx) {
+				strncpy((char *)&ed->rectKill[idx * ed->rx],
+					(char *)&row->chars[botx - ed->rx],
+					row->size - (botx - ed->rx));
+				row->size -= (row->size - (botx - ed->rx));
 				row->chars[row->size] = 0;
 			}
 		} else {
-			strncpy((char*)&ed->rectKill[idx*ed->rx],
-				(char*)&row->chars[botx-ed->rx],
-				ed->rx);
+			strncpy((char *)&ed->rectKill[idx * ed->rx],
+				(char *)&row->chars[botx - ed->rx], ed->rx);
 			memcpy(&row->chars[topx], &row->chars[botx],
-			       row->size-botx);
+			       row->size - botx);
 			row->size -= ed->rx;
 			row->chars[row->size] = 0;
 		}
 
-		strcat((char*)new->data, (char*)row->chars);
+		strcat((char *)new->data, (char *)row->chars);
 		idx++;
 	}
 
 	/* Finally, end line */
 	if (topy != boty) {
-		strcat((char*)new->data, "\n");
-		row = &buf->row[topy+idx];
+		strcat((char *)new->data, "\n");
+		row = &buf->row[topy + idx];
 
 		if (row->size < botx) {
-			memset(&ed->rectKill[idx*ed->rx], ' ', ed->rx);
-			if (row->size > botx-ed->rx) {
-				strncpy((char*)
-					&ed->rectKill[idx*ed->rx],
-					(char*)&row->chars[botx-ed->rx],
-					row->size - (botx-ed->rx));
-				row->size -= (row->size - (botx-ed->rx));
+			memset(&ed->rectKill[idx * ed->rx], ' ', ed->rx);
+			if (row->size > botx - ed->rx) {
+				strncpy((char *)&ed->rectKill[idx * ed->rx],
+					(char *)&row->chars[botx - ed->rx],
+					row->size - (botx - ed->rx));
+				row->size -= (row->size - (botx - ed->rx));
 				row->chars[row->size] = 0;
 			}
 		} else {
-			strncpy((char*)&ed->rectKill[idx*ed->rx],
-				(char*)&row->chars[botx-ed->rx],
-				ed->rx);
+			strncpy((char *)&ed->rectKill[idx * ed->rx],
+				(char *)&row->chars[botx - ed->rx], ed->rx);
 			memcpy(&row->chars[topx], &row->chars[botx],
-			       row->size-botx);
+			       row->size - botx);
 			row->size -= ed->rx;
 			row->chars[row->size] = 0;
 		}
 
-		strncat((char*)new->data, (char*)row->chars, topx);
+		strncat((char *)new->data, (char *)row->chars, topx);
 	}
-	new->datalen = strlen((char*)new->data);
+	new->datalen = strlen((char *)new->data);
 
 	buf->dirty = 1;
 	editorUpdateBuffer(buf);
@@ -775,8 +768,8 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	uint8_t *okill = NULL;
 	if (ed->kill != NULL) {
-		okill = malloc(strlen((char*)ed->kill) + 1);
-		strcpy((char*)okill, (char*)ed->kill);
+		okill = malloc(strlen((char *)ed->kill) + 1);
+		strcpy((char *)okill, (char *)ed->kill);
 	}
 
 	int topx, topy, botx, boty;
@@ -784,7 +777,7 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	topy = buf->cy;
 	botx = topx;
 	boty = topy + ed->ry - 1;
-	char* string = calloc(ed->rx+1, 1);
+	char *string = calloc(ed->rx + 1, 1);
 
 	buf->marky = boty;
 	if (botx > buf->row[boty].size) {
@@ -800,17 +793,17 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	}
 	if (extralines) {
 		struct editorUndo *new = newUndo();
-		new->starty = buf->numrows-extralines-1;
+		new->starty = buf->numrows - extralines - 1;
 		new->startx = buf->row[new->starty].size;
 		new->endx = 0;
-		new->endy = buf->numrows-1;
+		new->endy = buf->numrows - 1;
 		if (extralines >= new->datasize) {
-			new->datasize = extralines+1;
+			new->datasize = extralines + 1;
 			new->data = realloc(new->data, new->datasize);
 		}
 		memset(new->data, '\n', extralines);
 		new->data[extralines] = 0;
-		new->datalen = strlen((char*)new->data);
+		new->datalen = strlen((char *)new->data);
 		new->prev = buf->undo;
 		new->append = 0;
 		new->delete = 0;
@@ -829,7 +822,7 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	if (ed->kill == NULL) {
 		new->datalen = 0;
 	} else {
-		new->datalen = strlen((char*)ed->kill);
+		new->datalen = strlen((char *)ed->kill);
 	}
 	new->datasize = new->datalen + 1;
 	new->data = malloc(new->datasize);
@@ -837,7 +830,7 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		new->data[0] = 0;
 	} else {
 		for (int i = 0; i < new->datalen; i++) {
-			new->data[i] = ed->kill[new->datalen-i-1];
+			new->data[i] = ed->kill[new->datalen - i - 1];
 		}
 	}
 	new->data[new->datalen] = 0;
@@ -852,16 +845,15 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->prev = buf->undo;
 	new->startx = topx;
 	new->starty = topy;
-	new->endx = botx+ed->rx;
+	new->endx = botx + ed->rx;
 	new->endy = boty;
 	free(new->data);
 	new->datalen = 0;
 	if (ed->rx > 0) {
-		new->datasize =
-			strlen((char*)ed->kill)+(ed->rx*((boty-topy)+1)) + 1;
+		new->datasize = strlen((char *)ed->kill) +
+				(ed->rx * ((boty - topy) + 1)) + 1;
 	} else {
-		new->datasize =
-			strlen((char*)ed->kill);
+		new->datasize = strlen((char *)ed->kill);
 	}
 	new->data = malloc(new->datasize);
 	new->data[0] = 0;
@@ -872,78 +864,77 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	/* First, topy */
 	int idx = 0;
 	struct erow *row = &buf->row[topy];
-	strncpy(string, (char*)&ed->rectKill[idx*ed->rx], ed->rx);
+	strncpy(string, (char *)&ed->rectKill[idx * ed->rx], ed->rx);
 	if (row->size < botx) {
-		row->chars = realloc(row->chars, botx+1);
-		memset(&row->chars[row->size], ' ', botx-row->size);
+		row->chars = realloc(row->chars, botx + 1);
+		memset(&row->chars[row->size], ' ', botx - row->size);
 		row->size = botx;
-		new->datasize+=row->size+1;
+		new->datasize += row->size + 1;
 		new->data = realloc(new->data, new->datasize);
 	}
 	if (ed->rx > 0) {
-		row->chars = realloc(row->chars, row->size+1+ed->rx);
+		row->chars = realloc(row->chars, row->size + 1 + ed->rx);
 	}
-	memcpy(&row->chars[topx+ed->rx], &row->chars[botx],
-	       row->size-botx);
+	memcpy(&row->chars[topx + ed->rx], &row->chars[botx], row->size - botx);
 	memcpy(&row->chars[topx], string, ed->rx);
 	row->size += ed->rx;
 	row->chars[row->size] = 0;
-	if (boty==topy) {
-		strcat((char*)new->data, string);
+	if (boty == topy) {
+		strcat((char *)new->data, string);
 	} else {
-		strcat((char*)new->data, (char*)&row->chars[topx]);
+		strcat((char *)new->data, (char *)&row->chars[topx]);
 	}
 	idx++;
 
-	while ((topy+idx) < boty) {
-		strcat((char*)new->data, "\n");
+	while ((topy + idx) < boty) {
+		strcat((char *)new->data, "\n");
 		/* Next, middle lines */
-		row = &buf->row[topy+idx];
-		strncpy(string, (char*)&ed->rectKill[idx*ed->rx], ed->rx);
+		row = &buf->row[topy + idx];
+		strncpy(string, (char *)&ed->rectKill[idx * ed->rx], ed->rx);
 		if (row->size < botx) {
-			row->chars = realloc(row->chars, botx+1);
-			memset(&row->chars[row->size], ' ', botx-row->size);
+			row->chars = realloc(row->chars, botx + 1);
+			memset(&row->chars[row->size], ' ', botx - row->size);
 			row->size = botx;
-			new->datasize+=row->size+1;
+			new->datasize += row->size + 1;
 			new->data = realloc(new->data, new->datasize);
 		}
 		if (ed->rx > 0) {
-			row->chars = realloc(row->chars,
-					     row->size+1+ed->rx);
+			row->chars =
+				realloc(row->chars, row->size + 1 + ed->rx);
 		}
-		memcpy(&row->chars[topx+ed->rx], &row->chars[botx],
-		       row->size-botx);
+		memcpy(&row->chars[topx + ed->rx], &row->chars[botx],
+		       row->size - botx);
 		memcpy(&row->chars[topx], string, ed->rx);
 		row->size += ed->rx;
 		row->chars[row->size] = 0;
-		strcat((char*)new->data, (char*)row->chars);
+		strcat((char *)new->data, (char *)row->chars);
 		idx++;
 	}
 
 	/* Finally, end line */
 	if (topy != boty) {
-		strcat((char*)new->data, "\n");
-		strncpy(string, (char*)&ed->rectKill[idx*ed->rx], ed->rx);
+		strcat((char *)new->data, "\n");
+		strncpy(string, (char *)&ed->rectKill[idx * ed->rx], ed->rx);
 		row = &buf->row[boty];
 		if (row->size < botx) {
-			row->chars = realloc(row->chars, botx+1);
-			memset(&row->chars[row->size], ' ', botx-row->size);
+			row->chars = realloc(row->chars, botx + 1);
+			memset(&row->chars[row->size], ' ', botx - row->size);
 			row->size = botx;
-			new->datasize+=row->size+1;
+			new->datasize += row->size + 1;
 			new->data = realloc(new->data, new->datasize);
 		}
 		if (ed->rx > 0) {
-			row->chars = realloc(row->chars,
-					     row->size+1+ed->rx);
+			row->chars =
+				realloc(row->chars, row->size + 1 + ed->rx);
 		}
-		memcpy(&row->chars[topx+ed->rx], &row->chars[botx],
-		       row->size-botx);
+		memcpy(&row->chars[topx + ed->rx], &row->chars[botx],
+		       row->size - botx);
 		memcpy(&row->chars[topx], string, ed->rx);
 		row->size += ed->rx;
 		row->chars[row->size] = 0;
-		strncat((char*)new->data, (char*)row->chars, botx+ed->rx);
+		strncat((char *)new->data, (char *)row->chars, botx + ed->rx);
 	}
-	new->datalen = strlen((char*)new->data);
+	new->datalen = strlen((char *)new->data);
 
 	buf->dirty = 1;
 	editorUpdateBuffer(buf);

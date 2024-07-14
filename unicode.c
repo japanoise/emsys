@@ -1,26 +1,26 @@
-#include<stdio.h>
-#include<stdint.h>
-#include<wchar.h>
-#include"wcwidth.h"
-#include"unicode.h"
+#include <stdio.h>
+#include <stdint.h>
+#include <wchar.h>
+#include "wcwidth.h"
+#include "unicode.h"
 
 /* The UCS format used by wcwidth.c. NOT a general purpose function. */
 static int utf8ToUCS(uint8_t *str, int idx) {
 	int ret = 0;
 	uint8_t ch = str[idx];
 	if (utf8_is2Char(ch)) {
-		ret = (ch&0x1F)<<6;
-		ret |= (str[idx+1]&0x3F);
+		ret = (ch & 0x1F) << 6;
+		ret |= (str[idx + 1] & 0x3F);
 	} else if (utf8_is3Char(ch)) {
-		ret = (ch&0x0F)<<12;
-		ret |= ((str[idx+1]&0x3F)<<6);
-		ret |= (str[idx+2]&0x3F);
+		ret = (ch & 0x0F) << 12;
+		ret |= ((str[idx + 1] & 0x3F) << 6);
+		ret |= (str[idx + 2] & 0x3F);
 	} else if (utf8_is4Char(ch)) {
 		/* This currently won't work because wchar is too small */
-		ret = (ch&0x07)<<18;
-		ret |= ((str[idx+1]&0x3F)<<12);
-		ret |= ((str[idx+2]&0x3F)<<6);
-		ret |= (str[idx+3]&0x3F);
+		ret = (ch & 0x07) << 18;
+		ret |= ((str[idx + 1] & 0x3F) << 12);
+		ret |= ((str[idx + 2] & 0x3F) << 6);
+		ret |= (str[idx + 3] & 0x3F);
 	} else {
 		/* Why did you even call this, man */
 		ret = str[idx];
@@ -54,25 +54,25 @@ static ssize_t rune_to_utf8(uint8_t *dest, uint32_t ru) {
 	 */
 	if (ru < 0x80) {
 		/* ASCII */
-		dest[0] = (uint8_t) ru;
+		dest[0] = (uint8_t)ru;
 		return 1;
 	} else if (ru < 0x0800) {
 		/* 2 bytes */
-		dest[0] = ((uint8_t)(ru >> 6)&0x1F)|0xC0;
-		dest[1] = ((uint8_t) ru & 0x3F)|0x80;
+		dest[0] = ((uint8_t)(ru >> 6) & 0x1F) | 0xC0;
+		dest[1] = ((uint8_t)ru & 0x3F) | 0x80;
 		return 2;
 	} else if (ru < 0x10000) {
 		/* 3 bytes */
-		dest[0] = ((uint8_t) (ru>>12) & 0x0F)|0xE0;
-		dest[1] = ((uint8_t) (ru>>6) & 0x3F)|0x80;
-		dest[2] = ((uint8_t) ru & 0x3F)|0x80;
+		dest[0] = ((uint8_t)(ru >> 12) & 0x0F) | 0xE0;
+		dest[1] = ((uint8_t)(ru >> 6) & 0x3F) | 0x80;
+		dest[2] = ((uint8_t)ru & 0x3F) | 0x80;
 		return 3;
 	} else {
 		/* 4 bytes */
-		dest[0] = ((uint8_t) (ru>>18) & 0x07)|0xF0;
-		dest[1] = ((uint8_t) (ru>>12) & 0x3F)|0x80;
-		dest[2] = ((uint8_t) (ru>>6) & 0x3F)|0x80;
-		dest[3] = ((uint8_t) ru & 0x3F)|0x80;
+		dest[0] = ((uint8_t)(ru >> 18) & 0x07) | 0xF0;
+		dest[1] = ((uint8_t)(ru >> 12) & 0x3F) | 0x80;
+		dest[2] = ((uint8_t)(ru >> 6) & 0x3F) | 0x80;
+		dest[3] = ((uint8_t)ru & 0x3F) | 0x80;
 		return 4;
 	}
 }
@@ -83,7 +83,8 @@ static int testCaseUCS(char *testCh, int expected) {
 	return expected != ucs;
 }
 
-static int testCaseReverseUCS(char *expectedChars, int expectedWidth, int input) {
+static int testCaseReverseUCS(char *expectedChars, int expectedWidth,
+			      int input) {
 	uint8_t result[4];
 	ssize_t actualWidth;
 	int resultsNotMatch = 0;
@@ -92,8 +93,9 @@ static int testCaseReverseUCS(char *expectedChars, int expectedWidth, int input)
 	actualWidth = rune_to_utf8(result, input);
 
 	while (expectedChars[i] != 0) {
-		printf("%i actual: %02x expected: %02x\n", i, result[i], (uint8_t) expectedChars[i]);
-		resultsNotMatch += result[i] != (uint8_t) expectedChars[i];
+		printf("%i actual: %02x expected: %02x\n", i, result[i],
+		       (uint8_t)expectedChars[i]);
+		resultsNotMatch += result[i] != (uint8_t)expectedChars[i];
 		i++;
 	}
 
@@ -135,7 +137,7 @@ int stringWidth(uint8_t *str) {
 	int idx = 0;
 	int width = 0;
 
-	while(str[idx] != 0) {
+	while (str[idx] != 0) {
 		width += charInStringWidth(str, idx);
 		idx += utf8_nBytes(str[idx]);
 	}
@@ -155,7 +157,6 @@ int charInStringWidth(uint8_t *str, int idx) {
 		int rune = utf8ToUCS(str, idx);
 		return mk_wcwidth(rune);
 	}
-
 }
 
 int utf8_is2Char(uint8_t ch) {
