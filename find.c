@@ -20,11 +20,12 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 		direction = 1;
 	}
 
-	if (last_match == -1) direction = 1;
+	if (last_match == -1)
+		direction = 1;
 	int current = last_match;
 	if (current >= 0) {
 		erow *row = &bufr->row[current];
-		uint8_t *match = strstr(&(row->chars[bufr->cx+1]), query);
+		uint8_t *match = strstr(&(row->chars[bufr->cx + 1]), query);
 		if (match) {
 			last_match = current;
 			bufr->cy = current;
@@ -33,12 +34,13 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 			bufr->match = 1;
 			return;
 		}
-
 	}
 	for (int i = 0; i < bufr->numrows; i++) {
 		current += direction;
-		if(current == -1) current = bufr->numrows - 1;
-		else if (current == bufr->numrows) current = 0;
+		if (current == -1)
+			current = bufr->numrows - 1;
+		else if (current == bufr->numrows)
+			current = 0;
 
 		erow *row = &bufr->row[current];
 		uint8_t *match = strstr(row->chars, query);
@@ -70,4 +72,3 @@ void editorFind(struct editorBuffer *bufr) {
 		bufr->rowoff = saved_rowoff;
 	}
 }
-

@@ -1,10 +1,10 @@
 #ifndef EMSYS_H
 #define EMSYS_H 1
 
-#include<stdint.h>
-#include<termios.h>
-#include<time.h>
-#include"uthash.h"
+#include <stdint.h>
+#include <termios.h>
+#include <time.h>
+#include "uthash.h"
 
 /*** util ***/
 
@@ -19,7 +19,7 @@
 #endif
 
 #define ESC "\033"
-#define CSI ESC"["
+#define CSI ESC "["
 #define CRLF "\r\n"
 #define ISCTRL(c) ((0 < c && c < 0x20) || c == 0x7f)
 #if !defined(CTRL)
@@ -115,17 +115,17 @@ typedef struct erow {
 } erow;
 
 struct editorUndo {
-        struct editorUndo *prev;
-        int startx;
-        int starty;
-        int endx;
-        int endy;
-        int append;
-        int datalen;
-        int datasize;
-        int delete;
+	struct editorUndo *prev;
+	int startx;
+	int starty;
+	int endx;
+	int endy;
+	int append;
+	int datalen;
+	int datasize;
+	int delete;
 	int paired;
-        uint8_t *data;
+	uint8_t *data;
 };
 
 struct editorBuffer {
@@ -143,8 +143,8 @@ struct editorBuffer {
 	char *filename;
 	uint8_t *query;
 	uint8_t match;
-        struct editorUndo *undo;
-        struct editorUndo *redo;
+	struct editorUndo *undo;
+	struct editorUndo *redo;
 	struct editorBuffer *next;
 };
 
@@ -163,7 +163,7 @@ struct editorConfig;
 
 struct editorCommand {
 	char *key;
-	void (*cmd)(struct editorConfig*, struct editorBuffer*);
+	void (*cmd)(struct editorConfig *, struct editorBuffer *);
 	UT_hash_handle hh;
 };
 
@@ -230,8 +230,8 @@ struct editorConfig {
 void editorSetStatusMessage(const char *fmt, ...);
 void editorRefreshScreen();
 uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
-                      enum promptType t,
-                      void (*callback)(struct editorBuffer *, uint8_t *, int));
+		      enum promptType t,
+		      void (*callback)(struct editorBuffer *, uint8_t *, int));
 void editorCursorBottomLine(int);
 void editorCursorBottomLineLong(long);
 void editorUpdateBuffer(struct editorBuffer *buf);
