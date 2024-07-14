@@ -11,7 +11,7 @@ all: $(PROGNAME)
 debug: CFLAGS+=-g -O0
 debug: $(PROGNAME)
 
-$(PROGNAME): $(OBJECTS)
+$(PROGNAME): config.h $(OBJECTS)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 debug-unicodetest: CFLAGS+=-g -O0
@@ -27,6 +27,9 @@ install: $(PROGNAME) $(PROGNAME).1
 	install -m 0755 $(PROGNAME) $(BINDIR)
 	install -m 0644 README.md $(PREFIX)/share/doc/$(PROGNAME).md
 	install -m 0644 $(PROGNAME).1 $(MANDIR)/$(PROGNAME).1
+
+config.h:
+	cp config.def.h $@
 
 format:
 	clang-format -i *.c *.h
