@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <termios.h>
 #include <time.h>
+#include "config.h"
 #include "uthash.h"
 
 /*** util ***/
