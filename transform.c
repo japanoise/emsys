@@ -5,9 +5,11 @@
 #include "transform.h"
 #include "unicode.h"
 
-#define MKOUTPUT(in, l, o) int l = strlen(in); uint8_t *o = malloc(l+1)
+#define MKOUTPUT(in, l, o)  \
+	int l = strlen(in); \
+	uint8_t *o = malloc(l + 1)
 
-uint8_t* transformerUpcase(uint8_t* input) {
+uint8_t *transformerUpcase(uint8_t *input) {
 	MKOUTPUT(input, len, output);
 
 	for (int i = 0; i <= len; i++) {
@@ -21,7 +23,7 @@ uint8_t* transformerUpcase(uint8_t* input) {
 	return output;
 }
 
-uint8_t* transformerDowncase(uint8_t* input) {
+uint8_t *transformerDowncase(uint8_t *input) {
 	MKOUTPUT(input, len, output);
 
 	for (int i = 0; i <= len; i++) {
@@ -35,14 +37,15 @@ uint8_t* transformerDowncase(uint8_t* input) {
 	return output;
 }
 
-uint8_t* transformerCapitalCase(uint8_t* input) {
+uint8_t *transformerCapitalCase(uint8_t *input) {
 	MKOUTPUT(input, len, output);
 
 	int first = 1;
 
 	for (int i = 0; i <= len; i++) {
 		uint8_t c = input[i];
-		if ((('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')) && first) {
+		if ((('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')) &&
+		    first) {
 			first = 0;
 			c &= 0x5f;
 		} else if ('A' <= c && c <= 'Z') {
@@ -56,20 +59,20 @@ uint8_t* transformerCapitalCase(uint8_t* input) {
 	return output;
 }
 
-uint8_t* transformerTransposeChars(uint8_t* input) {
+uint8_t *transformerTransposeChars(uint8_t *input) {
 	MKOUTPUT(input, len, output);
 
-	int endFirst=utf8_nBytes(input[0]);
+	int endFirst = utf8_nBytes(input[0]);
 
-	memcpy(output, input+endFirst, len-endFirst);
-	memcpy(output+(len-endFirst), input, endFirst);
+	memcpy(output, input + endFirst, len - endFirst);
+	memcpy(output + (len - endFirst), input, endFirst);
 
 	output[len] = 0;
 
 	return output;
 }
 
-uint8_t* transformerTransposeWords(uint8_t* input) {
+uint8_t *transformerTransposeWords(uint8_t *input) {
 	MKOUTPUT(input, len, output);
 
 	int endFirst, startSecond = 0;
@@ -88,11 +91,11 @@ uint8_t* transformerTransposeWords(uint8_t* input) {
 		}
 	}
 	int offset = 0;
-	memcpy(output, input+startSecond, len-startSecond);
-	offset += len-startSecond;
-	memcpy(output+offset, input+endFirst, startSecond-endFirst);
-	offset += startSecond-endFirst;
-	memcpy(output+offset, input, endFirst);
+	memcpy(output, input + startSecond, len - startSecond);
+	offset += len - startSecond;
+	memcpy(output + offset, input + endFirst, startSecond - endFirst);
+	offset += startSecond - endFirst;
+	memcpy(output + offset, input, endFirst);
 
 	output[len] = 0;
 

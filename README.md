@@ -122,7 +122,7 @@ Control-x, `M-x` means Alt-x or Escape then x).
 * `C-d` or DELETE - Delete forwards
 * `M-BACKSPACE` - Delete backwards word
 * `M-d` - Delete forwards word
-* `C-u` - Universal Prefix
+* `C-u` - Delete to beginning of line
 * `C-k` - Delete to end of line
 * `M-%` - Query replace, that is, interactive search and replace. Emsys' version
   works very much like [GNU Emacs'][queryreplace], save for the fact that we

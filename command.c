@@ -17,13 +17,13 @@
 // https://stackoverflow.com/a/779960
 // You must free the result if result is non-NULL.
 char *str_replace(char *orig, char *rep, char *with) {
-	char *result; // the return string
-	char *ins;    // the next insert point
-	char *tmp;    // varies
-	int len_rep;  // length of rep (the string to remove)
-	int len_with; // length of with (the string to replace rep with)
+	char *result;  // the return string
+	char *ins;     // the next insert point
+	char *tmp;     // varies
+	int len_rep;   // length of rep (the string to remove)
+	int len_with;  // length of with (the string to replace rep with)
 	int len_front; // distance between rep and end of last rep
-	int count;    // number of replacements
+	int count;     // number of replacements
 
 	// sanity checks and initialization
 	if (!orig || !rep)
@@ -64,8 +64,8 @@ char *str_replace(char *orig, char *rep, char *with) {
 
 void editorVersion(struct editorConfig *UNUSED(ed),
 		   struct editorBuffer *UNUSED(buf)) {
-	editorSetStatusMessage(
-		"emsys version "EMSYS_VERSION", built "EMSYS_BUILD_DATE);
+	editorSetStatusMessage("emsys version " EMSYS_VERSION
+			       ", built " EMSYS_BUILD_DATE);
 }
 
 void editorIndentTabs(struct editorConfig *UNUSED(ed),
@@ -75,16 +75,16 @@ void editorIndentTabs(struct editorConfig *UNUSED(ed),
 }
 
 void editorIndentSpaces(struct editorConfig *UNUSED(ed),
-		   struct editorBuffer *buf) {
-	uint8_t *indentS = editorPrompt(buf, "Set indentation to: %s",
-					PROMPT_BASIC, NULL);
+			struct editorBuffer *buf) {
+	uint8_t *indentS =
+		editorPrompt(buf, "Set indentation to: %s", PROMPT_BASIC, NULL);
 	if (indentS == NULL) {
 		goto cancel;
 	}
 	int indent = atoi((char *)indentS);
 	free(indentS);
 	if (indent <= 0) {
-	cancel:
+cancel:
 		editorSetStatusMessage("Canceled.");
 		return;
 	}
@@ -92,8 +92,7 @@ void editorIndentSpaces(struct editorConfig *UNUSED(ed),
 	editorSetStatusMessage("Indentation set to %i spaces", indent);
 }
 
-void editorRevert(struct editorConfig *ed,
-		   struct editorBuffer *buf) {
+void editorRevert(struct editorConfig *ed, struct editorBuffer *buf) {
 	struct editorBuffer *new = newBuffer();
 	editorOpen(new, buf->filename);
 	new->next = buf->next;
@@ -133,8 +132,7 @@ uint8_t *transformerReplaceString(uint8_t *input) {
 	return str_replace(input, orig, repl);
 }
 
-void editorReplaceString(struct editorConfig *ed,
-		   struct editorBuffer *buf) {
+void editorReplaceString(struct editorConfig *ed, struct editorBuffer *buf) {
 	orig = NULL;
 	repl = NULL;
 	orig = editorPrompt(buf, "Replace: %s", PROMPT_BASIC, NULL);
@@ -143,7 +141,7 @@ void editorReplaceString(struct editorConfig *ed,
 		return;
 	}
 
-	uint8_t *prompt = malloc(strlen(orig)+20);
+	uint8_t *prompt = malloc(strlen(orig) + 20);
 	sprintf(prompt, "Replace %s with: %%s", orig);
 	repl = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 	free(prompt);
@@ -165,14 +163,14 @@ static int nextOccur(struct editorBuffer *buf, uint8_t *needle, int ocheck) {
 	if (!ocheck) {
 		ox = -69;
 	}
-	while(buf->cy < buf->numrows) {
+	while (buf->cy < buf->numrows) {
 		erow *row = &buf->row[buf->cy];
 		uint8_t *match = strstr(&(row->chars[buf->cx]), needle);
 		if (match) {
 			if (!(buf->cx == ox && buf->cy == oy)) {
 				buf->cx = match - row->chars;
 				buf->marky = buf->cy;
-				buf->markx = buf->cx+strlen(needle);
+				buf->markx = buf->cx + strlen(needle);
 				/* buf->rowoff = buf->numrows; */
 				return 1;
 			}
@@ -184,8 +182,7 @@ static int nextOccur(struct editorBuffer *buf, uint8_t *needle, int ocheck) {
 	return 0;
 }
 
-void editorQueryReplace(struct editorConfig *ed,
-			struct editorBuffer *buf) {
+void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 	orig = NULL;
 	repl = NULL;
 	orig = editorPrompt(buf, "Query replace: %s", PROMPT_BASIC, NULL);
@@ -194,7 +191,7 @@ void editorQueryReplace(struct editorConfig *ed,
 		return;
 	}
 
-	uint8_t *prompt = malloc(strlen(orig)+25);
+	uint8_t *prompt = malloc(strlen(orig) + 25);
 	sprintf(prompt, "Query replace %s with: %%s", orig);
 	repl = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 	free(prompt);
@@ -204,7 +201,7 @@ void editorQueryReplace(struct editorConfig *ed,
 		return;
 	}
 
-	prompt = malloc(strlen(orig)+strlen(repl)+32);
+	prompt = malloc(strlen(orig) + strlen(repl) + 32);
 	sprintf(prompt, "Query replacing %s with %s:", orig, repl);
 	int bufwidth = stringWidth(prompt);
 	int savedMx = buf->markx;
@@ -213,7 +210,9 @@ void editorQueryReplace(struct editorConfig *ed,
 	uint8_t *newStr = NULL;
 	buf->query = orig;
 
-#define NEXT_OCCUR(ocheck) if (!nextOccur(buf, orig, ocheck)) goto QR_CLEANUP
+#define NEXT_OCCUR(ocheck)                 \
+	if (!nextOccur(buf, orig, ocheck)) \
+	goto QR_CLEANUP
 
 	NEXT_OCCUR(false);
 
@@ -227,7 +226,8 @@ void editorQueryReplace(struct editorConfig *ed,
 		switch (c) {
 		case ' ':
 		case 'y':
-			editorTransformRegion(ed, buf, transformerReplaceString);
+			editorTransformRegion(ed, buf,
+					      transformerReplaceString);
 			NEXT_OCCUR(true);
 			break;
 		case CTRL('h'):
@@ -244,14 +244,16 @@ void editorQueryReplace(struct editorConfig *ed,
 			goto QR_CLEANUP;
 			break;
 		case '.':
-			editorTransformRegion(ed, buf, transformerReplaceString);
+			editorTransformRegion(ed, buf,
+					      transformerReplaceString);
 			goto QR_CLEANUP;
 			break;
 		case '!':
 		case 'Y':
-			buf->marky = buf->numrows-1;
+			buf->marky = buf->numrows - 1;
 			buf->markx = buf->row[buf->marky].size;
-			editorTransformRegion(ed, buf, transformerReplaceString);
+			editorTransformRegion(ed, buf,
+					      transformerReplaceString);
 			goto QR_CLEANUP;
 			break;
 		case 'u':
@@ -268,7 +270,7 @@ void editorQueryReplace(struct editorConfig *ed,
 			buf->cx -= strlen(orig);
 			break;
 		case CTRL('r'):
-			prompt = malloc(strlen(orig)+25);
+			prompt = malloc(strlen(orig) + 25);
 			sprintf(prompt, "Replace this %s with: %%s", orig);
 			newStr = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 			free(prompt);
@@ -277,7 +279,8 @@ void editorQueryReplace(struct editorConfig *ed,
 			}
 			uint8_t *tmp = repl;
 			repl = newStr;
-			editorTransformRegion(ed, buf, transformerReplaceString);
+			editorTransformRegion(ed, buf,
+					      transformerReplaceString);
 			free(newStr);
 			repl = tmp;
 			NEXT_OCCUR(true);
@@ -285,7 +288,7 @@ void editorQueryReplace(struct editorConfig *ed,
 			break;
 		case 'e':
 		case 'E':
-			prompt = malloc(strlen(orig)+25);
+			prompt = malloc(strlen(orig) + 25);
 			sprintf(prompt, "Query replace %s with: %%s", orig);
 			newStr = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 			free(prompt);
@@ -294,11 +297,13 @@ void editorQueryReplace(struct editorConfig *ed,
 			}
 			free(repl);
 			repl = newStr;
-			editorTransformRegion(ed, buf, transformerReplaceString);
+			editorTransformRegion(ed, buf,
+					      transformerReplaceString);
 			NEXT_OCCUR(true);
-		RESET_PROMPT:
-			prompt = malloc(strlen(orig)+strlen(repl)+32);
-			sprintf(prompt, "Query replacing %s with %s:", orig, repl);
+RESET_PROMPT:
+			prompt = malloc(strlen(orig) + strlen(repl) + 32);
+			sprintf(prompt, "Query replacing %s with %s:", orig,
+				repl);
 			bufwidth = stringWidth(prompt);
 			break;
 		case CTRL('l'):
@@ -317,8 +322,7 @@ QR_CLEANUP:
 	free(prompt);
 }
 
-void editorCapitalizeRegion(struct editorConfig *ed,
-		   struct editorBuffer *buf) {
+void editorCapitalizeRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 	editorTransformRegion(ed, buf, transformerCapitalCase);
 }
 
@@ -327,9 +331,8 @@ void editorWhitespaceCleanup(struct editorConfig *UNUSED(ed),
 	unsigned int trailing = 0;
 	for (int i = 0; i < buf->numrows; i++) {
 		erow *row = &buf->row[i];
-		for (int j = row->size-1; j >= 0; j--) {
-			if (row->chars[j] == ' ' ||
-			    row->chars[j] == '\t') {
+		for (int j = row->size - 1; j >= 0; j--) {
+			if (row->chars[j] == ' ' || row->chars[j] == '\t') {
 				row->size--;
 				trailing++;
 			} else {
@@ -343,7 +346,7 @@ void editorWhitespaceCleanup(struct editorConfig *UNUSED(ed),
 		buf->cx = buf->row[buf->cy].size;
 	}
 
-	if (trailing > 0){
+	if (trailing > 0) {
 		clearUndosAndRedos(buf);
 		editorSetStatusMessage("%d trailing characters removed",
 				       trailing);
@@ -352,7 +355,11 @@ void editorWhitespaceCleanup(struct editorConfig *UNUSED(ed),
 	}
 }
 
-#define ADDCMD(name, func) newCmd = malloc(sizeof *newCmd); newCmdName = name ; newCmd->cmd = func ; HASH_ADD_KEYPTR(hh, ed->cmd, newCmdName, strlen(newCmdName), newCmd)
+#define ADDCMD(name, func)               \
+	newCmd = malloc(sizeof *newCmd); \
+	newCmdName = name;               \
+	newCmd->cmd = func;              \
+	HASH_ADD_KEYPTR(hh, ed->cmd, newCmdName, strlen(newCmdName), newCmd)
 
 #ifdef EMSYS_DEBUG_UNDO
 void debugUnpair(struct editorConfig *UNUSED(ed), struct editorBuffer *buf) {
@@ -386,12 +393,12 @@ void setupCommands(struct editorConfig *ed) {
 	ADDCMD("whitespace-cleanup", editorWhitespaceCleanup);
 	ADDCMD("view-register", editorViewRegister);
 	ADDCMD("replace-regexp", editorReplaceRegex);
-	#ifdef EMSYS_DEBUG_UNDO
+#ifdef EMSYS_DEBUG_UNDO
 	ADDCMD("debug-unpair", debugUnpair);
-	#endif
+#endif
 }
 
-void runCommand(char * cmd, struct editorConfig *ed, struct editorBuffer *buf) {
+void runCommand(char *cmd, struct editorConfig *ed, struct editorBuffer *buf) {
 	for (int i = 0; cmd[i]; i++) {
 		uint8_t c = cmd[i];
 		if ('A' <= c && c <= 'Z') {

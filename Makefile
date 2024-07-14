@@ -28,6 +28,9 @@ install: $(PROGNAME) $(PROGNAME).1
 	install -m 0644 README.md $(PREFIX)/share/doc/$(PROGNAME).md
 	install -m 0644 $(PROGNAME).1 $(MANDIR)/$(PROGNAME).1
 
+format:
+	clang-format -i *.c *.h
+
 clean:
 	rm -rf *.o
 	rm -rf *.exe
