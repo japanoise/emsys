@@ -76,6 +76,7 @@ Control-x, `M-x` means Alt-x or Escape then x).
 ### Basic Commands
 
 * `C-x C-s` - Save buffer
+* `C-x k`   - Kill buffer
 * `C-x C-f` - Open file
 * `C-x C-c` - Quit
 * `M-x ...` - Run named command
@@ -106,6 +107,7 @@ Control-x, `M-x` means Alt-x or Escape then x).
 *  `C-x C-_` - Redo (keep pressing `C-_` to keep redoing)
 * `C-@` - Set mark (this is Control-SPACE on most terminals)
 * `C-x C-x` - Swap mark and point
+* `C-x h` - Mark the entire buffer
 * `C-w` - Kill (cut) current region
 * `M-w` - Copy current region
 * `C-y` - Yank (paste)
@@ -231,9 +233,7 @@ and has the following syntax for regular expressions:
 
 ## Forks
 
-* [By Nicholas Carroll](https://github.com/nicholascarroll/emsys) - personal
-  preference changes, pre-built Windows executable, some 'CUA'-type bindings
-  (`C-v` for yank/paste, `C-z` for undo).
+* [By Nicholas Carroll](https://github.com/nicholascarroll/emsys) 
 
 ## Copying
 

@@ -262,6 +262,8 @@ ESC_UNKNOWN:;
 		} else if (seq[0] == 'b' || seq[0] == 'B' ||
 			   seq[0] == CTRL('b')) {
 			return SWITCH_BUFFER;
+		} else if (seq[0] == 'h') {
+			return MARK_BUFFER;
 		} else if (seq[0] == 'o' || seq[0] == 'O') {
 			return OTHER_WINDOW;
 		} else if (seq[0] == '2') {
@@ -270,6 +272,8 @@ ESC_UNKNOWN:;
 			return DESTROY_WINDOW;
 		} else if (seq[0] == '1') {
 			return DESTROY_OTHER_WINDOWS;
+		} else if (seq[0] == 'k') {
+			return KILL_BUFFER;
 		} else if (seq[0] == '(') {
 			return MACRO_RECORD;
 		} else if (seq[0] == 'e' || seq[0] == 'E') {
@@ -635,6 +639,8 @@ void editorKillLine(struct editorBuffer *bufr) {
 		row->size = bufr->cx;
 		editorUpdateRow(row);
 		bufr->dirty = 1;
+		bufr->markx = -1;
+		bufr->marky = -1;
 	}
 }
 
@@ -723,8 +729,7 @@ void editorOpen(struct editorBuffer *bufr, char *filename) {
 	FILE *fp = fopen(filename, "r");
 	if (!fp) {
 		if (errno == ENOENT) {
-			editorSetStatusMessage("%s: no such file or directory",
-					       bufr->filename);
+			editorSetStatusMessage("(New file)", bufr->filename);
 			return;
 		}
 		die("fopen");
@@ -893,13 +898,13 @@ void editorDrawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
 	if (win->focused) {
 		len = snprintf(status, sizeof(status),
 			       "-- %.20s %c%c %2d:%2d --",
-			       bufr->filename ? bufr->filename : "[untitled]",
+			       bufr->filename ? bufr->filename : "[scratch]",
 			       bufr->dirty ? '*' : '-', bufr->dirty ? '*' : '-',
 			       bufr->cy + 1, bufr->cx);
 	} else {
 		len = snprintf(status, sizeof(status),
 			       "   %.20s %c%c %2d:%2d   ",
-			       bufr->filename ? bufr->filename : "[untitled]",
+			       bufr->filename ? bufr->filename : "[scratch]",
 			       bufr->dirty ? '*' : '-', bufr->dirty ? '*' : '-',
 			       bufr->cy + 1, bufr->cx);
 	}
@@ -1503,6 +1508,57 @@ void editorForwardPara(struct editorBuffer *bufr) {
 	bufr->cy = bufr->numrows;
 }
 
+void editorPipeCmd(struct editorConfig *ed, struct editorBuffer *bufr) {
+	uint8_t *pipeOutput = editorPipe(ed, bufr);
+	if (pipeOutput != NULL) {
+		size_t outputLen = strlen((char *)pipeOutput);
+		if (outputLen < sizeof(E.minibuffer) - 1) {
+			editorSetStatusMessage("%s", pipeOutput);
+		} else {
+			struct editorBuffer *newBuf = newBuffer();
+			newBuf->filename = strdup("[Shell Output]");
+			newBuf->special_buffer = 1;
+
+			// Use a temporary buffer to build each row
+			size_t rowStart = 0;
+			size_t rowLen = 0;
+			for (size_t i = 0; i < outputLen; i++) {
+				if (pipeOutput[i] == '\n' ||
+				    i == outputLen - 1) {
+					// Found a newline or end of output, insert the row
+					editorInsertRow(
+						newBuf, newBuf->numrows,
+						(char *)&pipeOutput[rowStart],
+						rowLen);
+					rowStart =
+						i + 1; // Start of the next row
+					rowLen = 0;    // Reset row length
+				} else {
+					rowLen++;
+				}
+			}
+
+			// Link the new buffer and update focus
+			if (E.firstBuf == NULL) {
+				E.firstBuf = newBuf;
+			} else {
+				struct editorBuffer *temp = E.firstBuf;
+				while (temp->next != NULL) {
+					temp = temp->next;
+				}
+				temp->next = newBuf;
+			}
+			E.focusBuf = newBuf;
+
+			// Update the focused window
+			int idx = windowFocusedIdx(&E);
+			E.windows[idx]->buf = E.focusBuf;
+			editorRefreshScreen();
+		}
+		free(pipeOutput);
+	}
+}
+
 void editorGotoLine(struct editorBuffer *bufr) {
 	uint8_t *nls;
 	int nl;
@@ -1618,6 +1674,14 @@ void editorProcessKeypress(int c) {
 		return;
 	}
 
+	// Handle PIPE_CMD before resetting uarg_active
+	if (c == PIPE_CMD) {
+		editorPipeCmd(&E, bufr);
+		bufr->uarg_active = 0;
+		bufr->uarg = 0;
+		return;
+	}
+
 	int rept = 1;
 	if (bufr->uarg_active) {
 		bufr->uarg_active = 0;
@@ -1650,10 +1714,21 @@ void editorProcessKeypress(int c) {
 		if (E.recording) {
 			E.recording = 0;
 		}
-		if (bufr->dirty) {
+		// Check all buffers for unsaved changes, except the special buffers
+		struct editorBuffer *current = E.firstBuf;
+		int hasUnsavedChanges = 0;
+		while (current != NULL) {
+			if (current->dirty && current->filename != NULL &&
+			    !current->special_buffer) {
+				hasUnsavedChanges = 1;
+				break;
+			}
+			current = current->next;
+		}
+
+		if (hasUnsavedChanges) {
 			editorSetStatusMessage(
-				"%.20s has unsaved changes, really quit? Y/N",
-				bufr->filename ? bufr->filename : "[untitled]");
+				"There are unsaved changes. Really quit? (y or n)");
 			editorRefreshScreen();
 			int c = editorReadKey();
 			if (c == 'y' || c == 'Y') {
@@ -1820,12 +1895,54 @@ void editorProcessKeypress(int c) {
 			}
 		}
 		break;
+	case MARK_BUFFER:
+		if (bufr->numrows > 0) {
+			bufr->cy = bufr->numrows;
+			bufr->cx = bufr->row[--bufr->cy].size;
+			editorSetMark(bufr);
+			bufr->cy = 0;
+			bufr->cx = 0;
+			bufr->rowoff = 0;
+		}
+		break;
 
 	case FIND_FILE:
 		prompt = editorPrompt(E.focusBuf, "Find File: %s", PROMPT_FILES,
 				      NULL);
 		if (prompt == NULL) {
 			editorSetStatusMessage("Canceled.");
+			break;
+		}
+		if (prompt[strlen(prompt) - 1] == '/') {
+			editorSetStatusMessage(
+				"Directory editing not supported.");
+			break;
+		}
+
+		// Check if a buffer with the same filename already exists
+		struct editorBuffer *buf = E.firstBuf;
+		while (buf != NULL) {
+			if (buf->filename != NULL &&
+			    strcmp(buf->filename, (char *)prompt) == 0) {
+				editorSetStatusMessage(
+					"File '%s' already open in a buffer.",
+					prompt);
+				free(prompt);
+				E.focusBuf =
+					buf; // Switch to the existing buffer
+
+				// Update the focused window to display the found buffer
+				idx = windowFocusedIdx(&E);
+				E.windows[idx]->buf = E.focusBuf;
+
+				editorRefreshScreen(); // Refresh to reflect the change
+				break; // Exit the loop and the case
+			}
+			buf = buf->next;
+		}
+
+		// If a buffer with the same filename was found, don't create a new one
+		if (buf != NULL) {
 			break;
 		}
 
@@ -1892,6 +2009,69 @@ void editorProcessKeypress(int c) {
 		E.nwindows = 1;
 		free(E.windows);
 		E.windows = windows;
+		break;
+	case KILL_BUFFER:
+		// Bypass confirmation for special buffers
+		if (bufr->dirty && bufr->filename != NULL &&
+		    !bufr->special_buffer) {
+			editorSetStatusMessage(
+				"Buffer %.20s modified; kill anyway? (y or n)",
+				bufr->filename);
+			editorRefreshScreen();
+			int c = editorReadKey(E.focusBuf);
+			if (c != 'y' && c != 'Y') {
+				editorSetStatusMessage("");
+				break;
+			}
+		}
+
+		// Find the previous buffer (if any)
+		struct editorBuffer *prevBuf = NULL;
+		if (E.focusBuf != E.firstBuf) {
+			prevBuf = E.firstBuf;
+			while (prevBuf->next != E.focusBuf) {
+				prevBuf = prevBuf->next;
+			}
+		}
+
+		// Update window focus
+		for (int i = 0; i < E.nwindows; i++) {
+			if (E.windows[i]->buf == bufr) {
+				// If it's the last buffer, create a new scratch buffer
+				if (bufr->next == NULL && prevBuf == NULL) {
+					E.windows[i]->buf = newBuffer();
+					E.windows[i]->buf->filename =
+						strdup("[scratch]");
+					E.windows[i]->buf->special_buffer = 1;
+					E.firstBuf = E.windows[i]->buf;
+					E.focusBuf =
+						E.firstBuf; // Ensure E.focusBuf is updated
+				} else if (bufr->next == NULL) {
+					E.windows[i]->buf = E.firstBuf;
+					E.focusBuf =
+						E.firstBuf; // Ensure E.focusBuf is updated
+				} else {
+					E.windows[i]->buf = bufr->next;
+					E.focusBuf =
+						bufr->next; // Ensure E.focusBuf is updated
+				}
+			}
+		}
+
+		// Update the main buffer list
+		if (E.firstBuf == bufr) {
+			E.firstBuf = bufr->next;
+		} else if (prevBuf != NULL) {
+			prevBuf->next = bufr->next;
+		}
+
+		// Update the focused buffer
+		if (E.focusBuf == bufr) {
+			E.focusBuf = (bufr->next != NULL) ? bufr->next :
+								  prevBuf;
+		}
+
+		destroyBuffer(bufr);
 		break;
 
 	case SUSPEND:
@@ -1983,11 +2163,6 @@ void editorProcessKeypress(int c) {
 			free(cmd);
 		}
 		break;
-
-	case PIPE_CMD:
-		editorPipe(&E, bufr);
-		break;
-
 	case QUERY_REPLACE:
 		editorQueryReplace(&E, bufr);
 		break;
@@ -2108,6 +2283,7 @@ struct editorBuffer *newBuffer() {
 	ret->filename = NULL;
 	ret->query = NULL;
 	ret->dirty = 0;
+	ret->special_buffer = 0;
 	ret->undo = NULL;
 	ret->redo = NULL;
 	ret->next = NULL;
@@ -2170,10 +2346,11 @@ void editorExecMacro(struct editorMacro *macro) {
 int main(int argc, char *argv[]) {
 	enableRawMode();
 	initEditor();
+	E.firstBuf = newBuffer();
+	E.focusBuf = E.firstBuf;
 	if (argc >= 2) {
 		int i = 1;
 		int linum = -1;
-		E.focusBuf = NULL;
 		if (argv[1][0] == '+' && argc > 2) {
 			linum = atoi(argv[1] + 1);
 			i++;
@@ -2191,9 +2368,6 @@ int main(int argc, char *argv[]) {
 			}
 			E.focusBuf = E.firstBuf;
 		}
-	} else {
-		E.firstBuf = newBuffer();
-		E.focusBuf = E.firstBuf;
 	}
 	E.windows[0]->buf = E.focusBuf;
 

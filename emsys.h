@@ -50,12 +50,14 @@ enum editorKey {
 	FORWARD_PARA,
 	BACKWARD_PARA,
 	SWITCH_BUFFER,
+	MARK_BUFFER,
 	DELETE_WORD,
 	BACKSPACE_WORD,
 	OTHER_WINDOW,
 	CREATE_WINDOW,
 	DESTROY_WINDOW,
 	DESTROY_OTHER_WINDOWS,
+	KILL_BUFFER,
 	MACRO_RECORD,
 	MACRO_END,
 	MACRO_EXEC,
@@ -139,6 +141,7 @@ struct editorBuffer {
 	int dirty;
 	int uarg;
 	int uarg_active;
+	int special_buffer;
 	erow *row;
 	char *filename;
 	uint8_t *query;
