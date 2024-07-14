@@ -789,8 +789,7 @@ struct abuf {
 	int len;
 };
 
-#define ABUF_INIT \
-	{ NULL, 0 }
+#define ABUF_INIT { NULL, 0 }
 
 void abAppend(struct abuf *ab, const char *s, int len) {
 	char *new = realloc(ab->b, ab->len + len);
@@ -1196,6 +1195,19 @@ PROMPT_BACKSPACE:
 			buf[curs] = 0;
 			buflen = curs;
 			bufwidth = stringWidth(buf);
+			break;
+		case CTRL('u'):
+			if (curs == buflen) {
+				buflen = 0;
+				bufwidth = 0;
+				buf[0] = 0;
+			} else {
+				memmove(buf, &(buf[curs]), bufsize - curs);
+				buflen = strlen(buf);
+				bufwidth = stringWidth(buf);
+			}
+			cursScr = 0;
+			curs = 0;
 			break;
 		case ARROW_LEFT:
 			if (curs <= 0)
@@ -1685,7 +1697,6 @@ void editorProcessKeypress(int c) {
 		break;
 	case BACKSPACE:
 	case CTRL('h'):
-
 		for (int i = 0; i < rept; i++) {
 			editorBackSpace(bufr);
 		}
