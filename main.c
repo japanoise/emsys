@@ -131,7 +131,11 @@ int editorReadKey(struct editorBuffer *bufr) {
 		if (nread == -1 && errno != EAGAIN)
 			die("read");
 	}
-
+#ifdef EMSYS_CU_UARG
+	if (c == CTRL('u')) {
+		return UNIVERSAL_ARGUMENT;
+	}
+#endif //EMSYS_CU_UARG
 	if (c == 033) {
 		char seq[5] = { 0, 0, 0, 0, 0 };
 		if (read(STDIN_FILENO, &seq[0], 1) != 1)
@@ -1212,18 +1216,6 @@ PROMPT_BACKSPACE:
 					curs = buflen;
 					cursScr = bufwidth;
 				}
-			} else if (t == PROMPT_BASIC) { // For buffer switching
-				uint8_t *tc =
-					tabCompleteBufferNames(&E, buf, bufr);
-				if (tc && tc != buf) {
-					free(buf);
-					buf = tc;
-					buflen = strlen((char *)buf);
-					bufsize = buflen + 1;
-					bufwidth = stringWidth(buf);
-					curs = buflen;
-					cursScr = bufwidth;
-				}
 			}
 			break;
 		case CTRL('a'):
@@ -1768,6 +1760,27 @@ void editorProcessKeypress(int c) {
 		editorSetStatusMessage("uarg: %i", bufr->uarg);
 		return;
 	}
+
+#ifdef EMSYS_CU_UARG
+	// Handle C-u (Universal Argument)
+	if (c == UNIVERSAL_ARGUMENT) {
+		bufr->uarg_active = 1;
+		bufr->uarg = 4; // Default value for C-u is 4
+		editorSetStatusMessage("C-u");
+		return;
+	}
+
+	// Handle numeric input after C-u
+	if (bufr->uarg_active && c >= '0' && c <= '9') {
+		if (bufr->uarg == 4) { // If it's the first digit after C-u
+			bufr->uarg = c - '0';
+		} else {
+			bufr->uarg = bufr->uarg * 10 + (c - '0');
+		}
+		editorSetStatusMessage("C-u %d", bufr->uarg);
+		return;
+	}
+#endif //EMSYS_CU_UARG
 
 	// Handle PIPE_CMD before resetting uarg_active
 	if (c == PIPE_CMD) {

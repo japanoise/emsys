@@ -104,6 +104,7 @@ enum editorKey {
 	YANK_RECT,
 	RECT_REGISTER,
 	EXPAND,
+	UNIVERSAL_ARGUMENT,
 };
 
 enum promptType {
