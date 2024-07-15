@@ -1678,7 +1678,6 @@ void editorTransposeChars(struct editorConfig *ed, struct editorBuffer *bufr) {
 	bufr->marky = scy;
 	editorTransformRegion(ed, bufr, transformerTransposeChars);
 }
-///
 
 void editorSwitchToNamedBuffer(struct editorConfig *ed,
 			       struct editorBuffer *current) {
