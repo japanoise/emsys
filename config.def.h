@@ -6,4 +6,3 @@
 /* By default, it will be copied as-is by the makefile. */
 
 #endif /* _EMSYS_CONFIG_H */
-

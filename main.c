@@ -114,7 +114,10 @@ void editorDeserializeUnicode() {
 }
 
 /* Raw reading a keypress */
-int editorReadKey() {
+int editorReadKey(struct editorBuffer *bufr) {
+#ifndef EMSYS_CUA
+	(void)bufr;
+#endif //EMSYS_CUA
 	if (E.playback) {
 		int ret = E.macro.keys[E.playback++];
 		if (ret == UNICODE) {
@@ -246,7 +249,14 @@ ESC_UNKNOWN:;
 		return 033;
 	} else if (c == CTRL('x')) {
 		/* Welcome to Emacs! */
-		char seq[5] = { 0, 0, 0, 0, 0 };
+#ifdef EMSYS_CUA
+		// CUA mode: if the region is marked, C-x means 'cut' region.
+		// Otherwise, proceed.
+		if (bufr->markx != -1 && bufr->marky != -1) {
+			return CUT;
+		}
+#endif //EMSYS_CUA
+		char seq[6] = { 0, 0, 0, 0, 0, 0 };
 		if (read(STDIN_FILENO, &seq[0], 1) != 1)
 			goto CX_UNKNOWN;
 		if (seq[0] == CTRL('c')) {
@@ -811,7 +821,8 @@ struct abuf {
 	int len;
 };
 
-#define ABUF_INIT { NULL, 0 }
+#define ABUF_INIT \
+	{ NULL, 0 }
 
 void abAppend(struct abuf *ab, const char *s, int len) {
 	char *new = realloc(ab->b, ab->len + len);
@@ -1150,7 +1161,7 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 #endif
 		editorCursorBottomLineLong(promptlen + cursScr + 1);
 
-		int c = editorReadKey();
+		int c = editorReadKey(E.focusBuf);
 		editorRecordKey(c);
 		switch (c) {
 		case '\r':
@@ -1733,7 +1744,11 @@ void editorProcessKeypress(int c) {
 	uint8_t *prompt;
 
 	if (E.micro) {
+#ifdef EMSYS_CUA
+		if (E.micro == REDO && (c == CTRL('_') || c == CTRL('z'))) {
+#else
 		if (E.micro == REDO && c == CTRL('_')) {
+#endif //EMSYS_CUA
 			editorDoRedo(bufr);
 			return;
 		} else {
@@ -1810,7 +1825,7 @@ void editorProcessKeypress(int c) {
 			editorSetStatusMessage(
 				"There are unsaved changes. Really quit? (y or n)");
 			editorRefreshScreen();
-			int c = editorReadKey();
+			int c = editorReadKey(E.focusBuf);
 			if (c == 'y' || c == 'Y') {
 				exit(0);
 			}
@@ -1828,7 +1843,9 @@ void editorProcessKeypress(int c) {
 		}
 		break;
 	case PAGE_UP:
+#ifndef EMSYS_CUA
 	case CTRL('z'):
+#endif //EMSYS_CUA
 		for (int i = 0; i < rept; i++) {
 			bufr->cy = bufr->rowoff;
 			int times = (E.screenrows / E.nwindows) - 4;
@@ -1837,7 +1854,9 @@ void editorProcessKeypress(int c) {
 		}
 		break;
 	case PAGE_DOWN:
+#ifndef EMSYS_CUA
 	case CTRL('v'):
+#endif //EMSYS_CUA
 		for (int i = 0; i < rept; i++) {
 			bufr->cy = bufr->rowoff + E.screenrows - 1;
 			if (bufr->cy > bufr->numrows)
@@ -1877,16 +1896,35 @@ void editorProcessKeypress(int c) {
 			editorInsertUnicode(bufr);
 		}
 		break;
+#ifdef EMSYS_CUA
+	case CUT:
+		editorKillRegion(&E, bufr);
+		// unmark region
+		bufr->markx = -1;
+		bufr->marky = -1;
+		break;
+#endif //EMSYS_CUA
 	case SAVE:
 		editorSave(bufr);
 		break;
 	case COPY:
 		editorCopyRegion(&E, bufr);
 		break;
+#ifdef EMSYS_CUA
+	case CTRL('C'):
+		editorCopyRegion(&E, bufr);
+		// unmark region
+		bufr->markx = -1;
+		bufr->marky = -1;
+		break;
+#endif //EMSYS_CUA
 	case CTRL('@'):
 		editorSetMark(bufr);
 		break;
 	case CTRL('y'):
+#ifdef EMSYS_CUA
+	case CTRL('v'):
+#endif //EMSYS_CUA
 		for (int i = 0; i < rept; i++) {
 			editorYank(&E, bufr);
 		}
@@ -1900,6 +1938,9 @@ void editorProcessKeypress(int c) {
 		editorIndent(bufr, rept);
 		break;
 	case CTRL('_'):
+#ifdef EMSYS_CUA
+	case CTRL('z'):
+#endif //EMSYS_CUA
 		for (int i = 0; i < rept; i++) {
 			editorDoUndo(bufr);
 		}
@@ -2282,6 +2323,10 @@ void editorProcessKeypress(int c) {
 
 	case CTRL('g'):
 		/* Expected behavior */
+#ifdef EMSYS_CUA
+		bufr->markx = -1;
+		bufr->marky = -1;
+#endif //EMSYS_CUA
 		editorSetStatusMessage("Quit");
 		break;
 
@@ -2481,7 +2526,7 @@ int main(int argc, char *argv[]) {
 
 	for (;;) {
 		editorRefreshScreen();
-		int c = editorReadKey();
+		int c = editorReadKey(E.focusBuf);
 		if (c == MACRO_RECORD) {
 			if (E.recording) {
 				editorSetStatusMessage(
