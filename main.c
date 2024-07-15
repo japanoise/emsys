@@ -1777,22 +1777,14 @@ void editorProcessKeypress(int c) {
 		break;
 	case BACKSPACE:
 	case CTRL('h'):
-		if (bufr->markx != -1 && bufr->marky != -1) {
-			editorKillRegion(&E, bufr);
-		} else {
-			for (int i = 0; i < rept; i++) {
-				editorBackSpace(bufr);
-			}
+		for (int i = 0; i < rept; i++) {
+			editorBackSpace(bufr);
 		}
 		break;
 	case DEL_KEY:
 	case CTRL('d'):
-		if (bufr->markx != -1 && bufr->marky != -1) {
-			editorKillRegion(&E, bufr);
-		} else {
-			for (int i = 0; i < rept; i++) {
-				editorDelChar(bufr);
-			}
+		for (int i = 0; i < rept; i++) {
+			editorDelChar(bufr);
 		}
 		break;
 	case CTRL('l'):
@@ -1890,8 +1882,6 @@ void editorProcessKeypress(int c) {
 		break;
 	case COPY:
 		editorCopyRegion(&E, bufr);
-		bufr->markx = -1;
-		bufr->marky = -1;
 		break;
 	case CTRL('@'):
 		editorSetMark(bufr);
@@ -2292,8 +2282,6 @@ void editorProcessKeypress(int c) {
 
 	case CTRL('g'):
 		/* Expected behavior */
-		bufr->markx = -1;
-		bufr->marky = -1;
 		editorSetStatusMessage("Quit");
 		break;
 
