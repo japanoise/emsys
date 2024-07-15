@@ -1216,6 +1216,18 @@ PROMPT_BACKSPACE:
 					curs = buflen;
 					cursScr = bufwidth;
 				}
+			} else if (t == PROMPT_BASIC) { // For buffer switching
+				uint8_t *tc =
+					tabCompleteBufferNames(&E, buf, bufr);
+				if (tc && tc != buf) {
+					free(buf);
+					buf = tc;
+					buflen = strlen((char *)buf);
+					bufsize = buflen + 1;
+					bufwidth = stringWidth(buf);
+					curs = buflen;
+					cursScr = bufwidth;
+				}
 			}
 			break;
 		case CTRL('a'):
