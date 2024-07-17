@@ -114,10 +114,7 @@ void editorDeserializeUnicode() {
 }
 
 /* Raw reading a keypress */
-int editorReadKey(struct editorBuffer *bufr) {
-#ifndef EMSYS_CUA
-	(void)bufr;
-#endif //EMSYS_CUA
+int editorReadKey() {
 	if (E.playback) {
 		int ret = E.macro.keys[E.playback++];
 		if (ret == UNICODE) {
@@ -256,11 +253,11 @@ ESC_UNKNOWN:;
 #ifdef EMSYS_CUA
 		// CUA mode: if the region is marked, C-x means 'cut' region.
 		// Otherwise, proceed.
-		if (bufr->markx != -1 && bufr->marky != -1) {
+		if (E.focusBuf->markx != -1 && E.focusBuf->marky != -1) {
 			return CUT;
 		}
 #endif //EMSYS_CUA
-		char seq[6] = { 0, 0, 0, 0, 0, 0 };
+		char seq[5] = { 0, 0, 0, 0, 0 };
 		if (read(STDIN_FILENO, &seq[0], 1) != 1)
 			goto CX_UNKNOWN;
 		if (seq[0] == CTRL('c')) {
@@ -825,8 +822,7 @@ struct abuf {
 	int len;
 };
 
-#define ABUF_INIT \
-	{ NULL, 0 }
+#define ABUF_INIT { NULL, 0 }
 
 void abAppend(struct abuf *ab, const char *s, int len) {
 	char *new = realloc(ab->b, ab->len + len);
@@ -1165,7 +1161,7 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 #endif
 		editorCursorBottomLineLong(promptlen + cursScr + 1);
 
-		int c = editorReadKey(E.focusBuf);
+		int c = editorReadKey();
 		editorRecordKey(c);
 		switch (c) {
 		case '\r':
@@ -1850,7 +1846,7 @@ void editorProcessKeypress(int c) {
 			editorSetStatusMessage(
 				"There are unsaved changes. Really quit? (y or n)");
 			editorRefreshScreen();
-			int c = editorReadKey(E.focusBuf);
+			int c = editorReadKey();
 			if (c == 'y' || c == 'Y') {
 				exit(0);
 			}
@@ -2188,7 +2184,7 @@ void editorProcessKeypress(int c) {
 				"Buffer %.20s modified; kill anyway? (y or n)",
 				bufr->filename);
 			editorRefreshScreen();
-			int c = editorReadKey(E.focusBuf);
+			int c = editorReadKey();
 			if (c != 'y' && c != 'Y') {
 				editorSetStatusMessage("");
 				break;
@@ -2238,7 +2234,7 @@ void editorProcessKeypress(int c) {
 		// Update the focused buffer
 		if (E.focusBuf == bufr) {
 			E.focusBuf = (bufr->next != NULL) ? bufr->next :
-								  prevBuf;
+							    prevBuf;
 		}
 
 		destroyBuffer(bufr);
@@ -2551,7 +2547,7 @@ int main(int argc, char *argv[]) {
 
 	for (;;) {
 		editorRefreshScreen();
-		int c = editorReadKey(E.focusBuf);
+		int c = editorReadKey();
 		if (c == MACRO_RECORD) {
 			if (E.recording) {
 				editorSetStatusMessage(
