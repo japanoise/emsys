@@ -9,6 +9,88 @@
 #include "undo.h"
 #include "unicode.h"
 
+uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
+                                struct editorBuffer *currentBuffer) {
+  char **completions = NULL;
+  int count = 0;
+  int capacity = 8;  // Initial capacity
+  uint8_t *ret = input;
+
+  // Allocate initial memory
+  completions = malloc(capacity * sizeof(char *));
+  if (completions == NULL) {
+    // Handle allocation failure
+    return ret;
+  }
+
+  // Collect matching buffer names
+  for (struct editorBuffer *b = ed->firstBuf; b != NULL; b = b->next) {
+    if (b == currentBuffer)
+      continue;
+
+    char *name = b->filename ? b->filename : "*scratch*";
+    if (strncmp(name, (char *)input, strlen((char *)input)) == 0) {
+      if (count + 1 >= capacity) {
+        // Double capacity and reallocate
+        capacity *= 2;
+        char **new_completions = realloc(completions, capacity * sizeof(char *));
+        if (new_completions == NULL) {
+          // Handle reallocation failure
+          // Free existing completions and return
+          for (int i = 0; i < count; i++) {
+            free(completions[i]);
+          }
+          free(completions);
+          return ret;
+        }
+        completions = new_completions;
+      }
+      completions[count++] = strdup(name);
+    }
+  }
+
+  if (count < 1) {
+    goto cleanup;
+  }
+
+  if (count == 1) {
+    ret = (uint8_t *)strdup(completions[0]);
+    goto cleanup;
+  }
+
+  // Multiple matches, allow cycling through them
+  int cur = 0;
+  for (;;) {
+    editorSetStatusMessage("Multiple options: %s",
+                           completions[cur]);
+    editorRefreshScreen();
+    editorCursorBottomLine(strlen(completions[cur]) + 19);
+
+    int c = editorReadKey();
+    switch (c) {
+    case '\r':
+      ret = (uint8_t *)strdup(completions[cur]);
+      goto cleanup;
+    case CTRL('i'):
+      cur = (cur + 1) % count;
+      break;
+    case BACKTAB:
+      cur = (cur == 0) ? count - 1 : cur - 1;
+      break;
+    case CTRL('g'):
+      goto cleanup;
+    }
+  }
+
+ cleanup:
+  for (int i = 0; i < count; i++) {
+    free(completions[i]);
+  }
+  free(completions);
+
+  return ret;
+}
+
 uint8_t *tabCompleteFiles(uint8_t *prompt) {
 	glob_t globlist;
 	uint8_t *ret = prompt;
