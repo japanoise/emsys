@@ -30,7 +30,7 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 
     char *name = b->filename ? b->filename : "*scratch*";
     if (strncmp(name, (char *)input, strlen((char *)input)) == 0) {
-      if (count >= capacity) {
+      if (count + 1 >= capacity) {
         // Double capacity and reallocate
         capacity *= 2;
         char **new_completions = realloc(completions, capacity * sizeof(char *));
