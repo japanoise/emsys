@@ -28,27 +28,26 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 		if (b == currentBuffer)
 			continue;
 
-		char *name = b->filename ? b->filename : "*scratch*";
-		if (strncmp(name, (char *)input, strlen((char *)input)) == 0) {
-			if (count >= capacity) {
-				// Double capacity and reallocate
-				capacity *= 2;
-				char **new_completions = realloc(
-					completions, capacity * sizeof(char *));
-				if (new_completions == NULL) {
-					// Handle reallocation failure
-					// Free existing completions and return
-					for (int i = 0; i < count; i++) {
-						free(completions[i]);
-					}
-					free(completions);
-					return ret;
-				}
-				completions = new_completions;
-			}
-			completions[count++] = strdup(name);
-		}
-	}
+    char *name = b->filename ? b->filename : "*scratch*";
+    if (strncmp(name, (char *)input, strlen((char *)input)) == 0) {
+      if (count + 1 >= capacity) {
+        // Double capacity and reallocate
+        capacity *= 2;
+        char **new_completions = realloc(completions, capacity * sizeof(char *));
+        if (new_completions == NULL) {
+          // Handle reallocation failure
+          // Free existing completions and return
+          for (int i = 0; i < count; i++) {
+            free(completions[i]);
+          }
+          free(completions);
+          return ret;
+        }
+        completions = new_completions;
+      }
+      completions[count++] = strdup(name);
+    }
+  }
 
 	if (count < 1) {
 		goto cleanup;
