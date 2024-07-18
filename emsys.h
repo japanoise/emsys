@@ -157,7 +157,7 @@ struct editorBuffer {
 };
 
 struct editorWindow {
-	int focused;
+	int _focused; // Read only! Dont touch! Use setWindowFocus
 	struct editorBuffer *buf;
 };
 
@@ -223,6 +223,7 @@ struct editorConfig {
 	struct termios orig_termios;
 	struct editorBuffer *firstBuf;
 	struct editorBuffer *focusBuf;
+	struct editorWindow *focusWin;
 	int nwindows;
 	struct editorWindow **windows;
 	int recording;

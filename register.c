@@ -86,7 +86,7 @@ void editorJumpToRegister(struct editorConfig *ed) {
 		} else {
 			ed->focusBuf = ed->registers[reg].rdata.point->buf;
 			for (int i = 0; i < ed->nwindows; i++) {
-				if (ed->windows[i]->focused) {
+				if (ed->windows[i]->_focused) {
 					ed->windows[i]->buf = ed->focusBuf;
 				}
 			}

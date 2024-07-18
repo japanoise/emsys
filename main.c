@@ -51,7 +51,7 @@ void editorUpdateBuffer(struct editorBuffer *buf) {
 
 int windowFocusedIdx(struct editorConfig *ed) {
 	for (int i = 0; i < E.nwindows; i++) {
-		if (ed->windows[i]->focused) {
+		if (ed->windows[i]->_focused) {
 			return i;
 		}
 	}
@@ -59,18 +59,34 @@ int windowFocusedIdx(struct editorConfig *ed) {
 	return 0;
 }
 
+void setWindowFocus(struct editorConfig *config, struct editorWindow *window) {
+	if (config->focusWin) {
+		config->focusWin->_focused = 0;
+	}
+	config->focusWin = window;
+	window->_focused = 1;
+	config->focusBuf = window->buf;
+}
+
 void editorSwitchWindow(struct editorConfig *ed) {
 	if (ed->nwindows == 1) {
 		editorSetStatusMessage("No other windows to select");
 		return;
 	}
-	int idx = windowFocusedIdx(ed);
-	ed->windows[idx++]->focused = 0;
-	if (idx >= ed->nwindows) {
-		idx = 0;
+
+	// Find the index of the next window
+	int currentIdx = -1;
+	for (int i = 0; i < ed->nwindows; i++) {
+		if (ed->windows[i] == ed->focusWin) {
+			currentIdx = i;
+			break;
+		}
 	}
-	ed->windows[idx]->focused = 1;
-	ed->focusBuf = ed->windows[idx]->buf;
+
+	int nextIdx = (currentIdx + 1) % ed->nwindows;
+
+	// Set focus to the next window
+	setWindowFocus(ed, ed->windows[nextIdx]);
 }
 
 /*** terminal ***/
@@ -928,7 +944,7 @@ void editorDrawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
 	abAppend(ab, "\x1b[7m", 4);
 	char status[80];
 	int len = 0;
-	if (win->focused) {
+	if (win->_focused) {
 		len = snprintf(status, sizeof(status),
 			       "-- %.20s %c%c %2d:%2d --",
 			       bufr->filename ? bufr->filename : "*scratch*",
@@ -994,7 +1010,7 @@ void editorDrawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
 	}
 
 	char fill[2] = "-";
-	if (!win->focused) {
+	if (!win->_focused) {
 		perc[5] = ' ';
 		perc[6] = ' ';
 		fill[0] = ' ';
@@ -1725,7 +1741,7 @@ void editorSwitchToNamedBuffer(struct editorConfig *ed,
 				       (char *)buffer_name);
 
 		for (int i = 0; i < ed->nwindows; i++) {
-			if (ed->windows[i]->focused) {
+			if (ed->windows[i]->_focused) {
 				ed->windows[i]->buf = ed->focusBuf;
 			}
 		}
@@ -2034,7 +2050,7 @@ void editorProcessKeypress(int c) {
 			E.focusBuf = E.firstBuf;
 		}
 		for (int i = 0; i < E.nwindows; i++) {
-			if (E.windows[i]->focused) {
+			if (E.windows[i]->_focused) {
 				E.windows[i]->buf = E.focusBuf;
 			}
 		}
@@ -2056,7 +2072,7 @@ void editorProcessKeypress(int c) {
 		}
 		// Update the focused buffer in all windows
 		for (int i = 0; i < E.nwindows; i++) {
-			if (E.windows[i]->focused) {
+			if (E.windows[i]->_focused) {
 				E.windows[i]->buf = E.focusBuf;
 			}
 		}
@@ -2129,7 +2145,7 @@ void editorProcessKeypress(int c) {
 		E.windows = realloc(E.windows, sizeof(struct editorWindow *) *
 						       (++E.nwindows));
 		E.windows[E.nwindows - 1] = malloc(sizeof(struct editorWindow));
-		E.windows[E.nwindows - 1]->focused = 0;
+		E.windows[E.nwindows - 1]->_focused = 0;
 		E.windows[E.nwindows - 1]->buf = E.focusBuf;
 		break;
 
@@ -2138,23 +2154,52 @@ void editorProcessKeypress(int c) {
 			editorSetStatusMessage("Can't kill last window");
 			break;
 		}
-		idx = windowFocusedIdx(&E);
-		editorSwitchWindow(&E);
-		free(E.windows[idx]);
+
+		// Find the index of the window to be destroyed
+		int destroyIdx = -1;
+		for (int i = 0; i < E.nwindows; i++) {
+			if (E.windows[i] == E.focusWin) {
+				destroyIdx = i;
+				break;
+			}
+		}
+
+		// Switch focus to another window before destroying
+		int newFocusIdx = (destroyIdx + 1) % E.nwindows;
+		if (newFocusIdx == destroyIdx)
+			newFocusIdx =
+				(destroyIdx - 1 + E.nwindows) % E.nwindows;
+		setWindowFocus(&E, E.windows[newFocusIdx]);
+
+		// Free the window to be destroyed
+		free(E.windows[destroyIdx]);
+
+		// Create a new array of windows, excluding the destroyed one
 		windows =
 			malloc(sizeof(struct editorWindow *) * (--E.nwindows));
 		int j = 0;
-		for (int i = 0; i <= E.nwindows; i++) {
-			if (i != idx) {
+		for (int i = 0; i < E.nwindows + 1; i++) {
+			if (i != destroyIdx) {
 				windows[j] = E.windows[i];
-				if (windows[j]->focused) {
-					E.focusBuf = windows[j]->buf;
-				}
 				j++;
 			}
 		}
+
+		// Update E.windows
 		free(E.windows);
 		E.windows = windows;
+
+		// Ensure focusWin is pointing to a window in the new array
+		for (int i = 0; i < E.nwindows; i++) {
+			if (E.windows[i] == E.focusWin) {
+				break;
+			}
+			if (i == E.nwindows - 1) {
+				// If we got here, focusWin is not in the new array
+				setWindowFocus(&E, E.windows[0]);
+			}
+		}
+
 		break;
 
 	case DESTROY_OTHER_WINDOWS:
@@ -2162,19 +2207,28 @@ void editorProcessKeypress(int c) {
 			editorSetStatusMessage("No other windows to delete");
 			break;
 		}
-		idx = windowFocusedIdx(&E);
+
+		// Allocate new array for the single remaining window
 		windows = malloc(sizeof(struct editorWindow *));
+
+		// Free all windows except the focused one
 		for (int i = 0; i < E.nwindows; i++) {
-			if (i != idx) {
+			if (E.windows[i] != E.focusWin) {
 				free(E.windows[i]);
 			}
 		}
-		windows[0] = E.windows[idx];
-		windows[0]->focused = 1;
-		E.focusBuf = windows[0]->buf;
-		E.nwindows = 1;
+
+		// Set the single remaining window
+		windows[0] = E.focusWin;
+
+		// Update E.windows and E.nwindows
 		free(E.windows);
 		E.windows = windows;
+		E.nwindows = 1;
+
+		// Ensure focus is set correctly
+		setWindowFocus(&E, E.windows[0]);
+
 		break;
 	case KILL_BUFFER:
 		// Bypass confirmation for special buffers
@@ -2474,7 +2528,7 @@ void initEditor() {
 	E.rectKill = NULL;
 	E.windows = malloc(sizeof(struct editorWindow *) * 1);
 	E.windows[0] = malloc(sizeof(struct editorWindow));
-	E.windows[0]->focused = 1;
+	setWindowFocus(&E, E.windows[0]);
 	E.nwindows = 1;
 	E.recording = 0;
 	E.macro.nkeys = 0;
