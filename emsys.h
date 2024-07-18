@@ -45,6 +45,7 @@ enum editorKey {
 	QUIT,
 	SAVE,
 	COPY,
+	CUT,
 	REDO,
 	FORWARD_WORD,
 	BACKWARD_WORD,
@@ -103,6 +104,7 @@ enum editorKey {
 	YANK_RECT,
 	RECT_REGISTER,
 	EXPAND,
+	UNIVERSAL_ARGUMENT,
 };
 
 enum promptType {
