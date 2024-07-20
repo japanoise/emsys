@@ -46,7 +46,7 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 				}
 				completions = new_completions;
 			}
-			completions[count++] = strdup(name);
+			completions[count++] = stringdup(name);
 		}
 	}
 
@@ -55,7 +55,7 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 	}
 
 	if (count == 1) {
-		ret = (uint8_t *)strdup(completions[0]);
+		ret = (uint8_t *)stringdup(completions[0]);
 		goto cleanup;
 	}
 
@@ -70,7 +70,7 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 		int c = editorReadKey();
 		switch (c) {
 		case '\r':
-			ret = (uint8_t *)strdup(completions[cur]);
+			ret = (uint8_t *)stringdup(completions[cur]);
 			goto cleanup;
 		case CTRL('i'):
 			cur = (cur + 1) % count;

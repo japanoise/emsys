@@ -81,11 +81,13 @@ enum editorKey {
 	CAPCASE_WORD,
 	UPCASE_REGION,
 	DOWNCASE_REGION,
+	TOGGLE_TRUNCATE_LINES,
 	TRANSPOSE_WORDS,
 	EXEC_CMD,
 	FIND_FILE,
 	WHAT_CURSOR,
 	PIPE_CMD,
+	CUSTOM_INFO_MESSAGE,
 	QUERY_REPLACE,
 	GOTO_LINE,
 	BACKTAB,
@@ -139,14 +141,14 @@ struct editorBuffer {
 	int indent;
 	int cx, cy;
 	int markx, marky;
-	int scx, scy;
 	int numrows;
-	int rowoff;
 	int end;
 	int dirty;
 	int uarg;
 	int uarg_active;
 	int special_buffer;
+	int truncate_lines; // 0 for wrapped, 1 for unwrapped
+	int word_wrap;
 	erow *row;
 	char *filename;
 	uint8_t *query;
@@ -159,6 +161,11 @@ struct editorBuffer {
 struct editorWindow {
 	int focused;
 	struct editorBuffer *buf;
+	int scx, scy;
+	int cx, cy; // Buffer cx,cy  (only updated when switching windows)
+	int rowoff;
+	int coloff;
+	int height;
 };
 
 struct editorMacro {
@@ -251,7 +258,9 @@ struct editorBuffer *newBuffer();
 void destroyBuffer(struct editorBuffer *);
 int editorReadKey();
 void editorRecordKey(int c);
-void editorRecenter(struct editorBuffer *);
+void editorRecenter(struct editorWindow *win);
 void editorExecMacro(struct editorMacro *macro);
-
+char *stringdup(const char *s);
+int windowFocusedIdx(struct editorConfig *ed);
+void editorScroll();
 #endif

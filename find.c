@@ -30,7 +30,8 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 			last_match = current;
 			bufr->cy = current;
 			bufr->cx = match - row->chars;
-			bufr->rowoff = bufr->numrows;
+			editorScroll();
+			//			bufr->rowoff = bufr->numrows;
 			bufr->match = 1;
 			return;
 		}
@@ -48,7 +49,8 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 			last_match = current;
 			bufr->cy = current;
 			bufr->cx = match - row->chars;
-			bufr->rowoff = bufr->numrows;
+			editorScroll();
+			//			bufr->rowoff = bufr->numrows;
 			bufr->match = 1;
 			break;
 		}
@@ -58,7 +60,7 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 void editorFind(struct editorBuffer *bufr) {
 	int saved_cx = bufr->cx;
 	int saved_cy = bufr->cy;
-	int saved_rowoff = bufr->rowoff;
+	//	int saved_rowoff = bufr->rowoff;
 
 	uint8_t *query = editorPrompt(bufr, "Search (C-g to cancel): %s",
 				      PROMPT_BASIC, editorFindCallback);
@@ -69,6 +71,6 @@ void editorFind(struct editorBuffer *bufr) {
 	} else {
 		bufr->cx = saved_cx;
 		bufr->cy = saved_cy;
-		bufr->rowoff = saved_rowoff;
+		//		bufr->rowoff = saved_rowoff;
 	}
 }
