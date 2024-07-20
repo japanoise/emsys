@@ -887,18 +887,19 @@ void abFree(struct abuf *ab) {
 }
 
 /*** output ***/
+
 void editorSetScxScy(struct editorWindow *win) {
 	struct editorBuffer *buf = win->buf;
 	erow *row = (buf->cy >= buf->numrows) ? NULL : &buf->row[buf->cy];
-	int i;
 
 	win->scy = 0;
 	win->scx = 0;
 
 	if (!buf->truncate_lines) {
-		for (i = win->rowoff; i < buf->cy; i++) {
-			win->scy += (buf->row[i].renderwidth / E.screencols);
-			win->scy++;
+		// Calculate vertical position for wrapped lines
+		for (int i = win->rowoff; i < buf->cy; i++) {
+			win->scy +=
+				(buf->row[i].renderwidth / E.screencols) + 1;
 		}
 	} else {
 		win->scy = buf->cy - win->rowoff;
@@ -908,33 +909,34 @@ void editorSetScxScy(struct editorWindow *win) {
 		return;
 	}
 
-	if (buf->truncate_lines) {
-		int current_width = 0;
-		for (int j = 0; j < buf->cx; j++) {
-			if (row->chars[j] == '\t') {
-				current_width +=
-					(EMSYS_TAB_STOP - 1) -
-					(current_width % EMSYS_TAB_STOP);
-			}
-			current_width++;
+	int current_width = 0;
+	for (int j = 0; j < buf->cx;) {
+		int char_width;
+		if (row->chars[j] == '\t') {
+			char_width = EMSYS_TAB_STOP -
+				     (current_width % EMSYS_TAB_STOP);
+		} else {
+			char_width = charInStringWidth(row->chars, j);
 		}
-		win->scx = current_width - win->coloff;
-	} else {
-		for (i = 0; i < buf->cx; i += (utf8_nBytes(row->chars[i]))) {
-			if (row->chars[i] == '\t') {
-				win->scx += (EMSYS_TAB_STOP - 1) -
-					    (win->scx % EMSYS_TAB_STOP);
-				win->scx++;
-			} else {
-				win->scx += charInStringWidth(row->chars, i);
-			}
+
+		if (buf->truncate_lines) {
+			current_width += char_width;
+		} else {
+			win->scx += char_width;
 			if (win->scx >= E.screencols) {
 				win->scx = 0;
 				win->scy++;
 			}
 		}
+
+		j += utf8_nBytes(row->chars[j]);
 	}
 
+	if (buf->truncate_lines) {
+		win->scx = current_width - win->coloff;
+	}
+
+	// Ensure cursor is within window bounds
 	if (win->scy >= win->height)
 		win->scy = win->height - 1;
 	if (win->scx >= E.screencols)
