@@ -720,8 +720,7 @@ void editorKillLine(struct editorBuffer *bufr) {
 		row->size = bufr->cx;
 		editorUpdateRow(row);
 		bufr->dirty = 1;
-		bufr->markx = -1;
-		bufr->marky = -1;
+		editorClearMark(bufr);
 	}
 }
 
@@ -2114,9 +2113,7 @@ void editorProcessKeypress(int c) {
 #ifdef EMSYS_CUA
 	case CUT:
 		editorKillRegion(&E, bufr);
-		// unmark region
-		bufr->markx = -1;
-		bufr->marky = -1;
+		editorClearMark(bufr);
 		break;
 #endif //EMSYS_CUA
 	case SAVE:
@@ -2124,13 +2121,12 @@ void editorProcessKeypress(int c) {
 		break;
 	case COPY:
 		editorCopyRegion(&E, bufr);
+                editorClearMark(bufr);
 		break;
 #ifdef EMSYS_CUA
 	case CTRL('C'):
 		editorCopyRegion(&E, bufr);
-		// unmark region
-		bufr->markx = -1;
-		bufr->marky = -1;
+		editorClearMark(bufr);
 		break;
 #endif //EMSYS_CUA
 	case CTRL('@'):
@@ -2148,6 +2144,7 @@ void editorProcessKeypress(int c) {
 		for (int i = 0; i < rept; i++) {
 			editorKillRegion(&E, bufr);
 		}
+                editorClearMark(bufr);
 		break;
 	case CTRL('i'):
 		editorIndent(bufr, rept);
@@ -2546,11 +2543,7 @@ void editorProcessKeypress(int c) {
 		break;
 
 	case CTRL('g'):
-		/* Expected behavior */
-#ifdef EMSYS_CUA
-		bufr->markx = -1;
-		bufr->marky = -1;
-#endif //EMSYS_CUA
+		editorClearMark(bufr);
 		editorSetStatusMessage("Quit");
 		break;
 
@@ -2601,10 +2594,12 @@ void editorProcessKeypress(int c) {
 
 	case COPY_RECT:
 		editorCopyRectangle(&E, bufr);
+		editorClearMark(bufr);
 		break;
 
 	case KILL_RECT:
 		editorKillRectangle(&E, bufr);
+		editorClearMark(bufr);
 		break;
 
 	case YANK_RECT:

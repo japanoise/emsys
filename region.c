@@ -18,6 +18,12 @@ void editorSetMark(struct editorBuffer *buf) {
 	}
 }
 
+void editorClearMark(struct editorBuffer *buf) {
+	buf->markx = -1;
+	buf->marky = -1;
+	editorSetStatusMessage("Mark Cleared");
+}
+
 int markInvalid(struct editorBuffer *buf) {
 	int ret = (buf->markx < 0 || buf->marky < 0 || buf->numrows == 0 ||
 		   buf->marky >= buf->numrows ||
