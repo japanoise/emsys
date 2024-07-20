@@ -985,9 +985,25 @@ void editorScroll() {
 void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 		    int screencols) {
 	struct editorBuffer *bufr = win->buf;
-	int y;
-	int filerow = win->rowoff;
-	for (y = 0; y < screenrows; y++) {
+	int markActive = (bufr->markx != -1 && bufr->marky != -1);
+	int markStartY, markEndY, markStartX, markEndX;
+
+	if (markActive) {
+		if (bufr->marky < bufr->cy ||
+		    (bufr->marky == bufr->cy && bufr->markx < win->scx)) {
+			markStartY = bufr->marky;
+			markEndY = bufr->cy;
+			markStartX = bufr->markx;
+			markEndX = win->scx;
+		} else {
+			markStartY = bufr->cy;
+			markEndY = bufr->marky;
+			markStartX = win->scx;
+			markEndX = bufr->markx;
+		}
+	}
+
+	for (int y = 0, filerow = win->rowoff; y < screenrows; y++, filerow++) {
 		if (filerow >= bufr->numrows) {
 			abAppend(ab, CSI "34m~" CSI "0m", 10);
 		} else {
@@ -998,46 +1014,50 @@ void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 			if (len > screencols)
 				len = screencols;
 
-			int j = win->coloff;
-			int col = 0;
-			while (col < len && j < row->rsize) {
+			int inHighlight = 0;
+			for (int j = win->coloff, col = 0;
+			     col < len && j < row->rsize; j++) {
+				int withinMarkRegion =
+					markActive &&
+					((filerow > markStartY &&
+					  filerow < markEndY) ||
+					 (filerow == markStartY &&
+					  filerow == markEndY &&
+					  j >= markStartX && j < markEndX) ||
+					 (filerow == markStartY &&
+					  filerow != markEndY &&
+					  j >= markStartX) ||
+					 (filerow == markEndY &&
+					  filerow != markStartY &&
+					  j < markEndX));
+
+				if (withinMarkRegion != inHighlight) {
+					abAppend(ab,
+						 withinMarkRegion ? "\x1b[7m" :
+								    "\x1b[0m",
+						 4);
+					inHighlight = withinMarkRegion;
+				}
+
 				if (row->render[j] == '\t') {
-					int next_tab_stop =
-						(col + 8) - (col % 8);
-					while (col < next_tab_stop &&
-					       col < len) {
+					int spaces = EMSYS_TAB_STOP -
+						     (col % EMSYS_TAB_STOP);
+					while (spaces > 0 && col < len) {
 						abAppend(ab, " ", 1);
 						col++;
+						spaces--;
 					}
-					j++;
 				} else {
 					abAppend(ab, &row->render[j], 1);
 					col++;
-					j++;
-				}
-
-				if (col >= screencols) {
-					if (bufr->truncate_lines) {
-						break; // Stop if truncating lines
-					} else if (y < screenrows - 1) {
-						// Handle line wrapping
-						abAppend(ab, "\r\n", 2);
-						abAppend(
-							ab, "\x1b[K",
-							3); // Clear the new line
-						col = 0;
-						y++;
-					} else {
-						break; // No more screen space
-					}
 				}
 			}
+			if (inHighlight)
+				abAppend(ab, "\x1b[0m", 4);
 		}
 		abAppend(ab, "\x1b[K", 3); // Clear to the end of the line
-		if (y < screenrows - 1) {
-			abAppend(ab, "\r\n", 2); // Move to the next line
-		}
-		filerow++;
+		if (y < screenrows - 1)
+			abAppend(ab, "\r\n", 2);
 	}
 }
 
