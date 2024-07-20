@@ -209,6 +209,8 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 	struct editorUndo *first = buf->undo;
 	uint8_t *newStr = NULL;
 	buf->query = orig;
+	int currentIdx = windowFocusedIdx(ed);
+	struct editorWindow *currentWindow = ed->windows[currentIdx];
 
 #define NEXT_OCCUR(ocheck)                 \
 	if (!nextOccur(buf, orig, ocheck)) \
@@ -307,7 +309,7 @@ RESET_PROMPT:
 			bufwidth = stringWidth(prompt);
 			break;
 		case CTRL('l'):
-			editorRecenter(buf);
+			editorRecenter(currentWindow);
 			break;
 		}
 	}
@@ -355,6 +357,14 @@ void editorWhitespaceCleanup(struct editorConfig *UNUSED(ed),
 	}
 }
 
+void editorToggleTruncateLines(struct editorConfig *UNUSED(ed),
+			       struct editorBuffer *buf) {
+	buf->truncate_lines = !buf->truncate_lines;
+	editorSetStatusMessage(buf->truncate_lines ?
+				       "Truncate long lines enabled" :
+				       "Truncate long lines disabled");
+}
+
 #define ADDCMD(name, func)               \
 	newCmd = malloc(sizeof *newCmd); \
 	newCmdName = name;               \
@@ -393,6 +403,7 @@ void setupCommands(struct editorConfig *ed) {
 	ADDCMD("whitespace-cleanup", editorWhitespaceCleanup);
 	ADDCMD("view-register", editorViewRegister);
 	ADDCMD("replace-regexp", editorReplaceRegex);
+	ADDCMD("toggle-truncate-lines", editorToggleTruncateLines);
 #ifdef EMSYS_DEBUG_UNDO
 	ADDCMD("debug-unpair", debugUnpair);
 #endif

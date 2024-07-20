@@ -8,6 +8,8 @@ int markInvalid(struct editorBuffer *buf);
 
 void editorSetMark(struct editorBuffer *buf);
 
+void editorClearMark(struct editorBuffer *buf);
+
 void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf);
 
 void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf);

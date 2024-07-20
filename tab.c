@@ -46,7 +46,7 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 				}
 				completions = new_completions;
 			}
-			completions[count++] = strdup(name);
+			completions[count++] = stringdup(name);
 		}
 	}
 
@@ -55,7 +55,7 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 	}
 
 	if (count == 1) {
-		ret = (uint8_t *)strdup(completions[0]);
+		ret = (uint8_t *)stringdup(completions[0]);
 		goto cleanup;
 	}
 
@@ -70,7 +70,7 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 		int c = editorReadKey();
 		switch (c) {
 		case '\r':
-			ret = (uint8_t *)strdup(completions[cur]);
+			ret = (uint8_t *)stringdup(completions[cur]);
 			goto cleanup;
 		case CTRL('i'):
 			cur = (cur + 1) % count;
@@ -95,6 +95,28 @@ cleanup:
 uint8_t *tabCompleteFiles(uint8_t *prompt) {
 	glob_t globlist;
 	uint8_t *ret = prompt;
+
+	if (*prompt == '~') {
+		char *home_dir = getenv("HOME");
+		if (!home_dir) {
+			// Handle error: HOME environment variable not found
+			return prompt;
+		}
+
+		size_t home_len = strlen(home_dir);
+		size_t prompt_len = strlen((char *)prompt);
+		char *new_prompt =
+			malloc(home_len + prompt_len - 1 +
+			       1); // -1 for removed '~', +1 for null terminator
+		if (!new_prompt) {
+			// Handle memory allocation failure
+			return prompt;
+		}
+
+		strcpy(new_prompt, home_dir);
+		strcpy(new_prompt + home_len, prompt + 1); // Skip the '~'
+		prompt = (uint8_t *)new_prompt;
+	}
 
 	/*
 	 * Define this to do manual globbing. It does mean you'll have
