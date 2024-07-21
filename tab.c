@@ -96,6 +96,28 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 	glob_t globlist;
 	uint8_t *ret = prompt;
 
+	if (*prompt == '~') {
+		char *home_dir = getenv("HOME");
+		if (!home_dir) {
+			// Handle error: HOME environment variable not found
+			return prompt;
+		}
+
+		size_t home_len = strlen(home_dir);
+		size_t prompt_len = strlen((char *)prompt);
+		char *new_prompt =
+			malloc(home_len + prompt_len - 1 +
+			       1); // -1 for removed '~', +1 for null terminator
+		if (!new_prompt) {
+			// Handle memory allocation failure
+			return prompt;
+		}
+
+		strcpy(new_prompt, home_dir);
+		strcpy(new_prompt + home_len, prompt + 1); // Skip the '~'
+		prompt = (uint8_t *)new_prompt;
+	}
+
 	/*
 	 * Define this to do manual globbing. It does mean you'll have
 	 * to add the *s yourself. However, it will let you tab

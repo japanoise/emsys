@@ -2121,7 +2121,7 @@ void editorProcessKeypress(int c) {
 		break;
 	case COPY:
 		editorCopyRegion(&E, bufr);
-                editorClearMark(bufr);
+		editorClearMark(bufr);
 		break;
 #ifdef EMSYS_CUA
 	case CTRL('C'):
@@ -2144,7 +2144,7 @@ void editorProcessKeypress(int c) {
 		for (int i = 0; i < rept; i++) {
 			editorKillRegion(&E, bufr);
 		}
-                editorClearMark(bufr);
+		editorClearMark(bufr);
 		break;
 	case CTRL('i'):
 		editorIndent(bufr, rept);
