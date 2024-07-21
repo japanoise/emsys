@@ -28,6 +28,9 @@
 #include "unicode.h"
 #include "unused.h"
 
+const int minibuffer_height = 1;
+const int statusbar_height = 1;
+
 // POSIX 2001 compliant alternative to strdup
 char *stringdup(const char *s) {
 	size_t len = strlen(s) + 1; // +1 for the null terminator
@@ -946,8 +949,8 @@ void editorScroll() {
 	struct editorWindow *win = E.windows[windowFocusedIdx(&E)];
 	struct editorBuffer *buf = win->buf;
 
-	if (buf->cy >= buf->numrows) {
-		buf->cy = buf->numrows > 0 ? buf->numrows - 1 : 0;
+	if (buf->cy + 1 > buf->numrows) {
+		buf->cy = buf->numrows;
 		buf->cx = 0;
 	} else if (buf->cx > buf->row[buf->cy].size) {
 		buf->cx = buf->row[buf->cy].size;
@@ -1180,28 +1183,25 @@ void editorRefreshScreen() {
 	abAppend(&ab, "\x1b[H", 3);    // Move cursor to top-left corner
 
 	int focusedIdx = windowFocusedIdx(&E);
-	int minibuffer_height = 1;
-	int available_height = E.screenrows - minibuffer_height;
-	int base_window_size = available_height / E.nwindows;
-	int remaining_space = available_height % E.nwindows;
 
 	int cumulative_height = 0;
 
 	for (int i = 0; i < E.nwindows; i++) {
 		struct editorWindow *win = E.windows[i];
-		win->height = base_window_size + (i < remaining_space ? 1 : 0);
+		win->height = (E.screenrows - minibuffer_height) / E.nwindows -
+			      statusbar_height;
 
 		if (win->focused) {
 			editorScroll();
 		}
 
-		// Draw window content (leaving one line for status bar)
-		editorDrawRows(win, &ab, win->height - 1, E.screencols);
+		editorDrawRows(win, &ab, win->height, E.screencols);
 
 		// Draw status bar
-		editorDrawStatusBar(win, &ab, cumulative_height + win->height);
+		editorDrawStatusBar(win, &ab,
+				    cumulative_height + win->height + 1);
 
-		cumulative_height += win->height;
+		cumulative_height += win->height + statusbar_height;
 	}
 
 	editorDrawMinibuffer(&ab);
@@ -1217,8 +1217,8 @@ void editorRefreshScreen() {
 	}
 
 	// Ensure cursor doesn't go beyond the window's bottom
-	if (cursor_y > cumulative_height - 1) {
-		cursor_y = cumulative_height - 1;
+	if (cursor_y > cumulative_height) {
+		cursor_y = cumulative_height - statusbar_height;
 	}
 
 	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", cursor_y,
@@ -2035,42 +2035,36 @@ void editorProcessKeypress(int c) {
 	{
 
 		for (int i = 0; i < rept; i++) {
-			// Move cursor up by window height
-			bufr->cy -= win->height;
-
-			// If we've gone past the start of the buffer, set to first line
-			if (bufr->cy < 0) {
-				bufr->cy = 0;
+			int overlap = 2;
+			// Move the cursor as needed
+			bufr->cx = 0;
+			if (bufr->cy >= win->rowoff + overlap) {
+				bufr->cy = win->rowoff + 1;
 			}
+
+			// Move the window offset
+			win->rowoff -= (win->height - overlap);
 		}
 
-		// Move cursor to beginning of line
-		bufr->cx = 0;
-
-		// Force scroll update
 		editorScroll();
 	} break;
 	case PAGE_DOWN:
 #ifndef EMSYS_CUA
 	case CTRL('v'):
 #endif //EMSYS_CUA
-	{
+
 		for (int i = 0; i < rept; i++) {
-			// Move cursor down by window height
-			bufr->cy += win->height;
-
-			// If we've gone past the end of the buffer, set to last line
-			if (bufr->cy >= bufr->numrows) {
-				bufr->cy = bufr->numrows - 1;
+			int overlap = 2;
+			// move the cursor as needed
+			bufr->cx = 0;
+			if (bufr->cy < win->rowoff + win->height - overlap) {
+				bufr->cy = win->rowoff + win->height - overlap;
 			}
+			// Move the window offset
+			win->rowoff += (win->height - overlap);
+			editorScroll();
 		}
-
-		// Move cursor to beginning of line
-		bufr->cx = 0;
-
-		// Force scroll update
-		editorScroll();
-	} break;
+		break;
 	case BEG_OF_FILE:
 		bufr->cy = 0;
 		bufr->cx = 0;
@@ -2081,9 +2075,9 @@ void editorProcessKeypress(int c) {
 		struct editorBuffer *buf = win->buf;
 
 		editorSetStatusMessage(
-			"(buf->cx%d,cy%d) (win->scx%d,scy%d) win->height=%d screenrows=%d, screencols=%d",
+			"bufcx%d,cy%d scx%d,scy%d winheight=%d screenrows=%d numrows%d rowoff%d",
 			buf->cx, buf->cy, win->scx, win->scy, win->height,
-			E.screenrows, E.screencols);
+			E.screenrows, bufr->numrows, win->rowoff);
 	} break;
 	case END_OF_FILE:
 		bufr->cy = bufr->numrows;
@@ -2325,7 +2319,9 @@ void editorProcessKeypress(int c) {
 		E.windows[E.nwindows - 1]->cy = E.focusBuf->cy;
 		E.windows[E.nwindows - 1]->rowoff = 0;
 		E.windows[E.nwindows - 1]->coloff = 0;
-		E.windows[E.nwindows - 1]->height = E.screenrows / E.nwindows;
+		E.windows[E.nwindows - 1]->height =
+			(E.screenrows - minibuffer_height) / E.nwindows -
+			statusbar_height;
 		E.windows[E.nwindows - 1]->buf->truncate_lines = 0;
 		E.windows[E.nwindows - 1]->buf->word_wrap = 0;
 		break;
@@ -2372,6 +2368,7 @@ void editorProcessKeypress(int c) {
 		E.nwindows = 1;
 		free(E.windows);
 		E.windows = windows;
+		editorRefreshScreen();
 		break;
 	case KILL_BUFFER:
 		// Bypass confirmation for special buffers
