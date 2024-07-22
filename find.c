@@ -1,5 +1,8 @@
 #include "find.h"
 #include "emsys.h"
+#include <string.h>
+#include <stdlib.h>
+
 
 void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 	static int last_match = -1;

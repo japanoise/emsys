@@ -5,7 +5,6 @@
 #include <termios.h>
 #include <time.h>
 #include "config.h"
-#include "uthash.h"
 
 /*** util ***/
 
@@ -177,9 +176,8 @@ struct editorMacro {
 struct editorConfig;
 
 struct editorCommand {
-	char *key;
+	const char *key;
 	void (*cmd)(struct editorConfig *, struct editorBuffer *);
-	UT_hash_handle hh;
 };
 
 enum registerType {
@@ -237,6 +235,7 @@ struct editorConfig {
 	int playback;
 	int micro;
 	struct editorCommand *cmd;
+	int cmd_count;
 	struct editorRegister registers[127];
 };
 
