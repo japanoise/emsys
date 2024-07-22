@@ -30,6 +30,7 @@
 
 const int minibuffer_height = 1;
 const int statusbar_height = 1;
+const int page_overlap = 2;
 
 // POSIX 2001 compliant alternative to strdup
 char *stringdup(const char *s) {
@@ -889,6 +890,30 @@ void abFree(struct abuf *ab) {
 	free(ab->b);
 }
 
+int calculateRowsToScroll(struct editorBuffer *bufr, struct editorWindow *win,
+			  int direction) {
+	int rendered_lines = 0;
+	int rows_to_scroll = 0;
+	int start_row = (direction > 0) ? win->rowoff : win->rowoff - 1;
+
+	while (rendered_lines < win->height) {
+		if (start_row < 0 || start_row >= bufr->numrows)
+			break;
+		erow *row = &bufr->row[start_row];
+		int line_height =
+			bufr->truncate_lines ?
+				1 :
+				((row->renderwidth / E.screencols) + 1);
+		if (rendered_lines + line_height > win->height && direction < 0)
+			break;
+		rendered_lines += line_height;
+		rows_to_scroll++;
+		start_row += direction;
+	}
+
+	return rows_to_scroll;
+}
+
 /*** output ***/
 
 void editorSetScxScy(struct editorWindow *win) {
@@ -940,6 +965,8 @@ void editorSetScxScy(struct editorWindow *win) {
 	}
 
 	// Ensure cursor is within window bounds
+	if (win->scy < 0)
+		win->scy = 0;
 	if (win->scy >= win->height)
 		win->scy = win->height - 1;
 	if (win->scx >= E.screencols)
@@ -1166,23 +1193,22 @@ void editorRefreshScreen() {
 	int focusedIdx = windowFocusedIdx(&E);
 
 	int cumulative_height = 0;
+	int total_height = E.screenrows - minibuffer_height -
+			   (statusbar_height * E.nwindows);
+	int window_height = total_height / E.nwindows;
+	int remaining_height = total_height % E.nwindows;
 
 	for (int i = 0; i < E.nwindows; i++) {
 		struct editorWindow *win = E.windows[i];
-		win->height = (E.screenrows - minibuffer_height) / E.nwindows -
-			      statusbar_height;
+		win->height = window_height;
+		if (i == E.nwindows - 1)
+			win->height += remaining_height;
 
-		if (win->focused) {
+		if (win->focused)
 			editorScroll();
-		}
-
 		editorDrawRows(win, &ab, win->height, E.screencols);
-
-		// Draw status bar
-		editorDrawStatusBar(win, &ab,
-				    cumulative_height + win->height + 1);
-
 		cumulative_height += win->height + statusbar_height;
+		editorDrawStatusBar(win, &ab, cumulative_height);
 	}
 
 	editorDrawMinibuffer(&ab);
@@ -1194,7 +1220,7 @@ void editorRefreshScreen() {
 
 	int cursor_y = focusedWin->scy + 1; // 1-based index
 	for (int i = 0; i < focusedIdx; i++) {
-		cursor_y += E.windows[i]->height;
+		cursor_y += E.windows[i]->height + statusbar_height;
 	}
 
 	// Ensure cursor doesn't go beyond the window's bottom
@@ -1222,25 +1248,13 @@ void editorRefreshScreen() {
 
 void editorCursorBottomLine(int curs) {
 	char cbuf[32];
-	if (E.nwindows == 1) {
-		snprintf(cbuf, sizeof(cbuf), CSI "%d;%dH", E.screenrows, curs);
-	} else {
-		int windowSize = (E.screenrows - 1) / E.nwindows;
-		snprintf(cbuf, sizeof(cbuf), CSI "%d;%dH",
-			 (windowSize * E.nwindows) + 1, curs);
-	}
+	snprintf(cbuf, sizeof(cbuf), CSI "%d;%dH", E.screenrows, curs);
 	write(STDOUT_FILENO, cbuf, strlen(cbuf));
 }
 
 void editorCursorBottomLineLong(long curs) {
 	char cbuf[32];
-	if (E.nwindows == 1) {
-		snprintf(cbuf, sizeof(cbuf), CSI "%d;%ldH", E.screenrows, curs);
-	} else {
-		int windowSize = (E.screenrows - 1) / E.nwindows;
-		snprintf(cbuf, sizeof(cbuf), CSI "%d;%ldH",
-			 (windowSize * E.nwindows) + 1, curs);
-	}
+	snprintf(cbuf, sizeof(cbuf), CSI "%d;%ldH", E.screenrows, curs);
 	write(STDOUT_FILENO, cbuf, strlen(cbuf));
 }
 
@@ -2014,43 +2028,55 @@ void editorProcessKeypress(int c) {
 	case CTRL('z'):
 #endif //EMSYS_CUA
 	{
-
 		for (int i = 0; i < rept; i++) {
-			int overlap = 2;
-			// Move the cursor as needed
-			bufr->cx = 0;
-			if (bufr->cy >= win->rowoff + overlap) {
-				bufr->cy = win->rowoff + 1;
+			int rows_to_scroll =
+				calculateRowsToScroll(bufr, win, -1);
+
+			if (win->rowoff == 0) {
+				bufr->cy = 0;
+			} else {
+				win->rowoff -= rows_to_scroll;
+				if (win->rowoff < page_overlap) {
+					win->rowoff = 0;
+				} else {
+					win->rowoff += page_overlap;
+				}
+				if (win->rowoff < 0)
+					win->rowoff = 0;
+
+				// Move the cursor only if needed
+				if (bufr->cy > win->rowoff + win->height - 1) {
+					bufr->cy =
+						win->rowoff + win->height - 1;
+				}
 			}
 
-			// Move the window offset
-			win->rowoff -= (win->height - overlap);
-			if (win->rowoff < 0)
-				win->rowoff = 0;
+			editorScroll();
 		}
-
-		editorScroll();
 	} break;
 	case PAGE_DOWN:
 #ifndef EMSYS_CUA
 	case CTRL('v'):
 #endif //EMSYS_CUA
+	{
 		for (int i = 0; i < rept; i++) {
-			int overlap = 2;
-			// move the cursor as needed
-			bufr->cx = 0;
+			int rows_to_scroll =
+				calculateRowsToScroll(bufr, win, 1);
 
-			if (bufr->cy < win->rowoff + win->height - overlap) {
-				bufr->cy = win->rowoff + win->height - overlap;
+			if (win->rowoff + win->height < bufr->numrows) {
+				win->rowoff += rows_to_scroll;
+				if (win->rowoff > page_overlap)
+					win->rowoff -= page_overlap;
+				if (bufr->cy < win->rowoff)
+					bufr->cy = win->rowoff;
+				bufr->cy = win->rowoff;
+			} else {
+				bufr->cy += rows_to_scroll;
 			}
-			// Move the window offset
-			win->rowoff += (win->height - overlap);
-			if (win->rowoff < 0)
-				win->rowoff = 0;
 
 			editorScroll();
 		}
-		break;
+	} break;
 	case BEG_OF_FILE:
 		bufr->cy = 0;
 		bufr->cx = 0;
@@ -2061,9 +2087,9 @@ void editorProcessKeypress(int c) {
 		struct editorBuffer *buf = win->buf;
 
 		editorSetStatusMessage(
-			"(buf->cx%d,cy%d) (win->scx%d,scy%d) win->height=%d screenrows=%d, screencols=%d",
+			"(buf->cx%d,cy%d) (win->scx%d,scy%d) win->height=%d screenrows=%d, rowoff=%d",
 			buf->cx, buf->cy, win->scx, win->scy, win->height,
-			E.screenrows, E.screencols);
+			E.screenrows, win->rowoff);
 	} break;
 	case END_OF_FILE:
 		bufr->cy = bufr->numrows;
