@@ -2307,8 +2307,6 @@ void editorProcessKeypress(int c) {
 		E.windows[E.nwindows - 1]->height =
 			(E.screenrows - minibuffer_height) / E.nwindows -
 			statusbar_height;
-		E.windows[E.nwindows - 1]->buf->truncate_lines = 0;
-		E.windows[E.nwindows - 1]->buf->word_wrap = 0;
 		break;
 
 	case DESTROY_WINDOW:
@@ -2637,6 +2635,7 @@ struct editorBuffer *newBuffer() {
 	ret->next = NULL;
 	ret->uarg = 0;
 	ret->uarg_active = 0;
+	ret->truncate_lines = 0;
 	return ret;
 }
 
