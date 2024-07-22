@@ -1278,7 +1278,7 @@ void editorResizeScreen(int UNUSED(sig)) {
 }
 
 void editorRecenter(struct editorWindow *win) {
-	win->rowoff = win->scy - (win->height / 2);
+	win->rowoff = win->buf->cy - (win->height / 2);
 	if (win->rowoff < 0) {
 		win->rowoff = 0;
 	}
