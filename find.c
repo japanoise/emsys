@@ -3,7 +3,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-
 void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 	static int last_match = -1;
 	static int direction = 1;

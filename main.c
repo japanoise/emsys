@@ -1988,9 +1988,9 @@ void editorProcessKeypress(int c) {
 			editorDelChar(bufr);
 		}
 		break;
-	case CTRL('l'): {
+	case CTRL('l'):
 		editorRecenter(win);
-	} break;
+		break;
 	case QUIT:
 		if (E.recording) {
 			E.recording = 0;
@@ -2032,7 +2032,6 @@ void editorProcessKeypress(int c) {
 #ifndef EMSYS_CUA
 	case CTRL('z'):
 #endif //EMSYS_CUA
-	{
 
 		for (int i = 0; i < rept; i++) {
 			int overlap = 2;
@@ -2044,10 +2043,13 @@ void editorProcessKeypress(int c) {
 
 			// Move the window offset
 			win->rowoff -= (win->height - overlap);
+			if (win->rowoff < 0)
+				win->rowoff = 0;
+
+			editorScroll();
 		}
 
-		editorScroll();
-	} break;
+		break;
 	case PAGE_DOWN:
 #ifndef EMSYS_CUA
 	case CTRL('v'):
@@ -2062,6 +2064,8 @@ void editorProcessKeypress(int c) {
 			}
 			// Move the window offset
 			win->rowoff += (win->height - overlap);
+			if (win->rowoff < 0)
+				win->rowoff = 0;
 			editorScroll();
 		}
 		break;
