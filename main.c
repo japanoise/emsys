@@ -2063,13 +2063,12 @@ void editorProcessKeypress(int c) {
 			int rows_to_scroll =
 				calculateRowsToScroll(bufr, win, 1);
 
-			if (win->rowoff + win->height < bufr->numrows) {
+			if (win->rowoff + rows_to_scroll < bufr->numrows) {
 				win->rowoff += rows_to_scroll;
 				if (win->rowoff > page_overlap)
 					win->rowoff -= page_overlap;
 				if (bufr->cy < win->rowoff)
 					bufr->cy = win->rowoff;
-				bufr->cy = win->rowoff;
 			} else {
 				bufr->cy += rows_to_scroll;
 			}
