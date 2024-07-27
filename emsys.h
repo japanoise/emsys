@@ -238,6 +238,7 @@ struct editorConfig {
 	int micro;
 	struct editorCommand *cmd;
 	struct editorRegister registers[127];
+	struct editorBuffer *lastVisitedBuffer;
 };
 
 /*** prototypes ***/

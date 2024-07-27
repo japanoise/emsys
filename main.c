@@ -1322,13 +1322,10 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 		editorRecordKey(c);
 		switch (c) {
 		case '\r':
-			if (buflen != 0) {
-				editorSetStatusMessage("");
-				if (callback)
-					callback(bufr, buf, c);
-				return buf;
-			}
-			break;
+			editorSetStatusMessage("");
+			if (callback)
+				callback(bufr, buf, c);
+			return buf; // Return the buffer even if it's empty
 		case CTRL('g'):
 		case CTRL('c'):
 			editorSetStatusMessage("");
@@ -1851,44 +1848,106 @@ void editorTransposeChars(struct editorConfig *ed, struct editorBuffer *bufr) {
 void editorSwitchToNamedBuffer(struct editorConfig *ed,
 			       struct editorBuffer *current) {
 	char prompt[512];
-	snprintf(prompt, sizeof(prompt), "Switch to buffer: %%s");
-	uint8_t *buffer_name =
-		editorPrompt(current, (uint8_t *)prompt, PROMPT_BASIC, NULL);
-	if (!buffer_name) {
-		editorSetStatusMessage("Buffer switch canceled");
-		return;
-	}
-	if (buffer_name[0] == '\0') {
-		editorSetStatusMessage("No buffer name entered");
-		free(buffer_name);
-		return;
-	}
+	const char *defaultBufferName = NULL;
 
-	struct editorBuffer *found = NULL;
-	for (struct editorBuffer *buf = ed->firstBuf; buf != NULL;
-	     buf = buf->next) {
-		if (buf == current)
-			continue; // Skip the current buffer
-
-		char *name = buf->filename ? buf->filename : "*scratch*";
-		if (strcmp((char *)buffer_name, name) == 0) {
-			found = buf;
-			break;
+	if (ed->lastVisitedBuffer && ed->lastVisitedBuffer != current) {
+		defaultBufferName = ed->lastVisitedBuffer->filename ?
+					    ed->lastVisitedBuffer->filename :
+					    "*scratch*";
+	} else {
+		// Find the first buffer that isn't the current one
+		struct editorBuffer *defaultBuffer = ed->firstBuf;
+		while (defaultBuffer == current && defaultBuffer->next) {
+			defaultBuffer = defaultBuffer->next;
+		}
+		if (defaultBuffer != current) {
+			defaultBufferName = defaultBuffer->filename ?
+						    defaultBuffer->filename :
+						    "*scratch*";
 		}
 	}
 
-	if (found) {
-		ed->focusBuf = found;
+	if (defaultBufferName) {
+		snprintf(prompt, sizeof(prompt),
+			 "Switch to buffer (default %s): %%s",
+			 defaultBufferName);
+	} else {
+		snprintf(prompt, sizeof(prompt), "Switch to buffer: %%s");
+	}
+
+	uint8_t *buffer_name =
+		editorPrompt(current, (uint8_t *)prompt, PROMPT_BASIC, NULL);
+
+	if (buffer_name == NULL) {
+		// User canceled the prompt
+		editorSetStatusMessage("Buffer switch canceled");
+		return;
+	}
+
+	struct editorBuffer *targetBuffer = NULL;
+
+	if (buffer_name[0] == '\0') {
+		// User pressed Enter without typing anything
+		if (defaultBufferName) {
+			// Find the default buffer
+			for (struct editorBuffer *buf = ed->firstBuf;
+			     buf != NULL; buf = buf->next) {
+				if (buf == current)
+					continue;
+				if ((buf->filename &&
+				     strcmp(buf->filename, defaultBufferName) ==
+					     0) ||
+				    (!buf->filename &&
+				     strcmp("*scratch*", defaultBufferName) ==
+					     0)) {
+					targetBuffer = buf;
+					break;
+				}
+			}
+		}
+		if (!targetBuffer) {
+			editorSetStatusMessage("No buffer to switch to");
+			free(buffer_name);
+			return;
+		}
+	} else {
+		for (struct editorBuffer *buf = ed->firstBuf; buf != NULL;
+		     buf = buf->next) {
+			if (buf == current)
+				continue;
+
+			const char *bufName = buf->filename ? buf->filename :
+							      "*scratch*";
+			if (strcmp((char *)buffer_name, bufName) == 0) {
+				targetBuffer = buf;
+				break;
+			}
+		}
+
+		if (!targetBuffer) {
+			editorSetStatusMessage("No buffer named '%s'",
+					       buffer_name);
+			free(buffer_name);
+			return;
+		}
+	}
+
+	if (targetBuffer) {
+		ed->lastVisitedBuffer =
+			current; // Update the last visited buffer
+		ed->focusBuf = targetBuffer;
+
+		const char *switchedBufferName =
+			ed->focusBuf->filename ? ed->focusBuf->filename :
+						 "*scratch*";
 		editorSetStatusMessage("Switched to buffer %s",
-				       (char *)buffer_name);
+				       switchedBufferName);
 
 		for (int i = 0; i < ed->nwindows; i++) {
 			if (ed->windows[i]->focused) {
 				ed->windows[i]->buf = ed->focusBuf;
 			}
 		}
-	} else {
-		editorSetStatusMessage("No buffer named '%s'", buffer_name);
 	}
 
 	free(buffer_name);
@@ -2686,6 +2745,7 @@ void initEditor() {
 	E.firstBuf = NULL;
 	memset(E.registers, 0, sizeof(E.registers));
 	setupCommands(&E);
+	E.lastVisitedBuffer = NULL;
 
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1)
 		die("getWindowSize");
