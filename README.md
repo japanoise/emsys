@@ -12,6 +12,7 @@ with no dependencies. It's not much, but it punches above its weight class!
   Editor][tutorial].
 * Decent UTF-8 support out of the box with no configuration.
 * No dependencies, just a VT100/xterm-type terminal and termios.h to build.
+* C99 and POSIX 2001 compliant
 
 ## Cons
 
@@ -164,6 +165,7 @@ file `bound.c`.
 * `C-x 1` - Kill other windows (make current the only *one*)
 * `C-x 2` - Create new window
 * `C-l` - Center cursor in window
+* `M-x toggle-truncate-lines` or `C-x x t` - Toggles line wrap off/on
 
 ### Advanced
 

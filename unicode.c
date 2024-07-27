@@ -1,3 +1,4 @@
+#include <sys/types.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <wchar.h>
@@ -98,8 +99,7 @@ static int testCaseReverseUCS(char *expectedChars, int expectedWidth,
 		resultsNotMatch += result[i] != (uint8_t)expectedChars[i];
 		i++;
 	}
-
-	printf("expected width %i actual %li\n", expectedWidth, actualWidth);
+	printf("expected width %i actual %zd\n", expectedWidth, actualWidth);
 
 	return (actualWidth != expectedWidth) + resultsNotMatch;
 }
