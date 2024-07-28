@@ -695,6 +695,10 @@ void editorBackSpace(struct editorBuffer *bufr) {
 }
 
 void editorKillLine(struct editorBuffer *bufr) {
+	if (bufr->numrows <= 0) {
+		return;
+	}
+
 	erow *row = &bufr->row[bufr->cy];
 
 	if (bufr->cx == row->size) {
