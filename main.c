@@ -694,77 +694,90 @@ void editorBackSpace(struct editorBuffer *bufr) {
 	}
 }
 
-void editorKillLine(struct editorBuffer *bufr) {
-	if (bufr->numrows <= 0) {
+void editorKillLine(struct editorBuffer *buf) {
+	if (buf->numrows <= 0) {
 		return;
 	}
 
-	erow *row = &bufr->row[bufr->cy];
+	erow *row = &buf->row[buf->cy];
 
-	if (bufr->cx == row->size) {
-		editorDelChar(bufr);
+	if (buf->cx == row->size) {
+		editorDelChar(buf);
 	} else {
-		clearRedos(bufr);
+		// Copy to kill ring
+		int kill_len = row->size - buf->cx;
+		free(E.kill);
+		E.kill = malloc(kill_len + 1);
+		memcpy(E.kill, &row->chars[buf->cx], kill_len);
+		E.kill[kill_len] = '\0';
+
+		clearRedos(buf);
 		struct editorUndo *new = newUndo();
-		new->starty = bufr->cy;
-		new->endy = bufr->cy;
-		new->startx = bufr->cx;
+		new->starty = buf->cy;
+		new->endy = buf->cy;
+		new->startx = buf->cx;
 		new->endx = row->size;
 		new->delete = 1;
-		new->prev = bufr->undo;
-		bufr->undo = new;
-		int i = 0;
-		for (int j = row->size - 1; j >= bufr->cx; j--) {
-			new->data[i++] = row->chars[j];
-			new->datalen++;
-			if (new->datalen >= new->datasize - 2) {
-				new->datasize *= 2;
-				new->data = realloc(new->data, new->datasize);
-			}
-		}
-		new->data[i] = 0;
+		new->prev = buf->undo;
+		buf->undo = new;
 
-		row->chars[bufr->cx] = 0;
-		row->size = bufr->cx;
+		new->datalen = kill_len;
+		if (new->datasize < new->datalen + 1) {
+			new->datasize = new->datalen + 1;
+			new->data = realloc(new->data, new->datasize);
+		}
+		for (int i = 0; i < kill_len; i++) {
+			new->data[i] = E.kill[kill_len - i - 1];
+		}
+		new->data[kill_len] = '\0';
+
+		row->size = buf->cx;
+		row->chars[row->size] = '\0';
 		editorUpdateRow(row);
-		bufr->dirty = 1;
-		editorClearMark(bufr);
+		buf->dirty = 1;
+		editorClearMark(buf);
 	}
 }
 
-void editorKillLineBackwards(struct editorBuffer *bufr) {
-	if (bufr->cx == 0) {
+void editorKillLineBackwards(struct editorBuffer *buf) {
+	if (buf->cx == 0) {
 		return;
 	}
 
-	erow *row = &bufr->row[bufr->cy];
+	erow *row = &buf->row[buf->cy];
 
-	clearRedos(bufr);
+	// Copy to kill ring
+	free(E.kill);
+	E.kill = malloc(buf->cx + 1);
+	memcpy(E.kill, row->chars, buf->cx);
+	E.kill[buf->cx] = '\0';
+
+	clearRedos(buf);
 	struct editorUndo *new = newUndo();
-	new->starty = bufr->cy;
-	new->endy = bufr->cy;
+	new->starty = buf->cy;
+	new->endy = buf->cy;
 	new->startx = 0;
-	new->endx = bufr->cx;
+	new->endx = buf->cx;
 	new->delete = 1;
-	new->prev = bufr->undo;
-	bufr->undo = new;
-	int i = 0;
-	for (int j = bufr->cx - 1; j >= 0; j--) {
-		new->data[i++] = row->chars[j];
-		new->datalen++;
-		if (new->datalen >= new->datasize - 2) {
-			new->datasize *= 2;
-			new->data = realloc(new->data, new->datasize);
-		}
-	}
-	new->data[i] = 0;
+	new->prev = buf->undo;
+	buf->undo = new;
 
-	row->size -= bufr->cx;
-	memmove(row->chars, &row->chars[bufr->cx], row->size);
-	row->chars[row->size] = 0;
+	new->datalen = buf->cx;
+	if (new->datasize < new->datalen + 1) {
+		new->datasize = new->datalen + 1;
+		new->data = realloc(new->data, new->datasize);
+	}
+	for (int i = 0; i < buf->cx; i++) {
+		new->data[i] = E.kill[buf->cx - i - 1];
+	}
+	new->data[buf->cx] = '\0';
+
+	row->size -= buf->cx;
+	memmove(row->chars, &row->chars[buf->cx], row->size);
+	row->chars[row->size] = '\0';
 	editorUpdateRow(row);
-	bufr->cx = 0;
-	bufr->dirty = 1;
+	buf->cx = 0;
+	buf->dirty = 1;
 }
 
 void editorRecordKey(int c) {
@@ -877,7 +890,8 @@ struct abuf {
 	int len;
 };
 
-#define ABUF_INIT { NULL, 0 }
+#define ABUF_INIT \
+	{ NULL, 0 }
 
 void abAppend(struct abuf *ab, const char *s, int len) {
 	char *new = realloc(ab->b, ab->len + len);
@@ -905,8 +919,8 @@ int calculateRowsToScroll(struct editorBuffer *bufr, struct editorWindow *win,
 		erow *row = &bufr->row[start_row];
 		int line_height =
 			bufr->truncate_lines ?
-				1 :
-				((row->renderwidth / E.screencols) + 1);
+				      1 :
+				      ((row->renderwidth / E.screencols) + 1);
 		if (rendered_lines + line_height > win->height && direction < 0)
 			break;
 		rendered_lines += line_height;
@@ -1068,7 +1082,7 @@ void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 				if (withinMarkRegion != inHighlight) {
 					abAppend(ab,
 						 withinMarkRegion ? "\x1b[7m" :
-								    "\x1b[0m",
+									  "\x1b[0m",
 						 4);
 					inHighlight = withinMarkRegion;
 				}
@@ -1892,8 +1906,8 @@ void editorSwitchToNamedBuffer(struct editorConfig *ed,
 
 	if (ed->lastVisitedBuffer && ed->lastVisitedBuffer != current) {
 		defaultBufferName = ed->lastVisitedBuffer->filename ?
-					    ed->lastVisitedBuffer->filename :
-					    "*scratch*";
+						  ed->lastVisitedBuffer->filename :
+						  "*scratch*";
 	} else {
 		// Find the first buffer that isn't the current one
 		struct editorBuffer *defaultBuffer = ed->firstBuf;
@@ -1902,8 +1916,8 @@ void editorSwitchToNamedBuffer(struct editorConfig *ed,
 		}
 		if (defaultBuffer != current) {
 			defaultBufferName = defaultBuffer->filename ?
-						    defaultBuffer->filename :
-						    "*scratch*";
+							  defaultBuffer->filename :
+							  "*scratch*";
 		}
 	}
 
@@ -1957,7 +1971,7 @@ void editorSwitchToNamedBuffer(struct editorConfig *ed,
 				continue;
 
 			const char *bufName = buf->filename ? buf->filename :
-							      "*scratch*";
+								    "*scratch*";
 			if (strcmp((char *)buffer_name, bufName) == 0) {
 				targetBuffer = buf;
 				break;
@@ -1979,7 +1993,7 @@ void editorSwitchToNamedBuffer(struct editorConfig *ed,
 
 		const char *switchedBufferName =
 			ed->focusBuf->filename ? ed->focusBuf->filename :
-						 "*scratch*";
+						       "*scratch*";
 		editorSetStatusMessage("Switched to buffer %s",
 				       switchedBufferName);
 
@@ -2537,7 +2551,7 @@ void editorProcessKeypress(int c) {
 		// Update the focused buffer
 		if (E.focusBuf == bufr) {
 			E.focusBuf = (bufr->next != NULL) ? bufr->next :
-							    prevBuf;
+								  prevBuf;
 		}
 
 		destroyBuffer(bufr);

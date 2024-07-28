@@ -23,7 +23,7 @@
 #define CRLF "\r\n"
 #define ISCTRL(c) ((0 < c && c < 0x20) || c == 0x7f)
 #if !defined(CTRL)
-#define CTRL(x) ((x) & 0x1f)
+#define CTRL(x) ((x)&0x1f)
 #endif
 
 enum editorKey {
