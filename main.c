@@ -890,8 +890,7 @@ struct abuf {
 	int len;
 };
 
-#define ABUF_INIT \
-	{ NULL, 0 }
+#define ABUF_INIT { NULL, 0 }
 
 void abAppend(struct abuf *ab, const char *s, int len) {
 	char *new = realloc(ab->b, ab->len + len);
@@ -1033,8 +1032,8 @@ void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 				int start = 0;
 				while (len > 0) {
 					int chunk = len > screencols ?
-								  screencols :
-								  len;
+							    screencols :
+							    len;
 					abAppend(ab, &row->render[start],
 						 chunk);
 					start += chunk;
@@ -1839,8 +1838,8 @@ void editorSwitchToNamedBuffer(struct editorConfig *ed,
 
 	if (ed->lastVisitedBuffer && ed->lastVisitedBuffer != current) {
 		defaultBufferName = ed->lastVisitedBuffer->filename ?
-						  ed->lastVisitedBuffer->filename :
-						  "*scratch*";
+					    ed->lastVisitedBuffer->filename :
+					    "*scratch*";
 	} else {
 		// Find the first buffer that isn't the current one
 		struct editorBuffer *defaultBuffer = ed->firstBuf;
@@ -1849,8 +1848,8 @@ void editorSwitchToNamedBuffer(struct editorConfig *ed,
 		}
 		if (defaultBuffer != current) {
 			defaultBufferName = defaultBuffer->filename ?
-							  defaultBuffer->filename :
-							  "*scratch*";
+						    defaultBuffer->filename :
+						    "*scratch*";
 		}
 	}
 
@@ -1904,7 +1903,7 @@ void editorSwitchToNamedBuffer(struct editorConfig *ed,
 				continue;
 
 			const char *bufName = buf->filename ? buf->filename :
-								    "*scratch*";
+							      "*scratch*";
 			if (strcmp((char *)buffer_name, bufName) == 0) {
 				targetBuffer = buf;
 				break;
@@ -1926,7 +1925,7 @@ void editorSwitchToNamedBuffer(struct editorConfig *ed,
 
 		const char *switchedBufferName =
 			ed->focusBuf->filename ? ed->focusBuf->filename :
-						       "*scratch*";
+						 "*scratch*";
 		editorSetStatusMessage("Switched to buffer %s",
 				       switchedBufferName);
 
@@ -2495,7 +2494,7 @@ void editorProcessKeypress(int c) {
 		// Update the focused buffer
 		if (E.focusBuf == bufr) {
 			E.focusBuf = (bufr->next != NULL) ? bufr->next :
-								  prevBuf;
+							    prevBuf;
 		}
 
 		destroyBuffer(bufr);

@@ -360,8 +360,8 @@ void editorToggleTruncateLines(struct editorConfig *UNUSED(ed),
 			       struct editorBuffer *buf) {
 	buf->truncate_lines = !buf->truncate_lines;
 	editorSetStatusMessage(buf->truncate_lines ?
-					     "Truncate long lines enabled" :
-					     "Truncate long lines disabled");
+				       "Truncate long lines enabled" :
+				       "Truncate long lines disabled");
 }
 
 #define ADDCMD(name, func)               \

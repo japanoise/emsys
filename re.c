@@ -90,8 +90,8 @@ int re_matchp(re_t pattern, const char *text, int *matchlength) {
 	if (pattern != 0) {
 		if (pattern[0].type == BEGIN) {
 			return ((matchpattern(&pattern[1], text, matchlength)) ?
-					      0 :
-					      -1);
+					0 :
+					-1);
 		} else {
 			int idx = -1;
 
