@@ -1036,7 +1036,7 @@ void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 		}
 	}
 
-	for (int y = 0, filerow = win->rowoff; y < screenrows; y++, filerow++) {
+	for (int y = 0, filerow = win->rowoff; y < screenrows; y++) {
 		if (filerow >= bufr->numrows) {
 			abAppend(ab, CSI "34m~" CSI "0m", 10);
 		} else {
@@ -1048,8 +1048,9 @@ void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 				len = screencols;
 
 			int inHighlight = 0;
-			for (int j = win->coloff, col = 0;
-			     col < len && j < row->rsize; j++) {
+			int j = win->coloff;
+			int col = 0;
+			while (j < row->rsize) {
 				int withinMarkRegion =
 					markActive &&
 					((filerow > markStartY &&
@@ -1075,7 +1076,7 @@ void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 				if (row->render[j] == '\t') {
 					int spaces = EMSYS_TAB_STOP -
 						     (col % EMSYS_TAB_STOP);
-					while (spaces > 0 && col < len) {
+					while (spaces > 0 && col < screencols) {
 						abAppend(ab, " ", 1);
 						col++;
 						spaces--;
@@ -1084,13 +1085,29 @@ void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 					abAppend(ab, &row->render[j], 1);
 					col++;
 				}
+
+				if (col >= screencols) {
+					if (bufr->truncate_lines) {
+						break;
+					} else if (y < screenrows - 1) {
+						abAppend(ab, "\r\n", 2);
+						abAppend(ab, "\x1b[K", 3);
+						col = 0;
+						y++;
+					} else {
+						break;
+					}
+				}
+				j++;
 			}
 			if (inHighlight)
 				abAppend(ab, "\x1b[0m", 4);
 		}
-		abAppend(ab, "\x1b[K", 3); // Clear to the end of the line
-		if (y < screenrows - 1)
+		abAppend(ab, "\x1b[K", 3);
+		if (y < screenrows - 1) {
 			abAppend(ab, "\r\n", 2);
+		}
+		filerow++;
 	}
 }
 
@@ -2172,7 +2189,7 @@ void editorProcessKeypress(int c) {
 			"(buf->cx%d,cy%d) (win->scx%d,scy%d) win->height=%d screenrows=%d, rowoff=%d",
 			buf->cx, buf->cy, win->scx, win->scy, win->height,
 			E.screenrows, win->rowoff);
-=	} break;
+	} break;
 	case END_OF_FILE:
 		bufr->cy = bufr->numrows;
 		break;
