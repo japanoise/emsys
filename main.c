@@ -907,78 +907,59 @@ void abFree(struct abuf *ab) {
 	free(ab->b);
 }
 
-int calculateRowsToScroll(struct editorBuffer *bufr, struct editorWindow *win,
-			  int direction) {
-	int rendered_lines = 0;
-	int rows_to_scroll = 0;
-	int start_row = (direction > 0) ? win->rowoff : win->rowoff - 1;
-
-	while (rendered_lines < win->height) {
-		if (start_row < 0 || start_row >= bufr->numrows)
-			break;
-		erow *row = &bufr->row[start_row];
-		int line_height =
-			bufr->truncate_lines ?
-				      1 :
-				      ((row->renderwidth / E.screencols) + 1);
-		if (rendered_lines + line_height > win->height && direction < 0)
-			break;
-		rendered_lines += line_height;
-		rows_to_scroll++;
-		start_row += direction;
-	}
-
-	return rows_to_scroll;
-}
-
 /*** output ***/
 
 void editorSetScxScy(struct editorWindow *win) {
 	struct editorBuffer *buf = win->buf;
-	erow *row = (buf->cy >= buf->numrows) ? NULL : &buf->row[buf->cy];
+	erow *row = (buf->cy < buf->numrows) ? &buf->row[buf->cy] : NULL;
+	int i;
 
+start:
+	i = win->rowoff;
 	win->scy = 0;
 	win->scx = 0;
 
-	if (!buf->truncate_lines) {
-		// Calculate vertical position for wrapped lines
-		for (int i = win->rowoff; i < buf->cy; i++) {
-			win->scy +=
-				(buf->row[i].renderwidth / E.screencols) + 1;
+	if (buf->truncate_lines) {
+		// Truncated mode
+		win->scy = buf->cy - win->rowoff;
+		if (row) {
+			for (int j = 0; j < buf->cx; j++) {
+				if (row->chars[j] == '\t')
+					win->scx += (EMSYS_TAB_STOP - 1) -
+						    (win->scx % EMSYS_TAB_STOP);
+				win->scx++;
+			}
+			win->scx -= win->coloff;
 		}
 	} else {
-		win->scy = buf->cy - win->rowoff;
-	}
-
-	if (buf->cy >= buf->numrows) {
-		return;
-	}
-
-	int current_width = 0;
-	for (int j = 0; j < buf->cx;) {
-		int char_width;
-		if (row->chars[j] == '\t') {
-			char_width = EMSYS_TAB_STOP -
-				     (current_width % EMSYS_TAB_STOP);
-		} else {
-			char_width = charInStringWidth(row->chars, j);
+		// Wrapped mode
+		while (i < buf->cy) {
+			win->scy += (buf->row[i].renderwidth / E.screencols);
+			win->scy++;
+			i++;
 		}
-
-		if (buf->truncate_lines) {
-			current_width += char_width;
-		} else {
-			win->scx += char_width;
+		if (buf->cy >= buf->numrows) {
+			goto end;
+		}
+		for (i = 0; i < buf->cx; i += utf8_nBytes(row->chars[i])) {
+			if (row->chars[i] == '\t') {
+				win->scx += (EMSYS_TAB_STOP - 1) -
+					    (win->scx % EMSYS_TAB_STOP);
+				win->scx++;
+			} else {
+				win->scx += charInStringWidth(row->chars, i);
+			}
 			if (win->scx >= E.screencols) {
 				win->scx = 0;
 				win->scy++;
 			}
 		}
-
-		j += utf8_nBytes(row->chars[j]);
 	}
 
-	if (buf->truncate_lines) {
-		win->scx = current_width - win->coloff;
+end:
+	if (win->scy >= win->height) {
+		win->rowoff++;
+		goto start;
 	}
 
 	// Ensure cursor is within window bounds
@@ -994,134 +975,168 @@ void editorScroll() {
 	struct editorWindow *win = E.windows[windowFocusedIdx(&E)];
 	struct editorBuffer *buf = win->buf;
 
-	if (buf->cy + 1 > buf->numrows) {
+	if (buf->cy > buf->numrows) {
 		buf->cy = buf->numrows;
-		buf->cx = 0;
-	} else if (buf->cx > buf->row[buf->cy].size) {
+	}
+	if (buf->cy < buf->numrows && buf->cx > buf->row[buf->cy].size) {
 		buf->cx = buf->row[buf->cy].size;
 	}
 
-	if (buf->cy < win->rowoff) {
-		win->rowoff = buf->cy;
-	} else if (buf->cy >= win->rowoff + win->height) {
-		win->rowoff = buf->cy - win->height + 1;
-	}
-
 	if (buf->truncate_lines) {
-		int rx = 0;
-		if (buf->cy < buf->numrows) {
-			for (int j = 0; j < buf->cx; j++) {
-				if (buf->row[buf->cy].chars[j] == '\t')
-					rx += (EMSYS_TAB_STOP - 1) -
-					      (rx % EMSYS_TAB_STOP);
-				rx++;
-			}
+		// Truncated mode scrolling
+		if (buf->cy < win->rowoff) {
+			win->rowoff = buf->cy;
+		} else if (buf->cy >= win->rowoff + win->height) {
+			win->rowoff = buf->cy - win->height + 1;
 		}
-		if (rx < win->coloff) {
-			win->coloff = rx;
-		} else if (rx >= win->coloff + E.screencols) {
-			win->coloff = rx - E.screencols + 1;
+
+		if (buf->cx < win->coloff) {
+			win->coloff = buf->cx;
+		}
+		if (buf->cx >= win->coloff + E.screencols) {
+			win->coloff = buf->cx - E.screencols + 1;
 		}
 	} else {
-		win->coloff = 0;
+		// Wrapped mode scrolling
+		if (buf->cy < win->rowoff) {
+			win->rowoff = buf->cy;
+		}
+		// The vertical scrolling for wrapped mode is handled in editorSetScxScy
 	}
 
 	editorSetScxScy(win);
 }
 
+/* void editorSetScxScy(struct editorWindow *win) { */
+/*   struct editorBuffer *buf = win->buf; */
+/*   erow *row = (buf->cy >= buf->numrows) ? NULL : &buf->row[buf->cy]; */
+
+/*   win->scy = 0; */
+/*   win->scx = 0; */
+
+/*   if (buf->truncate_lines) { */
+/*     // Truncated mode */
+/*     win->scy = buf->cy - win->rowoff; */
+/*     if (row) { */
+/*       for (int j = 0; j < buf->cx; j++) { */
+/*         if (row->chars[j] == '\t') */
+/*           win->scx += (EMSYS_TAB_STOP - 1) - (win->scx % EMSYS_TAB_STOP); */
+/*         win->scx++; */
+/*       } */
+/*       win->scx -= win->coloff; */
+/*     } */
+/*   } else { */
+/*     // Wrapped mode */
+/*     for (int i = win->rowoff; i < buf->cy; i++) { */
+/*       win->scy += (buf->row[i].renderwidth / E.screencols) + 1; */
+/*     } */
+/*     if (row) { */
+/*       for (int j = 0; j < buf->cx; j++) { */
+/*         if (row->chars[j] == '\t') */
+/*           win->scx += (EMSYS_TAB_STOP - 1) - (win->scx % EMSYS_TAB_STOP); */
+/*         win->scx++; */
+/*         if (win->scx >= E.screencols) { */
+/*           win->scx = 0; */
+/*           win->scy++; */
+/*         } */
+/*       } */
+/*     } */
+/*   } */
+
+/*   // Ensure cursor is within window bounds */
+/*   if (win->scy < 0) */
+/*     win->scy = 0; */
+/*   if (win->scy >= win->height) */
+/*     win->scy = win->height - 1; */
+/*   if (win->scx >= E.screencols) */
+/*     win->scx = E.screencols - 1; */
+/* } */
+
+/* void editorScroll() { */
+/*   struct editorWindow *win = E.windows[windowFocusedIdx(&E)]; */
+/*   struct editorBuffer *buf = win->buf; */
+
+/*   if (buf->cy >= buf->numrows) { */
+/*     buf->cy = buf->numrows > 0 ? buf->numrows : 0; */
+/*   } */
+/*   if (buf->cx > buf->row[buf->cy].size) { */
+/*     buf->cx = buf->row[buf->cy].size; */
+/*   } */
+
+/*   if (buf->truncate_lines) { */
+/*     // Truncated mode */
+/*     if (buf->cy < win->rowoff) { */
+/*       win->rowoff = buf->cy; */
+/*     } else if (buf->cy >= win->rowoff + win->height) { */
+/*       win->rowoff = buf->cy - win->height + 1; */
+/*     } */
+
+/*     if (buf->cx < win->coloff) { */
+/*       win->coloff = buf->cx; */
+/*     } */
+/*     if (buf->cx >= win->coloff + E.screencols) { */
+/*       win->coloff = buf->cx - E.screencols + 1; */
+/*     } */
+/*   } else { */
+/*     // Wrapped mode */
+/*     int screen_lines = 0; */
+/*     win->rowoff = buf->cy; */
+/*     while (win->rowoff > 0 && screen_lines < win->height) { */
+/*       win->rowoff--; */
+/*       screen_lines += (buf->row[win->rowoff].renderwidth / E.screencols) + 1; */
+/*     } */
+/*     win->coloff = 0; */
+/*   } */
+
+/*   editorSetScxScy(win); */
+/* } */
+
 void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 		    int screencols) {
-	struct editorBuffer *bufr = win->buf;
-	int markActive = (bufr->markx != -1 && bufr->marky != -1);
-	int markStartY, markEndY, markStartX, markEndX;
+	struct editorBuffer *buf = win->buf;
+	int y;
+	int filerow = win->rowoff;
 
-	if (markActive) {
-		if (bufr->marky < bufr->cy ||
-		    (bufr->marky == bufr->cy && bufr->markx < win->scx)) {
-			markStartY = bufr->marky;
-			markEndY = bufr->cy;
-			markStartX = bufr->markx;
-			markEndX = win->scx;
-		} else {
-			markStartY = bufr->cy;
-			markEndY = bufr->marky;
-			markStartX = win->scx;
-			markEndX = bufr->markx;
-		}
-	}
-
-	for (int y = 0, filerow = win->rowoff; y < screenrows; y++) {
-		if (filerow >= bufr->numrows) {
+	for (y = 0; y < screenrows; y++) {
+		if (filerow >= buf->numrows) {
 			abAppend(ab, CSI "34m~" CSI "0m", 10);
 		} else {
-			erow *row = &bufr->row[filerow];
-			int len = row->rsize - win->coloff;
-			if (len < 0)
-				len = 0;
-			if (len > screencols)
-				len = screencols;
-
-			int inHighlight = 0;
-			int j = win->coloff;
-			int col = 0;
-			while (j < row->rsize) {
-				int withinMarkRegion =
-					markActive &&
-					((filerow > markStartY &&
-					  filerow < markEndY) ||
-					 (filerow == markStartY &&
-					  filerow == markEndY &&
-					  j >= markStartX && j < markEndX) ||
-					 (filerow == markStartY &&
-					  filerow != markEndY &&
-					  j >= markStartX) ||
-					 (filerow == markEndY &&
-					  filerow != markStartY &&
-					  j < markEndX));
-
-				if (withinMarkRegion != inHighlight) {
-					abAppend(ab,
-						 withinMarkRegion ? "\x1b[7m" :
-									  "\x1b[0m",
-						 4);
-					inHighlight = withinMarkRegion;
-				}
-
-				if (row->render[j] == '\t') {
-					int spaces = EMSYS_TAB_STOP -
-						     (col % EMSYS_TAB_STOP);
-					while (spaces > 0 && col < screencols) {
-						abAppend(ab, " ", 1);
-						col++;
-						spaces--;
-					}
-				} else {
-					abAppend(ab, &row->render[j], 1);
-					col++;
-				}
-
-				if (col >= screencols) {
-					if (bufr->truncate_lines) {
-						break;
-					} else if (y < screenrows - 1) {
+			erow *row = &buf->row[filerow];
+			if (buf->truncate_lines) {
+				// Truncated mode
+				int len = row->rsize - win->coloff;
+				if (len < 0)
+					len = 0;
+				if (len > screencols)
+					len = screencols;
+				abAppend(ab, &row->render[win->coloff], len);
+				filerow++;
+			} else {
+				// Wrapped mode
+				int len = row->rsize;
+				int start = 0;
+				while (len > 0) {
+					int chunk = len > screencols ?
+								  screencols :
+								  len;
+					abAppend(ab, &row->render[start],
+						 chunk);
+					start += chunk;
+					len -= chunk;
+					if (len > 0) {
 						abAppend(ab, "\r\n", 2);
-						abAppend(ab, "\x1b[K", 3);
-						col = 0;
 						y++;
-					} else {
-						break;
+						if (y >= screenrows)
+							break;
 					}
 				}
-				j++;
+				filerow++;
 			}
-			if (inHighlight)
-				abAppend(ab, "\x1b[0m", 4);
 		}
 		abAppend(ab, "\x1b[K", 3);
 		if (y < screenrows - 1) {
 			abAppend(ab, "\r\n", 2);
 		}
-		filerow++;
 	}
 }
 
@@ -1571,14 +1586,16 @@ void editorMoveCursor(struct editorBuffer *bufr, int key) {
 			if (bufr->cy < bufr->numrows) {
 				if (bufr->row[bufr->cy].chars == NULL)
 					break;
-				while (utf8_isCont(
-					bufr->row[bufr->cy].chars[bufr->cx]))
+				while (bufr->cx < bufr->row[bufr->cy].size &&
+				       utf8_isCont(bufr->row[bufr->cy]
+							   .chars[bufr->cx]))
 					bufr->cx++;
+			} else {
+				bufr->cx = 0;
 			}
 		}
 		break;
 	}
-
 	row = (bufr->cy >= bufr->numrows) ? NULL : &bufr->row[bufr->cy];
 	int rowlen = row ? row->size : 0;
 	if (bufr->cx > rowlen) {
@@ -2140,56 +2157,66 @@ void editorProcessKeypress(int c) {
 #ifndef EMSYS_CUA
 	case CTRL('z'):
 #endif //EMSYS_CUA
-	{
-		for (int i = 0; i < rept; i++) {
-			int rows_to_scroll =
-				calculateRowsToScroll(bufr, win, -1);
-
-			if (win->rowoff == 0) {
-				bufr->cy = 0;
-			} else {
-				win->rowoff -= rows_to_scroll;
-				if (win->rowoff < page_overlap) {
-					win->rowoff = 0;
-				} else {
-					win->rowoff += page_overlap;
-				}
-				if (win->rowoff < 0)
-					win->rowoff = 0;
-
-				// Move the cursor only if needed
-				if (bufr->cy > win->rowoff + win->height - 1) {
-					bufr->cy =
-						win->rowoff + win->height - 1;
-				}
+		if (bufr->truncate_lines) {
+			bufr->cy = win->rowoff;
+			int times = win->height;
+			while (times--)
+				editorMoveCursor(bufr, ARROW_UP);
+		} else {
+			int current_screen_line = 0;
+			for (int i = 0; i < bufr->cy; i++) {
+				current_screen_line +=
+					(bufr->row[i].renderwidth /
+					 E.screencols) +
+					1;
 			}
-
-			editorScroll();
+			int target_screen_line =
+				current_screen_line - win->height;
+			if (target_screen_line < 0)
+				target_screen_line = 0;
+			while (current_screen_line > target_screen_line) {
+				bufr->cy--;
+				current_screen_line -=
+					(bufr->row[bufr->cy].renderwidth /
+					 E.screencols) +
+					1;
+			}
 		}
-	} break;
+		break;
 
 	case PAGE_DOWN:
 #ifndef EMSYS_CUA
 	case CTRL('v'):
 #endif //EMSYS_CUA
-	{
-		for (int i = 0; i < rept; i++) {
-			int rows_to_scroll =
-				calculateRowsToScroll(bufr, win, 1);
-
-			if (win->rowoff + rows_to_scroll < bufr->numrows) {
-				win->rowoff += rows_to_scroll;
-				if (win->rowoff > page_overlap)
-					win->rowoff -= page_overlap;
-				if (bufr->cy < win->rowoff)
-					bufr->cy = win->rowoff;
-			} else {
-				bufr->cy += rows_to_scroll;
+		if (bufr->truncate_lines) {
+			bufr->cy = win->rowoff + win->height - 1;
+			if (bufr->cy > bufr->numrows)
+				bufr->cy = bufr->numrows;
+			int times = win->height;
+			while (times--)
+				editorMoveCursor(bufr, ARROW_DOWN);
+		} else {
+			int current_screen_line = 0;
+			for (int i = 0; i < bufr->cy; i++) {
+				current_screen_line +=
+					(bufr->row[i].renderwidth /
+					 E.screencols) +
+					1;
 			}
-
-			editorScroll();
+			int target_screen_line =
+				current_screen_line + win->height;
+			while (current_screen_line < target_screen_line &&
+			       bufr->cy < bufr->numrows) {
+				current_screen_line +=
+					(bufr->row[bufr->cy].renderwidth /
+					 E.screencols) +
+					1;
+				bufr->cy++;
+			}
+			if (bufr->cy > bufr->numrows)
+				bufr->cy = bufr->numrows;
 		}
-	} break;
+		break;
 	case BEG_OF_FILE:
 		bufr->cy = 0;
 		bufr->cx = 0;
@@ -2206,6 +2233,7 @@ void editorProcessKeypress(int c) {
 	} break;
 	case END_OF_FILE:
 		bufr->cy = bufr->numrows;
+		bufr->cx = 0;
 		break;
 	case HOME_KEY:
 	case CTRL('a'):
