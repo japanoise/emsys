@@ -11,7 +11,6 @@
 #include "transform.h"
 #include "undo.h"
 #include "unicode.h"
-#include "uthash.h"
 #include "unused.h"
 
 // https://stackoverflow.com/a/779960
@@ -387,26 +386,37 @@ void debugUnpair(struct editorConfig *UNUSED(ed), struct editorBuffer *buf) {
 }
 #endif
 
-void setupCommands(struct editorConfig *ed) {
-	ed->cmd = NULL;
-	struct editorCommand *newCmd;
-	char *newCmdName;
+// Comparison function for qsort and bsearch
+static int compare_commands(const void *a, const void *b) {
+	return strcmp(((struct editorCommand *)a)->key,
+		      ((struct editorCommand *)b)->key);
+}
 
-	ADDCMD("version", editorVersion);
-	ADDCMD("replace-string", editorReplaceString);
-	ADDCMD("query-replace", editorQueryReplace);
-	ADDCMD("kanaya", editorCapitalizeRegion); /* egg! */
-	ADDCMD("capitalize-region", editorCapitalizeRegion);
-	ADDCMD("indent-spaces", editorIndentSpaces);
-	ADDCMD("indent-tabs", editorIndentTabs);
-	ADDCMD("revert", editorRevert);
-	ADDCMD("whitespace-cleanup", editorWhitespaceCleanup);
-	ADDCMD("view-register", editorViewRegister);
-	ADDCMD("replace-regexp", editorReplaceRegex);
-	ADDCMD("toggle-truncate-lines", editorToggleTruncateLines);
+void setupCommands(struct editorConfig *ed) {
+	static struct editorCommand commands[] = {
+		{ "capitalize-region", editorCapitalizeRegion },
+		{ "indent-spaces", editorIndentSpaces },
+		{ "indent-tabs", editorIndentTabs },
+		{ "kanaya", editorCapitalizeRegion },
+		{ "query-replace", editorQueryReplace },
+		{ "replace-regexp", editorReplaceRegex },
+		{ "replace-string", editorReplaceString },
+		{ "revert", editorRevert },
+		{ "toggle-truncate-lines", editorToggleTruncateLines },
+		{ "version", editorVersion },
+		{ "view-register", editorViewRegister },
+		{ "whitespace-cleanup", editorWhitespaceCleanup },
 #ifdef EMSYS_DEBUG_UNDO
-	ADDCMD("debug-unpair", debugUnpair);
+		{ "debug-unpair", debugUnpair },
 #endif
+	};
+
+	ed->cmd = commands;
+	ed->cmd_count = sizeof(commands) / sizeof(commands[0]);
+
+	// Sort the commands array
+	qsort(ed->cmd, ed->cmd_count, sizeof(struct editorCommand),
+	      compare_commands);
 }
 
 void runCommand(char *cmd, struct editorConfig *ed, struct editorBuffer *buf) {
@@ -419,8 +429,12 @@ void runCommand(char *cmd, struct editorConfig *ed, struct editorBuffer *buf) {
 		}
 		cmd[i] = c;
 	}
-	struct editorCommand *found;
-	HASH_FIND_STR(ed->cmd, cmd, found);
+
+	struct editorCommand key = { cmd, NULL };
+	struct editorCommand *found = bsearch(&key, ed->cmd, ed->cmd_count,
+					      sizeof(struct editorCommand),
+					      compare_commands);
+
 	if (found) {
 		found->cmd(ed, buf);
 	} else {
