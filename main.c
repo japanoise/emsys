@@ -1078,7 +1078,7 @@ void editorDrawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
 			       "   %.20s %c%c %2d:%2d   ",
 			       bufr->filename ? bufr->filename : "*scratch*",
 			       bufr->dirty ? '*' : '-', bufr->dirty ? '*' : '-',
-			       bufr->cy + 1, bufr->cx);
+			       win->cy + 1, win->cx);
 	}
 #ifdef EMSYS_DEBUG_UNDO
 #ifdef EMSYS_DEBUG_REDO
