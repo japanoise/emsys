@@ -4,29 +4,34 @@
 #include <stdint.h>
 #include "emsys.h"
 
-int markInvalid(struct editorBuffer *buf);
+int markInvalid(void);
 
-void editorSetMark(struct editorBuffer *buf);
+int markInvalidSilent(void);
 
-void editorClearMark(struct editorBuffer *buf);
+void setMark(void);
 
-void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf);
+void clearMark(void);
 
-void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf);
+void markRectangle(void);
 
-void editorYank(struct editorConfig *ed, struct editorBuffer *buf);
+void killRegion(void);
 
-void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
-			   uint8_t *(*transformer)(uint8_t *));
+void copyRegion(void);
 
-void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf);
+void yank(int times);
 
-void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf);
+void transformRegion(uint8_t *(*transformer)(uint8_t *));
 
-void editorCopyRectangle(struct editorConfig *ed, struct editorBuffer *buf);
+void replaceRegex(void);
 
-void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf);
+void stringRectangle(void);
 
-void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf);
+void copyRectangle(void);
+
+void killRectangle(void);
+
+void yankRectangle(void);
+
+void markWholeBuffer(void);
 
 #endif

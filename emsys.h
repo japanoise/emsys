@@ -9,9 +9,10 @@
 /*** util ***/
 
 #define EMSYS_TAB_STOP 8
+#define HISTORY_SIZE 50
 
 #ifndef EMSYS_VERSION
-#define EMSYS_VERSION "unknown"
+#define EMSYS_VERSION "1.0.0"
 #endif
 
 #ifndef EMSYS_BUILD_DATE
@@ -25,6 +26,14 @@
 #if !defined(CTRL)
 #define CTRL(x) ((x) & 0x1f)
 #endif
+
+#define CHECK_READ_ONLY(buf)                                     \
+	do {                                                     \
+		if ((buf)->read_only) {                          \
+			setStatusMessage("Buffer is read-only"); \
+			return;                                  \
+		}                                                \
+	} while (0)
 
 enum editorKey {
 	BACKSPACE = 127,
@@ -54,6 +63,7 @@ enum editorKey {
 	NEXT_BUFFER,
 	PREVIOUS_BUFFER,
 	MARK_BUFFER,
+	MARK_RECTANGLE,
 	DELETE_WORD,
 	BACKSPACE_WORD,
 	OTHER_WINDOW,
@@ -87,6 +97,7 @@ enum editorKey {
 	WHAT_CURSOR,
 	PIPE_CMD,
 	CUSTOM_INFO_MESSAGE,
+	ISEARCH_FORWARD_REGEXP,
 	QUERY_REPLACE,
 	GOTO_LINE,
 	BACKTAB,
@@ -111,15 +122,15 @@ enum editorKey {
 enum promptType {
 	PROMPT_BASIC,
 	PROMPT_FILES,
+	PROMPT_COMMANDS,
 };
 /*** data ***/
 
 typedef struct erow {
 	int size;
-	int rsize;
-	int renderwidth;
 	uint8_t *chars;
-	uint8_t *render;
+	int cached_width;
+	int width_valid;
 } erow;
 
 struct editorUndo {
@@ -146,8 +157,12 @@ struct editorBuffer {
 	int uarg;
 	int uarg_active;
 	int special_buffer;
-	int truncate_lines; // 0 for wrapped, 1 for unwrapped
+	int truncate_lines;
 	int word_wrap;
+	int rectangle_mode;
+	int read_only;
+	int is_minibuffer;
+	int single_line;
 	erow *row;
 	char *filename;
 	uint8_t *query;
@@ -155,13 +170,16 @@ struct editorBuffer {
 	struct editorUndo *undo;
 	struct editorUndo *redo;
 	struct editorBuffer *next;
+	int *screen_line_start;
+	int screen_line_cache_size;
+	int screen_line_cache_valid;
 };
 
 struct editorWindow {
 	int focused;
 	struct editorBuffer *buf;
 	int scx, scy;
-	int cx, cy; // Buffer cx,cy  (only updated when switching windows)
+	int cx, cy;
 	int rowoff;
 	int coloff;
 	int height;
@@ -177,7 +195,7 @@ struct editorConfig;
 
 struct editorCommand {
 	const char *key;
-	void (*cmd)(struct editorConfig *, struct editorBuffer *);
+	void (*cmd)(void);
 };
 
 enum registerType {
@@ -223,11 +241,17 @@ struct editorConfig {
 	int screencols;
 	uint8_t unicode[4];
 	int nunicode;
-	char minibuffer[80];
+	char minibuffer[256];
+
+	/* Unified minibuffer state */
+	struct editorBuffer *edbuf;
+	struct editorBuffer *minibuf;
+
+	char prefix_display[32];
 	time_t statusmsg_time;
 	struct termios orig_termios;
-	struct editorBuffer *firstBuf;
-	struct editorBuffer *focusBuf;
+	struct editorBuffer *headbuf;
+	struct editorBuffer *buf;
 	int nwindows;
 	struct editorWindow **windows;
 	int recording;
@@ -237,30 +261,68 @@ struct editorConfig {
 	struct editorCommand *cmd;
 	int cmd_count;
 	struct editorRegister registers[127];
-	struct editorBuffer *lastVisitedBuffer;
+	struct editorBuffer *backbuf;
+	int describe_key_mode;
 };
 
 /*** prototypes ***/
 
-void editorSetStatusMessage(const char *fmt, ...);
-void editorRefreshScreen();
-uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
-		      enum promptType t,
-		      void (*callback)(struct editorBuffer *, uint8_t *, int));
-void editorCursorBottomLine(int);
-void editorCursorBottomLineLong(long);
-void editorUpdateBuffer(struct editorBuffer *buf);
-void editorInsertNewline(struct editorBuffer *bufr);
-void editorInsertChar(struct editorBuffer *bufr, int c);
-void editorOpen(struct editorBuffer *bufr, char *filename);
+void crashHandler(int sig);
+void setupHandlers();
+void setStatusMessage(const char *fmt, ...);
+void refreshScreen();
+uint8_t *promptUser(struct editorBuffer *bufr, uint8_t *prompt,
+		    enum promptType t,
+		    void (*callback)(struct editorBuffer *, uint8_t *, int));
+void cursorBottomLine(int);
+void cursorBottomLineLong(long);
+void insertNewline(int times);
+void insertChar(int c);
+void moveCursor(struct editorBuffer *bufr, int key);
+
+void editorOpenFile(struct editorBuffer *bufr, char *filename);
 void die(const char *s);
+void editorResume(int sig);
+void editorSuspend(int sig);
+
+/* Safe memory allocation wrappers */
+void *xmalloc(size_t size);
+void *xrealloc(void *ptr, size_t size);
+void *xcalloc(size_t nmemb, size_t size);
+
+/* Cursor validation functions */
+erow *safeGetRow(struct editorBuffer *buf, int row_index);
+int nextScreenX(char *chars, int *i, int current_screen_x);
+
+/* State validation - returns 1 if valid, 0 if not */
+static inline int validateBuffer(struct editorBuffer *buf) {
+	if (!buf)
+		return 0;
+	if (buf->cy < 0 || buf->cy > buf->numrows)
+		return 0;
+	if (buf->cx < 0)
+		return 0;
+	if (buf->cy < buf->numrows && buf->cx > buf->row[buf->cy].size)
+		return 0;
+	return 1;
+}
+
+static inline int validateFocusBuffer(struct editorConfig *ed) {
+	return validateBuffer(ed->buf);
+}
+
 struct editorBuffer *newBuffer();
+void invalidateScreenCache(struct editorBuffer *buf);
+void buildScreenCache(struct editorBuffer *buf);
+int getScreenLineForRow(struct editorBuffer *buf, int row);
 void destroyBuffer(struct editorBuffer *);
-int editorReadKey();
-void editorRecordKey(int c);
-void editorRecenter(struct editorWindow *win);
-void editorExecMacro(struct editorMacro *macro);
+int readKey(void);
+void recordKey(int c);
+void recenter(struct editorWindow *win);
+void recenterCommand(void);
+void execMacro(struct editorMacro *macro);
 char *stringdup(const char *s);
 int windowFocusedIdx(struct editorConfig *ed);
-void editorScroll();
+void scroll();
+
 #endif

@@ -1,16 +1,21 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "bound.h"
 #include "transform.h"
 #include "unicode.h"
 
 #define MKOUTPUT(in, l, o)  \
 	int l = strlen(in); \
-	uint8_t *o = malloc(l + 1)
+	uint8_t *o = xmalloc(l + 1)
 
 uint8_t *transformerUpcase(uint8_t *input) {
-	MKOUTPUT(input, len, output);
+	if (!input)
+		return NULL;
+
+	int len = strlen((char *)input);
+	uint8_t *output = xmalloc(len + 1);
 
 	for (int i = 0; i <= len; i++) {
 		uint8_t c = input[i];
@@ -24,7 +29,11 @@ uint8_t *transformerUpcase(uint8_t *input) {
 }
 
 uint8_t *transformerDowncase(uint8_t *input) {
-	MKOUTPUT(input, len, output);
+	if (!input)
+		return NULL;
+
+	int len = strlen((char *)input);
+	uint8_t *output = xmalloc(len + 1);
 
 	for (int i = 0; i <= len; i++) {
 		uint8_t c = input[i];
@@ -38,8 +47,11 @@ uint8_t *transformerDowncase(uint8_t *input) {
 }
 
 uint8_t *transformerCapitalCase(uint8_t *input) {
-	MKOUTPUT(input, len, output);
+	if (!input)
+		return NULL;
 
+	int len = strlen((char *)input);
+	uint8_t *output = xmalloc(len + 1);
 	int first = 1;
 
 	for (int i = 0; i <= len; i++) {
@@ -47,11 +59,13 @@ uint8_t *transformerCapitalCase(uint8_t *input) {
 		if ((('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')) &&
 		    first) {
 			first = 0;
-			c &= 0x5f;
-		} else if ('A' <= c && c <= 'Z') {
-			c |= 0x60;
-		} else if (isWordBoundary(c)) {
-			first = 1;
+			if ('a' <= c && c <= 'z') {
+				c &= 0x5f; // uppercase
+			}
+		} else if ('A' <= c && c <= 'Z' && !first) {
+			c |= 0x60; // lowercase
+		} else if (!isalnum(c)) {
+			first = 1; // reset at word boundary
 		}
 		output[i] = c;
 	}
@@ -62,7 +76,17 @@ uint8_t *transformerCapitalCase(uint8_t *input) {
 uint8_t *transformerTransposeChars(uint8_t *input) {
 	MKOUTPUT(input, len, output);
 
+	if (len == 0) {
+		output[0] = 0;
+		return output;
+	}
+
 	int endFirst = utf8_nBytes(input[0]);
+
+	if (endFirst > len) {
+		memcpy(output, input, len + 1);
+		return output;
+	}
 
 	memcpy(output, input + endFirst, len - endFirst);
 	memcpy(output + (len - endFirst), input, endFirst);
@@ -73,11 +97,24 @@ uint8_t *transformerTransposeChars(uint8_t *input) {
 }
 
 uint8_t *transformerTransposeWords(uint8_t *input) {
+	if (input == NULL) {
+		return (uint8_t *)stringdup("");
+	}
+
+	int inputLen = strlen(input);
+	if (inputLen == 0) {
+		return (uint8_t *)stringdup("");
+	}
+
 	MKOUTPUT(input, len, output);
 
-	int endFirst, startSecond = 0;
+	if (output == NULL) {
+		return NULL;
+	}
+
+	int endFirst = -1, startSecond = -1;
 	int which = 0;
-	for (int i = 0; i <= len; i++) {
+	for (int i = 0; i < len; i++) {
 		if (!which) {
 			if (isWordBoundary(input[i])) {
 				which++;
@@ -90,12 +127,41 @@ uint8_t *transformerTransposeWords(uint8_t *input) {
 			}
 		}
 	}
+
+	if (endFirst == -1 || startSecond == -1 || endFirst >= startSecond ||
+	    startSecond > len || endFirst < 0) {
+		memcpy(output, input, len + 1);
+		return output;
+	}
+
+	if (startSecond > len || endFirst >= startSecond) {
+		memcpy(output, input, len + 1);
+		return output;
+	}
+
+	int part1_len = endFirst;
+	int part2_len = startSecond - endFirst;
+	int part3_len = len - startSecond;
+
+	if (part1_len < 0 || part2_len < 0 || part3_len < 0 ||
+	    part1_len + part2_len + part3_len != len) {
+		memcpy(output, input, len + 1);
+		return output;
+	}
+
 	int offset = 0;
-	memcpy(output, input + startSecond, len - startSecond);
-	offset += len - startSecond;
-	memcpy(output + offset, input + endFirst, startSecond - endFirst);
-	offset += startSecond - endFirst;
-	memcpy(output + offset, input, endFirst);
+	if (part3_len > 0) {
+		memcpy(output + offset, input + startSecond, part3_len);
+		offset += part3_len;
+	}
+	if (part2_len > 0) {
+		memcpy(output + offset, input + endFirst, part2_len);
+		offset += part2_len;
+	}
+	if (part1_len > 0) {
+		memcpy(output + offset, input, part1_len);
+		offset += part1_len;
+	}
 
 	output[len] = 0;
 

@@ -8,24 +8,26 @@
 #include "unicode.h"
 #include "unused.h"
 
+extern struct editorConfig E;
+
 static int getRegisterName(char *prompt) {
 	int key;
 	int psize = stringWidth((uint8_t *)prompt);
 	do {
-		editorSetStatusMessage("%s:", prompt);
-		editorCursorBottomLine(psize + 2);
-		editorRefreshScreen();
-		key = editorReadKey();
-	} while (key > 127);
-	editorRecordKey(key);
+		setStatusMessage("%s:", prompt);
+		cursorBottomLine(psize + 2);
+		refreshScreen();
+		key = readKey();
+	} while (key >= 127);
+	recordKey(key);
 	return key;
 }
 
-#define GET_REGISTER(vname, prompt)             \
-	int vname = getRegisterName(prompt);    \
-	if (vname == 0x07) {                    \
-		editorSetStatusMessage("Quit"); \
-		return;                         \
+#define GET_REGISTER(vname, prompt)          \
+	int vname = getRegisterName(prompt); \
+	if (vname == 0x07) {                 \
+		setStatusMessage("Quit");    \
+		return;                      \
 	}
 
 static void registerMessage(char *msg, char reg) {
@@ -36,7 +38,7 @@ static void registerMessage(char *msg, char reg) {
 		str[0] = reg;
 		str[1] = 0;
 	}
-	editorSetStatusMessage(msg, str);
+	setStatusMessage(msg, str);
 }
 
 static void clearRegister(struct editorConfig *ed, int reg) {
@@ -68,9 +70,9 @@ static void clearRegister(struct editorConfig *ed, int reg) {
 	ed->registers[reg].rtype = REGISTER_NULL;
 }
 
-void editorJumpToRegister(struct editorConfig *ed) {
+void jumpToRegister(void) {
 	GET_REGISTER(reg, "Jump to register");
-	switch (ed->registers[reg].rtype) {
+	switch (E.registers[reg].rtype) {
 	case REGISTER_NULL:
 		registerMessage("Nothing in register %s", reg);
 		break;
@@ -81,30 +83,31 @@ void editorJumpToRegister(struct editorConfig *ed) {
 		registerMessage("Cannot jump to number in register %s", reg);
 		break;
 	case REGISTER_POINT:
-		if (ed->focusBuf == ed->registers[reg].rdata.point->buf) {
-			editorSetMark(ed->focusBuf);
+		if (E.buf == E.registers[reg].rdata.point->buf) {
+			setMark();
 		} else {
-			ed->focusBuf = ed->registers[reg].rdata.point->buf;
-			for (int i = 0; i < ed->nwindows; i++) {
-				if (ed->windows[i]->focused) {
-					ed->windows[i]->buf = ed->focusBuf;
+			E.buf = E.registers[reg].rdata.point->buf;
+			for (int i = 0; i < E.nwindows; i++) {
+				if (E.windows[i]->focused) {
+					E.windows[i]->buf = E.buf;
 				}
 			}
 			registerMessage("Jumped to point in register %s", reg);
 		}
-		struct editorBuffer *buf = ed->focusBuf;
-		buf->cx = ed->registers[reg].rdata.point->cx;
-		buf->cy = ed->registers[reg].rdata.point->cy;
-		if (buf->cy >= buf->numrows)
-			buf->cy = buf->numrows - 1;
-		if (buf->cy < 0)
-			buf->cy = 0;
-		if (buf->cx > buf->row[buf->cy].size)
+		struct editorBuffer *buf = E.buf;
+		buf->cx = E.registers[reg].rdata.point->cx;
+		buf->cy = E.registers[reg].rdata.point->cy;
+		if (buf->cy >= buf->numrows) {
+			buf->cy = buf->numrows > 0 ? buf->numrows - 1 : 0;
+		}
+		if (buf->cy < buf->numrows &&
+		    buf->cx > buf->row[buf->cy].size) {
 			buf->cx = buf->row[buf->cy].size;
+		}
 		break;
 	case REGISTER_MACRO:
 		registerMessage("Executing macro in register %s...", reg);
-		editorExecMacro(ed->registers[reg].rdata.macro);
+		execMacro(E.registers[reg].rdata.macro);
 		break;
 	case REGISTER_RECTANGLE:
 		registerMessage("Cannot jump to rectangle in register %s", reg);
@@ -112,99 +115,96 @@ void editorJumpToRegister(struct editorConfig *ed) {
 	}
 }
 
-void editorMacroToRegister(struct editorConfig *ed) {
+void macroToRegister(void) {
 	GET_REGISTER(reg, "Macro to register");
-	clearRegister(ed, reg);
-	ed->registers[reg].rtype = REGISTER_MACRO;
-	ed->registers[reg].rdata.macro = malloc(sizeof(struct editorMacro));
+	clearRegister(&E, reg);
+	E.registers[reg].rtype = REGISTER_MACRO;
+	E.registers[reg].rdata.macro = xmalloc(sizeof(struct editorMacro));
 	/* Copy data, creating a shallow copy. */
-	memcpy(ed->registers[reg].rdata.macro, &(ed->macro),
+	memcpy(E.registers[reg].rdata.macro, &(E.macro),
 	       sizeof(struct editorMacro));
 	/* Now copy the keys too, to make a deep copy. */
-	ed->registers[reg].rdata.macro->keys =
-		malloc(sizeof(int) * ed->macro.skeys);
-	memcpy(ed->registers[reg].rdata.macro->keys, ed->macro.keys,
-	       ed->macro.nkeys * sizeof(int));
+	E.registers[reg].rdata.macro->keys =
+		xmalloc(sizeof(int) * E.macro.skeys);
+	memcpy(E.registers[reg].rdata.macro->keys, E.macro.keys,
+	       E.macro.nkeys * sizeof(int));
 	registerMessage("Saved macro to register %s", reg);
 }
 
-void editorPointToRegister(struct editorConfig *ed) {
+void pointToRegister(void) {
 	GET_REGISTER(reg, "Point to register");
-	clearRegister(ed, reg);
-	ed->registers[reg].rtype = REGISTER_POINT;
-	ed->registers[reg].rdata.point = malloc(sizeof(struct editorPoint));
-	ed->registers[reg].rdata.point->buf = ed->focusBuf;
-	ed->registers[reg].rdata.point->cx = ed->focusBuf->cx;
-	ed->registers[reg].rdata.point->cy = ed->focusBuf->cy;
+	clearRegister(&E, reg);
+	E.registers[reg].rtype = REGISTER_POINT;
+	E.registers[reg].rdata.point = xmalloc(sizeof(struct editorPoint));
+	E.registers[reg].rdata.point->buf = E.buf;
+	E.registers[reg].rdata.point->cx = E.buf->cx;
+	E.registers[reg].rdata.point->cy = E.buf->cy;
 	registerMessage("Saved point to register %s", reg);
 }
 
-void editorNumberToRegister(struct editorConfig *ed, int rept) {
+void numberToRegister(int rept) {
 	GET_REGISTER(reg, "Number to register");
-	clearRegister(ed, reg);
-	ed->registers[reg].rtype = REGISTER_NUMBER;
-	ed->registers[reg].rdata.number = rept;
+	clearRegister(&E, reg);
+	E.registers[reg].rtype = REGISTER_NUMBER;
+	E.registers[reg].rdata.number = rept;
 	registerMessage("Saved number to register %s", reg);
 }
 
-void editorRegionToRegister(struct editorConfig *ed,
-			    struct editorBuffer *bufr) {
-	if (markInvalid(bufr))
+void regionToRegister(void) {
+	if (markInvalid())
 		return;
 	GET_REGISTER(reg, "Region to register");
-	clearRegister(ed, reg);
-	uint8_t *tmp = ed->kill;
-	ed->kill = NULL;
-	editorCopyRegion(ed, bufr);
-	ed->registers[reg].rtype = REGISTER_REGION;
-	ed->registers[reg].rdata.region = ed->kill;
-	ed->kill = tmp;
+	clearRegister(&E, reg);
+	uint8_t *tmp = E.kill;
+	E.kill = NULL;
+	copyRegion();
+	E.registers[reg].rtype = REGISTER_REGION;
+	E.registers[reg].rdata.region = E.kill;
+	E.kill = tmp;
 	registerMessage("Saved region to register %s", reg);
 }
 
-void editorRectRegister(struct editorConfig *ed, struct editorBuffer *bufr) {
-	if (markInvalid(bufr))
+void rectRegister(void) {
+	if (markInvalid())
 		return;
 	GET_REGISTER(reg, "Rectangle to register");
-	clearRegister(ed, reg);
-	uint8_t *tmp = ed->rectKill;
-	int rx = ed->rx;
-	int ry = ed->ry;
-	ed->rectKill = NULL;
-	editorCopyRectangle(ed, bufr);
-	ed->registers[reg].rtype = REGISTER_RECTANGLE;
-	ed->registers[reg].rdata.rect = malloc(sizeof(struct editorRectangle));
-	ed->registers[reg].rdata.rect->rect = ed->rectKill;
-	ed->registers[reg].rdata.rect->rx = ed->rx;
-	ed->registers[reg].rdata.rect->ry = ed->ry;
-	ed->rectKill = tmp;
-	ed->rx = rx;
-	ed->ry = ry;
+	clearRegister(&E, reg);
+	uint8_t *tmp = E.rectKill;
+	int rx = E.rx;
+	int ry = E.ry;
+	E.rectKill = NULL;
+	copyRectangle();
+	E.registers[reg].rtype = REGISTER_RECTANGLE;
+	E.registers[reg].rdata.rect = xmalloc(sizeof(struct editorRectangle));
+	E.registers[reg].rdata.rect->rect = E.rectKill;
+	E.registers[reg].rdata.rect->rx = E.rx;
+	E.registers[reg].rdata.rect->ry = E.ry;
+	E.rectKill = tmp;
+	E.rx = rx;
+	E.ry = ry;
 	registerMessage("Saved rectangle to register %s", reg);
 }
 
-void editorIncrementRegister(struct editorConfig *ed,
-			     struct editorBuffer *bufr) {
+void incrementRegister(void) {
 	GET_REGISTER(reg, "Increment register");
-	switch (ed->registers[reg].rtype) {
+	switch (E.registers[reg].rtype) {
 	case REGISTER_NULL:
 		registerMessage("Nothing in register %s", reg);
 		break;
 	case REGISTER_REGION:;
-		uint8_t *tmp = ed->kill;
-		ed->kill = NULL;
-		editorCopyRegion(ed, bufr);
-		int len = strlen((char *)ed->kill) +
-			  strlen((char *)ed->registers[reg].rdata.region) + 1;
-		ed->registers[reg].rdata.region =
-			realloc(ed->registers[reg].rdata.region, len);
-		strcat((char *)ed->registers[reg].rdata.region,
-		       (char *)ed->kill);
-		ed->kill = tmp;
+		uint8_t *tmp = E.kill;
+		E.kill = NULL;
+		copyRegion();
+		int len = strlen((char *)E.kill) +
+			  strlen((char *)E.registers[reg].rdata.region) + 1;
+		E.registers[reg].rdata.region =
+			xrealloc(E.registers[reg].rdata.region, len);
+		strcat((char *)E.registers[reg].rdata.region, (char *)E.kill);
+		E.kill = tmp;
 		registerMessage("Added region to register %s", reg);
 		break;
 	case REGISTER_NUMBER:
-		ed->registers[reg].rdata.number++;
+		E.registers[reg].rdata.number++;
 		registerMessage("Incremented number in register %s", reg);
 		break;
 	case REGISTER_POINT:
@@ -220,25 +220,27 @@ void editorIncrementRegister(struct editorConfig *ed,
 	}
 }
 
-void editorInsertRegister(struct editorConfig *ed, struct editorBuffer *bufr) {
+void insertRegister(void) {
+	CHECK_READ_ONLY(E.buf);
 	GET_REGISTER(reg, "Insert register");
-	uint8_t *tmp = ed->kill;
-	switch (ed->registers[reg].rtype) {
+	uint8_t *tmp = E.kill;
+	switch (E.registers[reg].rtype) {
 	case REGISTER_NULL:
 		registerMessage("Nothing in register %s", reg);
 		break;
 	case REGISTER_REGION:
-		ed->kill = ed->registers[reg].rdata.region;
-		editorYank(ed, bufr);
-		ed->kill = tmp;
+		E.kill = E.registers[reg].rdata.region;
+		yank(1);
+		E.kill = tmp;
 		registerMessage("Inserted string register %s", reg);
 		break;
 	case REGISTER_NUMBER:;
 		char str[32];
-		sprintf(str, "%ld", ed->registers[reg].rdata.number);
-		ed->kill = (uint8_t *)str;
-		editorYank(ed, bufr);
-		ed->kill = tmp;
+		snprintf(str, sizeof(str), "%lld",
+			 (long long)E.registers[reg].rdata.number);
+		E.kill = (uint8_t *)str;
+		yank(1);
+		E.kill = tmp;
 		registerMessage("Inserted number register %s", reg);
 		break;
 	case REGISTER_POINT:
@@ -248,23 +250,22 @@ void editorInsertRegister(struct editorConfig *ed, struct editorBuffer *bufr) {
 		registerMessage("Cannot insert macro in register %s", reg);
 		break;
 	case REGISTER_RECTANGLE:;
-		int ox = ed->rx;
-		int oy = ed->ry;
-		uint8_t *okill = ed->rectKill;
-		ed->rectKill = ed->registers[reg].rdata.rect->rect;
-		ed->rx = ed->registers[reg].rdata.rect->rx;
-		ed->ry = ed->registers[reg].rdata.rect->ry;
-		editorYankRectangle(ed, bufr);
-		ed->rectKill = okill;
-		ed->rx = ox;
-		ed->ry = oy;
+		int ox = E.rx;
+		int oy = E.ry;
+		uint8_t *okill = E.rectKill;
+		E.rectKill = E.registers[reg].rdata.rect->rect;
+		E.rx = E.registers[reg].rdata.rect->rx;
+		E.ry = E.registers[reg].rdata.rect->ry;
+		yankRectangle();
+		E.rectKill = okill;
+		E.rx = ox;
+		E.ry = oy;
 		registerMessage("Inserted rectangle register %s", reg);
 		break;
 	}
 }
 
-void editorViewRegister(struct editorConfig *ed,
-			struct editorBuffer *UNUSED(bufr)) {
+void viewRegister(void) {
 	GET_REGISTER(reg, "View register");
 	char str[4];
 	if (reg < 32) {
@@ -273,33 +274,32 @@ void editorViewRegister(struct editorConfig *ed,
 		str[0] = reg;
 		str[1] = 0;
 	}
-	switch (ed->registers[reg].rtype) {
+	switch (E.registers[reg].rtype) {
 	case REGISTER_NULL:
-		editorSetStatusMessage("Register %s is empty.", str);
+		setStatusMessage("Register %s is empty.", str);
 		break;
 	case REGISTER_REGION:
-		editorSetStatusMessage("%s (region): %.60s", str,
-				       ed->registers[reg].rdata.region);
+		setStatusMessage("%s (region): %.60s", str,
+				 E.registers[reg].rdata.region);
 		break;
 	case REGISTER_NUMBER:
-		editorSetStatusMessage("%s (number): %d", str,
-				       ed->registers[reg].rdata.number);
+		setStatusMessage("%s (number): %ld", str,
+				 (long)E.registers[reg].rdata.number);
 		break;
 	case REGISTER_POINT:;
-		struct editorPoint *pt = ed->registers[reg].rdata.point;
-		editorSetStatusMessage("%s (point): %.20s %d:%d", str,
-				       pt->buf->filename, pt->cy + 1, pt->cx);
+		struct editorPoint *pt = E.registers[reg].rdata.point;
+		setStatusMessage("%s (point): %.20s %d:%d", str,
+				 pt->buf->filename, pt->cy + 1, pt->cx);
 		break;
 	case REGISTER_MACRO:
-		editorSetStatusMessage(
-			"Register %s contains a macro of length %d", str,
-			ed->registers[reg].rdata.macro->nkeys);
+		setStatusMessage("Register %s contains a macro of length %d",
+				 str, E.registers[reg].rdata.macro->nkeys);
 		break;
 	case REGISTER_RECTANGLE:
-		editorSetStatusMessage("%s (rect): w: %d h: %d \"%.50s\"", str,
-				       ed->registers[reg].rdata.rect->rx,
-				       ed->registers[reg].rdata.rect->ry,
-				       ed->registers[reg].rdata.rect->rect);
+		setStatusMessage("%s (rect): w: %d h: %d \"%.50s\"", str,
+				 E.registers[reg].rdata.rect->rx,
+				 E.registers[reg].rdata.rect->ry,
+				 E.registers[reg].rdata.rect->rect);
 		break;
 	}
 }

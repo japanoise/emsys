@@ -219,7 +219,9 @@ subprocess_weak int subprocess_alive(struct subprocess_s *const process);
 
 #if !defined(_MSC_VER)
 #include <signal.h>
+#ifndef __ANDROID__
 #include <spawn.h>
+#endif
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/wait.h>
