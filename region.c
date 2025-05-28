@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <regex.h>
 #include "emsys.h"
-#include "re.h"
 #include "region.h"
 #include "row.h"
 #include "undo.h"
@@ -21,7 +21,19 @@ void editorSetMark(struct editorBuffer *buf) {
 void editorClearMark(struct editorBuffer *buf) {
 	buf->markx = -1;
 	buf->marky = -1;
+	buf->rectangle_mode = 0;
 	editorSetStatusMessage("Mark Cleared");
+}
+
+void editorMarkRectangle(struct editorBuffer *buf) {
+	buf->markx = buf->cx;
+	buf->marky = buf->cy;
+	buf->rectangle_mode = 1;
+	editorSetStatusMessage("Rectangle mark set.");
+	if (buf->marky >= buf->numrows) {
+		buf->marky = buf->numrows - 1;
+		buf->markx = buf->row[buf->marky].size;
+	}
 }
 
 int markInvalid(struct editorBuffer *buf) {
@@ -157,8 +169,8 @@ void editorYank(struct editorConfig *ed, struct editorBuffer *buf) {
 	free(new->data);
 	new->datalen = strlen(ed->kill);
 	new->datasize = new->datalen + 1;
-	new->data = malloc(new->datasize);
-	strcpy(new->data, ed->kill);
+	new->data = xmalloc(new->datasize);
+	memcpy(new->data, ed->kill, new->datasize);
 	new->append = 0;
 
 	for (int i = 0; ed->kill[i] != 0; i++) {
@@ -192,15 +204,29 @@ void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
 	editorKillRegion(ed, buf);
 
 	uint8_t *input = ed->kill;
-	ed->kill = transformer(input);
+	if (input == NULL) {
+		ed->kill = okill;
+		return;
+	}
+
+	uint8_t *result = transformer(input);
+	if (result == NULL) {
+		ed->kill = okill;
+		return;
+	}
+
+	ed->kill = result;
 	editorYank(ed, buf);
 	buf->undo->paired = 1;
 
-	if (input == ed->kill) {
-		editorSetStatusMessage("Shouldn't free input here");
-	} else {
-		free(ed->kill);
+	if (input != result && input != NULL) {
+		free(input);
 	}
+
+	if (result != okill && result != NULL) {
+		free(result);
+	}
+
 	ed->kill = okill;
 }
 
@@ -219,8 +245,22 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 		return;
 	}
 
+	/* Validate regex immediately */
+	regex_t test_pattern;
+	int test_result = regcomp(&test_pattern, (char *)regex, REG_EXTENDED);
+	if (test_result != 0) {
+		char error_msg[256];
+		regerror(test_result, &test_pattern, error_msg,
+			 sizeof(error_msg));
+		editorSetStatusMessage("Regex error: %s", error_msg);
+		free(regex);
+		return;
+	}
+	regfree(&test_pattern);
+
 	char prompt[64];
-	sprintf(prompt, "Regex replace %.35s with: %%s", regex);
+	snprintf(prompt, sizeof(prompt), "Regex replace %.35s with: %%s",
+		 regex);
 	uint8_t *repl =
 		editorPrompt(buf, (uint8_t *)prompt, PROMPT_BASIC, NULL);
 	if (repl == NULL) {
@@ -275,13 +315,28 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 	buf->undo = new;
 
 	/* Regex boilerplate & setup */
-	int match_length;
-	re_t pattern = re_compile((char *)regex);
+	regex_t pattern;
+	regmatch_t matches[1];
+	int regcomp_result = regcomp(&pattern, (char *)regex, REG_EXTENDED);
+	if (regcomp_result != 0) {
+		char error_msg[256];
+		regerror(regcomp_result, &pattern, error_msg,
+			 sizeof(error_msg));
+		editorSetStatusMessage("Regex error: %s", error_msg);
+		free(regex);
+		free(repl);
+		ed->kill = okill;
+		return;
+	}
 
 	for (int i = buf->cy; i <= buf->marky; i++) {
 		struct erow *row = &buf->row[i];
-		int match_idx =
-			re_matchp(pattern, (char *)row->chars, &match_length);
+		int regexec_result =
+			regexec(&pattern, (char *)row->chars, 1, matches, 0);
+		int match_idx = (regexec_result == 0) ? matches[0].rm_so : -1;
+		int match_length = (regexec_result == 0) ? (matches[0].rm_eo -
+							    matches[0].rm_so) :
+							   0;
 		if (i != 0)
 			strcat((char *)new->data, "\n");
 		if (match_idx < 0) {
@@ -346,6 +401,7 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 	buf->cy = new->endy;
 
 	editorUpdateBuffer(buf);
+	regfree(&pattern);
 	free(regex);
 	free(repl);
 

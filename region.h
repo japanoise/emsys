@@ -10,6 +10,8 @@ void editorSetMark(struct editorBuffer *buf);
 
 void editorClearMark(struct editorBuffer *buf);
 
+void editorMarkRectangle(struct editorBuffer *buf);
+
 void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf);
 
 void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf);

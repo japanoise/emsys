@@ -1,6 +1,7 @@
-#define _DEFAULT_SOURCE
-#define _BSD_SOURCE
-#define _GNU_SOURCE
+#include "platform.h"
+#include "compat.h"
+#include "terminal.h"
+#include "display.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -27,6 +28,7 @@
 #include "undo.h"
 #include "unicode.h"
 #include "unused.h"
+#include "keybindings.h"
 
 const int minibuffer_height = 1;
 const int statusbar_height = 1;
@@ -56,6 +58,31 @@ void die(const char *s) {
 	exit(1);
 }
 
+/* Safe memory allocation wrappers */
+void *xmalloc(size_t size) {
+	void *ptr = malloc(size);
+	if (!ptr && size > 0) {
+		die("xmalloc: out of memory");
+	}
+	return ptr;
+}
+
+void *xrealloc(void *ptr, size_t size) {
+	void *new_ptr = realloc(ptr, size);
+	if (!new_ptr && size > 0) {
+		die("xrealloc: out of memory");
+	}
+	return new_ptr;
+}
+
+void *xcalloc(size_t nmemb, size_t size) {
+	void *ptr = calloc(nmemb, size);
+	if (!ptr && nmemb > 0 && size > 0) {
+		die("xcalloc: out of memory");
+	}
+	return ptr;
+}
+
 void editorUpdateBuffer(struct editorBuffer *buf) {
 	for (int i = 0; i < buf->numrows; i++) {
 		editorUpdateRow(&buf->row[i]);
@@ -74,7 +101,6 @@ int windowFocusedIdx(struct editorConfig *ed) {
 
 void synchronizeBufferCursor(struct editorBuffer *buf,
 			     struct editorWindow *win) {
-	// Ensure the cursor is within the buffer's bounds
 	if (win->cy >= buf->numrows) {
 		win->cy = buf->numrows > 0 ? buf->numrows - 1 : 0;
 	}
@@ -82,7 +108,6 @@ void synchronizeBufferCursor(struct editorBuffer *buf,
 		win->cx = buf->row[win->cy].size;
 	}
 
-	// Update the buffer's cursor position
 	buf->cx = win->cx;
 	buf->cy = win->cy;
 }
@@ -97,425 +122,20 @@ void editorSwitchWindow(struct editorConfig *ed) {
 	struct editorWindow *currentWindow = ed->windows[currentIdx];
 	struct editorBuffer *currentBuffer = currentWindow->buf;
 
-	// Store the current buffer's cursor position in the current window
 	currentWindow->cx = currentBuffer->cx;
 	currentWindow->cy = currentBuffer->cy;
 
-	// Switch to the next window
 	currentWindow->focused = 0;
 	int nextIdx = (currentIdx + 1) % ed->nwindows;
 	struct editorWindow *nextWindow = ed->windows[nextIdx];
 	nextWindow->focused = 1;
 
-	// Update the focused buffer
 	ed->focusBuf = nextWindow->buf;
 
-	// Set the buffer's cursor position from the new window
 	ed->focusBuf->cx = nextWindow->cx;
 	ed->focusBuf->cy = nextWindow->cy;
 
-	// Synchronize the buffer's cursor with the new window's cursor
 	synchronizeBufferCursor(ed->focusBuf, nextWindow);
-}
-
-/*** terminal ***/
-
-void disableRawMode() {
-	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1)
-		die("disableRawMode tcsetattr");
-	if (write(STDOUT_FILENO, CSI "?1049l", 8) == -1)
-		die("disableRawMode write");
-}
-
-void enableRawMode() {
-	/* Saves the screen and switches to an alt screen */
-	if (write(STDOUT_FILENO, CSI "?1049h", 8) == -1)
-		die("enableRawMode write");
-	/*
-	 * I looked into it. It's possible, but not easy, to do it
-	 * without termios. Basically you'd have to hand-hack and send
-	 * off your own bits. Check out busybox vi and that rabbithole
-	 * for an implementation.
-	 */
-	if (tcgetattr(STDIN_FILENO, &E.orig_termios) == -1)
-		die("tcgetattr");
-	atexit(disableRawMode);
-
-	struct termios raw = E.orig_termios;
-	raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-	raw.c_oflag &= ~(OPOST);
-	raw.c_cflag |= (CS8);
-	raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
-	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1)
-		die("enableRawMode tcsetattr");
-}
-
-void editorDeserializeUnicode() {
-	E.unicode[0] = E.macro.keys[E.playback++];
-	E.nunicode = utf8_nBytes(E.unicode[0]);
-	for (int i = 1; i < E.nunicode; i++) {
-		E.unicode[i] = E.macro.keys[E.playback++];
-	}
-}
-
-/* Raw reading a keypress */
-int editorReadKey() {
-	if (E.playback) {
-		int ret = E.macro.keys[E.playback++];
-		if (ret == UNICODE) {
-			editorDeserializeUnicode();
-		}
-		return ret;
-	}
-	int nread;
-	uint8_t c;
-	while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
-		if (nread == -1 && errno != EAGAIN)
-			die("read");
-	}
-#ifdef EMSYS_CU_UARG
-	if (c == CTRL('u')) {
-		return UNIVERSAL_ARGUMENT;
-	}
-#endif //EMSYS_CU_UARG
-	if (c == 033) {
-		char seq[5] = { 0, 0, 0, 0, 0 };
-		if (read(STDIN_FILENO, &seq[0], 1) != 1)
-			goto ESC_UNKNOWN;
-
-		if (seq[0] == '[') {
-			if (read(STDIN_FILENO, &seq[1], 1) != 1)
-				goto ESC_UNKNOWN;
-			if (seq[1] >= '0' && seq[1] <= '9') {
-				if (read(STDIN_FILENO, &seq[2], 1) != 1)
-					goto ESC_UNKNOWN;
-				if (seq[2] == '~') {
-					switch (seq[1]) {
-					case '1':
-						return HOME_KEY;
-					case '3':
-						return DEL_KEY;
-					case '4':
-						return END_KEY;
-					case '5':
-						return PAGE_UP;
-					case '6':
-						return PAGE_DOWN;
-					case '7':
-						return HOME_KEY;
-					case '8':
-						return END_KEY;
-					}
-				} else if (seq[2] == '4') {
-					if (read(STDIN_FILENO, &seq[3], 1) != 1)
-						goto ESC_UNKNOWN;
-					if (seq[3] == '~') {
-						errno = EINTR;
-						die("Panic key");
-					}
-				}
-			} else {
-				switch (seq[1]) {
-				case 'A':
-					return ARROW_UP;
-				case 'B':
-					return ARROW_DOWN;
-				case 'C':
-					return ARROW_RIGHT;
-				case 'D':
-					return ARROW_LEFT;
-				case 'F':
-					return END_KEY;
-				case 'H':
-					return HOME_KEY;
-				case 'Z':
-					return BACKTAB;
-				}
-			}
-		} else if ('0' <= seq[0] && seq[0] <= '9') {
-			return ALT_0 + (seq[0] - '0');
-		} else if (seq[0] == '<') {
-			return BEG_OF_FILE;
-		} else if (seq[0] == '>') {
-			return END_OF_FILE;
-		} else if (seq[0] == '|') {
-			return PIPE_CMD;
-		} else if (seq[0] == '%') {
-			return QUERY_REPLACE;
-		} else if (seq[0] == '?') {
-			return CUSTOM_INFO_MESSAGE;
-		} else if (seq[0] == '/') {
-			return EXPAND;
-		} else if (seq[0] == 127) {
-			return BACKSPACE_WORD;
-		} else {
-			switch ((seq[0] & 0x1f) | 0x40) {
-			case 'B':
-				return BACKWARD_WORD;
-			case 'C':
-				return CAPCASE_WORD;
-			case 'D':
-				return DELETE_WORD;
-			case 'F':
-				return FORWARD_WORD;
-			case 'G':
-				return GOTO_LINE;
-			case 'H':
-				return BACKSPACE_WORD;
-			case 'L':
-				return DOWNCASE_WORD;
-			case 'N':
-				return FORWARD_PARA;
-			case 'P':
-				return BACKWARD_PARA;
-			case 'T':
-				return TRANSPOSE_WORDS;
-			case 'U':
-				return UPCASE_WORD;
-			case 'V':
-				return PAGE_UP;
-			case 'W':
-				return COPY;
-			case 'X':
-				return EXEC_CMD;
-			}
-		}
-
-ESC_UNKNOWN:;
-		char seqR[32];
-		seqR[0] = 0;
-		char buf[8];
-		for (int i = 0; seq[i]; i++) {
-			if (seq[i] < ' ') {
-				sprintf(buf, "C-%c ", seq[i] + '`');
-			} else {
-				sprintf(buf, "%c ", seq[i]);
-			}
-			strcat(seqR, buf);
-		}
-		editorSetStatusMessage("Unknown command M-%s", seqR);
-		return 033;
-	} else if (c == CTRL('x')) {
-		/* Welcome to Emacs! */
-#ifdef EMSYS_CUA
-		// CUA mode: if the region is marked, C-x means 'cut' region.
-		// Otherwise, proceed.
-		if (E.focusBuf->markx != -1 && E.focusBuf->marky != -1) {
-			return CUT;
-		}
-#endif //EMSYS_CUA
-		char seq[5] = { 0, 0, 0, 0, 0 };
-		if (read(STDIN_FILENO, &seq[0], 1) != 1)
-			goto CX_UNKNOWN;
-		if (seq[0] == CTRL('c')) {
-			return QUIT;
-		} else if (seq[0] == CTRL('s')) {
-			return SAVE;
-		} else if (seq[0] == CTRL('f')) {
-			return FIND_FILE;
-		} else if (seq[0] == CTRL('_')) {
-			return REDO;
-		} else if (seq[0] == CTRL('x')) {
-			return SWAP_MARK;
-		} else if (seq[0] == 'b' || seq[0] == 'B' ||
-			   seq[0] == CTRL('b')) {
-			return SWITCH_BUFFER;
-		} else if (seq[0] == '\x1b') {
-			// C-x left and C-x right
-			if (read(STDIN_FILENO, &seq[1], 1) != 1)
-				goto CX_UNKNOWN;
-			if (read(STDIN_FILENO, &seq[2], 1) != 1)
-				goto CX_UNKNOWN;
-			if (seq[1] == '[') {
-				switch (seq[2]) {
-				case 'C':
-					return NEXT_BUFFER;
-				case 'D':
-					return PREVIOUS_BUFFER;
-				}
-			} else if (seq[1] ==
-				   'O') { // Check for C-x C-right/left
-				switch (seq[2]) {
-				case 'C':
-					return NEXT_BUFFER; // C-x C-right
-				case 'D':
-					return PREVIOUS_BUFFER; // C-x C-left
-				}
-			}
-		} else if (seq[0] == 'h') {
-			return MARK_BUFFER;
-		} else if (seq[0] == 'o' || seq[0] == 'O') {
-			return OTHER_WINDOW;
-		} else if (seq[0] == '2') {
-			return CREATE_WINDOW;
-		} else if (seq[0] == '0') {
-			return DESTROY_WINDOW;
-		} else if (seq[0] == '1') {
-			return DESTROY_OTHER_WINDOWS;
-		} else if (seq[0] == 'k') {
-			return KILL_BUFFER;
-		} else if (seq[0] == '(') {
-			return MACRO_RECORD;
-		} else if (seq[0] == 'e' || seq[0] == 'E') {
-			return MACRO_EXEC;
-		} else if (seq[0] == ')') {
-			return MACRO_END;
-		} else if (seq[0] == 'z' || seq[0] == 'Z' ||
-			   seq[0] == CTRL('z')) {
-			return SUSPEND;
-		} else if (seq[0] == 'u' || seq[0] == 'U' ||
-			   seq[0] == CTRL('u')) {
-			return UPCASE_REGION;
-		} else if (seq[0] == 'l' || seq[0] == 'L' ||
-			   seq[0] == CTRL('l')) {
-			return DOWNCASE_REGION;
-		} else if (seq[0] == 'x') {
-			if (read(STDIN_FILENO, &seq[1], 1) != 1)
-				goto CX_UNKNOWN;
-			if (seq[1] == 't')
-				return TOGGLE_TRUNCATE_LINES;
-		} else if (seq[0] == 'r' || seq[0] == 'R') {
-			if (read(STDIN_FILENO, &seq[1], 1) != 1)
-				goto CX_UNKNOWN;
-			switch (seq[1]) {
-			case 033:
-				if (read(STDIN_FILENO, &seq[2], 1) != 1)
-					goto CX_UNKNOWN;
-				if (seq[2] == 'W' || seq[2] == 'w') {
-					return COPY_RECT;
-				}
-				goto CX_UNKNOWN;
-			case 'j':
-			case 'J':
-				return JUMP_REGISTER;
-			case 'a':
-			case 'A':
-			case 'm':
-			case 'M':
-				return MACRO_REGISTER;
-			case CTRL('@'):
-			case ' ':
-				return POINT_REGISTER;
-			case 'n':
-			case 'N':
-				return NUMBER_REGISTER;
-			case 'r':
-			case 'R':
-				return RECT_REGISTER;
-			case 's':
-			case 'S':
-				return REGION_REGISTER;
-			case 't':
-			case 'T':
-				return STRING_RECT;
-			case '+':
-				return INC_REGISTER;
-			case 'i':
-			case 'I':
-				return INSERT_REGISTER;
-			case 'k':
-			case 'K':
-			case CTRL('W'):
-				return KILL_RECT;
-			case 'v':
-			case 'V':
-				return VIEW_REGISTER;
-			case 'y':
-			case 'Y':
-				return YANK_RECT;
-			}
-		} else if (seq[0] == '=') {
-			return WHAT_CURSOR;
-		}
-
-CX_UNKNOWN:;
-		char seqR[32];
-		seqR[0] = 0;
-		char buf[8];
-		for (int i = 0; seq[i]; i++) {
-			if (seq[i] < ' ') {
-				sprintf(buf, "C-%c ", seq[i] + '`');
-			} else {
-				sprintf(buf, "%c ", seq[i]);
-			}
-			strcat(seqR, buf);
-		}
-		editorSetStatusMessage("Unknown command C-x %s", seqR);
-		return CTRL('x');
-	} else if (c == CTRL('p')) {
-		return ARROW_UP;
-	} else if (c == CTRL('n')) {
-		return ARROW_DOWN;
-	} else if (c == CTRL('b')) {
-		return ARROW_LEFT;
-	} else if (c == CTRL('f')) {
-		return ARROW_RIGHT;
-	} else if (utf8_is2Char(c)) {
-		/* 2-byte UTF-8 sequence */
-		E.nunicode = 2;
-
-		E.unicode[0] = c;
-		if (read(STDIN_FILENO, &E.unicode[1], 1) != 1)
-			return UNICODE_ERROR;
-		return UNICODE;
-	} else if (utf8_is3Char(c)) {
-		/* 3-byte UTF-8 sequence */
-		E.nunicode = 3;
-
-		E.unicode[0] = c;
-		if (read(STDIN_FILENO, &E.unicode[1], 1) != 1)
-			return UNICODE_ERROR;
-		if (read(STDIN_FILENO, &E.unicode[2], 1) != 1)
-			return UNICODE_ERROR;
-		return UNICODE;
-	} else if (utf8_is4Char(c)) {
-		/* 4-byte UTF-8 sequence */
-		E.nunicode = 4;
-
-		E.unicode[0] = c;
-		if (read(STDIN_FILENO, &E.unicode[1], 1) != 1)
-			return UNICODE_ERROR;
-		if (read(STDIN_FILENO, &E.unicode[2], 1) != 1)
-			return UNICODE_ERROR;
-		if (read(STDIN_FILENO, &E.unicode[3], 1) != 1)
-			return UNICODE_ERROR;
-		return UNICODE;
-	}
-	return c;
-}
-
-int getCursorPosition(int *rows, int *cols) {
-	char buf[32];
-	unsigned int i = 0;
-	if (write(STDOUT_FILENO, "\x1b[6n", 4) != 4)
-		return -1;
-	while (i < sizeof(buf) - 1) {
-		if (read(STDIN_FILENO, &buf[i], 1) != 1)
-			break;
-		if (buf[i] == 'R')
-			break;
-		i++;
-	}
-	buf[i] = '\0';
-	if (buf[0] != '\x1b' || buf[1] != '[')
-		return -1;
-	if (sscanf(&buf[2], "%d;%d", rows, cols) != 2)
-		return -1;
-	return 0;
-}
-
-int getWindowSize(int *rows, int *cols) {
-	struct winsize ws;
-
-	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
-		if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12)
-			return -1;
-		return getCursorPosition(rows, cols);
-	} else {
-		*cols = ws.ws_col;
-		*rows = ws.ws_row;
-		return 0;
-	}
 }
 
 /*** editor operations ***/
@@ -704,7 +324,6 @@ void editorKillLine(struct editorBuffer *buf) {
 	if (buf->cx == row->size) {
 		editorDelChar(buf);
 	} else {
-		// Copy to kill ring
 		int kill_len = row->size - buf->cx;
 		free(E.kill);
 		E.kill = malloc(kill_len + 1);
@@ -746,7 +365,6 @@ void editorKillLineBackwards(struct editorBuffer *buf) {
 
 	erow *row = &buf->row[buf->cy];
 
-	// Copy to kill ring
 	free(E.kill);
 	E.kill = malloc(buf->cx + 1);
 	memcpy(E.kill, row->chars, buf->cx);
@@ -883,365 +501,6 @@ void editorSave(struct editorBuffer *bufr) {
 	editorSetStatusMessage("Save failed: %s", strerror(errno));
 }
 
-/*** append buffer ***/
-
-struct abuf {
-	char *b;
-	int len;
-};
-
-#define ABUF_INIT { NULL, 0 }
-
-void abAppend(struct abuf *ab, const char *s, int len) {
-	char *new = realloc(ab->b, ab->len + len);
-
-	if (new == NULL)
-		return;
-	memcpy(&new[ab->len], s, len);
-	ab->b = new;
-	ab->len += len;
-}
-
-void abFree(struct abuf *ab) {
-	free(ab->b);
-}
-
-/*** output ***/
-
-void editorSetScxScy(struct editorWindow *win) {
-	struct editorBuffer *buf = win->buf;
-	erow *row = (buf->cy < buf->numrows) ? &buf->row[buf->cy] : NULL;
-	int i;
-
-start:
-	i = win->rowoff;
-	win->scy = 0;
-	win->scx = 0;
-
-	if (buf->truncate_lines) {
-		// Truncated mode
-		win->scy = buf->cy - win->rowoff;
-		if (row) {
-			for (int j = 0; j < buf->cx; j++) {
-				if (row->chars[j] == '\t')
-					win->scx += (EMSYS_TAB_STOP - 1) -
-						    (win->scx % EMSYS_TAB_STOP);
-				win->scx++;
-			}
-			win->scx -= win->coloff;
-		}
-	} else {
-		// Wrapped mode
-		while (i < buf->cy) {
-			win->scy += (buf->row[i].renderwidth / E.screencols);
-			win->scy++;
-			i++;
-		}
-		if (buf->cy >= buf->numrows) {
-			goto end;
-		}
-		for (i = 0; i < buf->cx; i += utf8_nBytes(row->chars[i])) {
-			if (row->chars[i] == '\t') {
-				win->scx += (EMSYS_TAB_STOP - 1) -
-					    (win->scx % EMSYS_TAB_STOP);
-				win->scx++;
-			} else {
-				win->scx += charInStringWidth(row->chars, i);
-			}
-			if (win->scx >= E.screencols) {
-				win->scx = 0;
-				win->scy++;
-			}
-		}
-	}
-
-end:
-	if (win->scy >= win->height) {
-		win->rowoff++;
-		goto start;
-	}
-
-	// Ensure cursor is within window bounds
-	if (win->scy < 0)
-		win->scy = 0;
-	if (win->scy >= win->height)
-		win->scy = win->height - 1;
-	if (win->scx >= E.screencols)
-		win->scx = E.screencols - 1;
-}
-
-void editorScroll() {
-	struct editorWindow *win = E.windows[windowFocusedIdx(&E)];
-	struct editorBuffer *buf = win->buf;
-
-	if (buf->cy > buf->numrows) {
-		buf->cy = buf->numrows;
-	}
-	if (buf->cy < buf->numrows && buf->cx > buf->row[buf->cy].size) {
-		buf->cx = buf->row[buf->cy].size;
-	}
-
-	if (buf->truncate_lines) {
-		// Truncated mode scrolling
-		if (buf->cy < win->rowoff) {
-			win->rowoff = buf->cy;
-		} else if (buf->cy >= win->rowoff + win->height) {
-			win->rowoff = buf->cy - win->height + 1;
-		}
-
-		if (buf->cx < win->coloff) {
-			win->coloff = buf->cx;
-		}
-		if (buf->cx >= win->coloff + E.screencols) {
-			win->coloff = buf->cx - E.screencols + 1;
-		}
-	} else {
-		// Wrapped mode scrolling
-		if (buf->cy < win->rowoff) {
-			win->rowoff = buf->cy;
-		}
-		// The vertical scrolling for wrapped mode is handled in editorSetScxScy
-	}
-
-	editorSetScxScy(win);
-}
-
-void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
-		    int screencols) {
-	struct editorBuffer *buf = win->buf;
-	int y;
-	int filerow = win->rowoff;
-
-	for (y = 0; y < screenrows; y++) {
-		if (filerow >= buf->numrows) {
-			abAppend(ab, CSI "34m~" CSI "0m", 10);
-		} else {
-			erow *row = &buf->row[filerow];
-			if (buf->truncate_lines) {
-				// Truncated mode
-				int len = row->rsize - win->coloff;
-				if (len < 0)
-					len = 0;
-				if (len > screencols)
-					len = screencols;
-				abAppend(ab, &row->render[win->coloff], len);
-				filerow++;
-			} else {
-				// Wrapped mode
-				int len = row->rsize;
-				int start = 0;
-				while (len > 0) {
-					int chunk = len > screencols ?
-							    screencols :
-							    len;
-					abAppend(ab, &row->render[start],
-						 chunk);
-					start += chunk;
-					len -= chunk;
-					if (len > 0) {
-						abAppend(ab, "\r\n", 2);
-						y++;
-						if (y >= screenrows)
-							break;
-					}
-				}
-				filerow++;
-			}
-		}
-		abAppend(ab, "\x1b[K", 3);
-		if (y < screenrows - 1) {
-			abAppend(ab, "\r\n", 2);
-		}
-	}
-}
-
-void editorDrawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
-	/* XXX: It's actually possible for the status bar to end up
-	 * outside where it should be, so set it explicitly. */
-	char buf[32];
-	snprintf(buf, sizeof(buf), CSI "%d;%dH", line, 1);
-	abAppend(ab, buf, strlen(buf));
-
-	struct editorBuffer *bufr = win->buf;
-
-	abAppend(ab, "\x1b[7m", 4);
-	char status[80];
-	int len = 0;
-	if (win->focused) {
-		len = snprintf(status, sizeof(status),
-			       "-- %.20s %c%c %2d:%2d --",
-			       bufr->filename ? bufr->filename : "*scratch*",
-			       bufr->dirty ? '*' : '-', bufr->dirty ? '*' : '-',
-			       bufr->cy + 1, bufr->cx);
-	} else {
-		len = snprintf(status, sizeof(status),
-			       "   %.20s %c%c %2d:%2d   ",
-			       bufr->filename ? bufr->filename : "*scratch*",
-			       bufr->dirty ? '*' : '-', bufr->dirty ? '*' : '-',
-			       win->cy + 1, win->cx);
-	}
-#ifdef EMSYS_DEBUG_UNDO
-#ifdef EMSYS_DEBUG_REDO
-#define DEBUG_UNDO bufr->redo
-#else
-#define DEBUG_UNDO bufr->undo
-#endif
-	if (DEBUG_UNDO != NULL) {
-		len = 0;
-		for (len = 0; len < DEBUG_UNDO->datalen; len++) {
-			status[len] = DEBUG_UNDO->data[len];
-			if (DEBUG_UNDO->data[len] == '\n')
-				status[len] = '#';
-		}
-		status[len++] = '"';
-		len += sprintf(&status[len],
-			       "sx %d sy %d ex %d ey %d cx %d cy %d",
-			       DEBUG_UNDO->startx, DEBUG_UNDO->starty,
-			       DEBUG_UNDO->endx, DEBUG_UNDO->endy, bufr->cx,
-			       bufr->cy);
-	}
-#endif
-#ifdef EMSYS_DEBUG_MACROS
-	/* This can get quite wide, you may want to boost the size of status */
-	for (int i = 0; i < E.macro.nkeys; i++) {
-		len += sprintf(&status[len], "%d: %d ", i, E.macro.keys[i]);
-	}
-#endif
-
-	char perc[8] = " xxx --";
-	if (bufr->numrows == 0) {
-		perc[1] = 'E';
-		perc[2] = 'm';
-		perc[3] = 'p';
-	} else if (bufr->end) {
-		if (win->rowoff == 0) {
-			perc[1] = 'A';
-			perc[2] = 'l';
-			perc[3] = 'l';
-		} else {
-			perc[1] = 'B';
-			perc[2] = 'o';
-			perc[3] = 't';
-		}
-	} else if (win->rowoff == 0) {
-		perc[1] = 'T';
-		perc[2] = 'o';
-		perc[3] = 'p';
-	} else {
-		snprintf(perc, sizeof(perc), " %2d%% --",
-			 (win->rowoff * 100) / bufr->numrows);
-	}
-
-	char fill[2] = "-";
-	if (!win->focused) {
-		perc[5] = ' ';
-		perc[6] = ' ';
-		fill[0] = ' ';
-	}
-
-	if (len > E.screencols)
-		len = E.screencols;
-	abAppend(ab, status, len);
-	while (len < E.screencols) {
-		if (E.screencols - len == 7) {
-			abAppend(ab, perc, 7);
-			break;
-		} else {
-			abAppend(ab, fill, 1);
-			len++;
-		}
-	}
-	abAppend(ab, "\x1b[m" CRLF, 5);
-}
-
-void editorDrawMinibuffer(struct abuf *ab) {
-	abAppend(ab, "\x1b[K", 3);
-	int msglen = strlen(E.minibuffer);
-	if (msglen > E.screencols)
-		msglen = E.screencols;
-	if (msglen && time(NULL) - E.statusmsg_time < 5) {
-		if (E.focusBuf->query && !E.focusBuf->match) {
-			abAppend(ab, "\x1b[91m", 5);
-		}
-		abAppend(ab, E.minibuffer, msglen);
-		abAppend(ab, "\x1b[0m", 4);
-	}
-}
-
-void editorRefreshScreen() {
-	struct abuf ab = ABUF_INIT;
-	abAppend(&ab, "\x1b[2J", 4);   // Clear screen
-	abAppend(&ab, "\x1b[?25l", 6); // Hide cursor
-	abAppend(&ab, "\x1b[H", 3);    // Move cursor to top-left corner
-
-	int focusedIdx = windowFocusedIdx(&E);
-
-	int cumulative_height = 0;
-	int total_height = E.screenrows - minibuffer_height -
-			   (statusbar_height * E.nwindows);
-	int window_height = total_height / E.nwindows;
-	int remaining_height = total_height % E.nwindows;
-
-	for (int i = 0; i < E.nwindows; i++) {
-		struct editorWindow *win = E.windows[i];
-		win->height = window_height;
-		if (i == E.nwindows - 1)
-			win->height += remaining_height;
-
-		if (win->focused)
-			editorScroll();
-		editorDrawRows(win, &ab, win->height, E.screencols);
-		cumulative_height += win->height + statusbar_height;
-		editorDrawStatusBar(win, &ab, cumulative_height);
-	}
-
-	editorDrawMinibuffer(&ab);
-
-	// Position the cursor for the focused window
-	struct editorWindow *focusedWin = E.windows[focusedIdx];
-	struct editorBuffer *focusedBuf = focusedWin->buf;
-	char buf[32];
-
-	int cursor_y = focusedWin->scy + 1; // 1-based index
-	for (int i = 0; i < focusedIdx; i++) {
-		cursor_y += E.windows[i]->height + statusbar_height;
-	}
-
-	// Ensure cursor doesn't go beyond the window's bottom
-	if (cursor_y > cumulative_height) {
-		cursor_y = cumulative_height - statusbar_height;
-	}
-
-	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", cursor_y,
-		 focusedWin->scx + 1);
-	abAppend(&ab, buf, strlen(buf));
-
-	// Add back the reverse video effect for search
-	if (focusedBuf->query && focusedBuf->match) {
-		abAppend(&ab, "\x1b[7m", 4);
-		abAppend(&ab, focusedBuf->query, strlen(focusedBuf->query));
-		abAppend(&ab, "\x1b[0m", 4);
-		abAppend(&ab, buf,
-			 strlen(buf)); // Reposition cursor after highlighting
-	}
-
-	abAppend(&ab, "\x1b[?25h", 6); // Show cursor
-	write(STDOUT_FILENO, ab.b, ab.len);
-	abFree(&ab);
-}
-
-void editorCursorBottomLine(int curs) {
-	char cbuf[32];
-	snprintf(cbuf, sizeof(cbuf), CSI "%d;%dH", E.screenrows, curs);
-	write(STDOUT_FILENO, cbuf, strlen(cbuf));
-}
-
-void editorCursorBottomLineLong(long curs) {
-	char cbuf[32];
-	snprintf(cbuf, sizeof(cbuf), CSI "%d;%ldH", E.screenrows, curs);
-	write(STDOUT_FILENO, cbuf, strlen(cbuf));
-}
-
 void editorSetStatusMessage(const char *fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
@@ -1250,17 +509,9 @@ void editorSetStatusMessage(const char *fmt, ...) {
 	E.statusmsg_time = time(NULL);
 }
 
-void editorResizeScreen(int UNUSED(sig)) {
-	if (getWindowSize(&E.screenrows, &E.screencols) == -1)
-		die("getWindowSize");
-	editorRefreshScreen();
-}
-
-void editorRecenter(struct editorWindow *win) {
-	win->rowoff = win->buf->cy - (win->height / 2);
-	if (win->rowoff < 0) {
-		win->rowoff = 0;
-	}
+void editorRecenterCommand(struct editorConfig *ed, struct editorBuffer *buf) {
+	int winIdx = windowFocusedIdx(ed);
+	editorRecenter(ed->windows[winIdx]);
 }
 
 void editorSuspend(int UNUSED(sig)) {
@@ -1309,7 +560,7 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 			editorSetStatusMessage("");
 			if (callback)
 				callback(bufr, buf, c);
-			return buf; // Return the buffer even if it's empty
+			return buf;
 		case CTRL('g'):
 		case CTRL('c'):
 			editorSetStatusMessage("");
@@ -1350,7 +601,18 @@ PROMPT_BACKSPACE:
 					curs = buflen;
 					cursScr = bufwidth;
 				}
-			} else if (t == PROMPT_BASIC) { // For buffer switching
+			} else if (t == PROMPT_COMMANDS) {
+				uint8_t *tc = tabCompleteCommands(&E, buf);
+				if (tc && tc != buf) {
+					free(buf);
+					buf = tc;
+					buflen = strlen((char *)buf);
+					bufsize = buflen + 1;
+					bufwidth = stringWidth(buf);
+					curs = buflen;
+					cursScr = bufwidth;
+				}
+			} else if (t == PROMPT_BASIC) {
 				uint8_t *tc =
 					tabCompleteBufferNames(&E, buf, bufr);
 				if (tc && tc != buf) {
@@ -1705,26 +967,22 @@ void editorPipeCmd(struct editorConfig *ed, struct editorBuffer *bufr) {
 			newBuf->filename = stringdup("*Shell Output*");
 			newBuf->special_buffer = 1;
 
-			// Use a temporary buffer to build each row
 			size_t rowStart = 0;
 			size_t rowLen = 0;
 			for (size_t i = 0; i < outputLen; i++) {
 				if (pipeOutput[i] == '\n' ||
 				    i == outputLen - 1) {
-					// Found a newline or end of output, insert the row
 					editorInsertRow(
 						newBuf, newBuf->numrows,
 						(char *)&pipeOutput[rowStart],
 						rowLen);
-					rowStart =
-						i + 1; // Start of the next row
-					rowLen = 0;    // Reset row length
+					rowStart = i + 1;
+					rowLen = 0;
 				} else {
 					rowLen++;
 				}
 			}
 
-			// Link the new buffer and update focus
 			if (E.firstBuf == NULL) {
 				E.firstBuf = newBuf;
 			} else {
@@ -1736,7 +994,6 @@ void editorPipeCmd(struct editorConfig *ed, struct editorBuffer *bufr) {
 			}
 			E.focusBuf = newBuf;
 
-			// Update the focused window
 			int idx = windowFocusedIdx(&E);
 			E.windows[idx]->buf = E.focusBuf;
 			editorRefreshScreen();
@@ -1772,7 +1029,8 @@ void editorGotoLine(struct editorBuffer *bufr) {
 	}
 }
 
-void editorTransposeWords(struct editorConfig *ed, struct editorBuffer *bufr) {
+void editorTransposeWords(struct editorBuffer *bufr) {
+	struct editorConfig *ed = &E;
 	if (bufr->numrows == 0) {
 		editorSetStatusMessage("Buffer is empty");
 		return;
@@ -1789,19 +1047,87 @@ void editorTransposeWords(struct editorConfig *ed, struct editorBuffer *bufr) {
 	}
 
 	int startcx, startcy, endcx, endcy;
+
+	startcx = bufr->cx;
+	startcy = bufr->cy;
+	endcx = bufr->cx;
+	endcy = bufr->cy;
+
 	bufferEndOfBackwardWord(bufr, &startcx, &startcy);
 	bufferEndOfForwardWord(bufr, &endcx, &endcy);
+
+	if (startcy < 0 || startcy >= bufr->numrows || endcy < 0 ||
+	    endcy >= bufr->numrows) {
+		editorSetStatusMessage("Invalid buffer position");
+		return;
+	}
+
 	if ((startcx == bufr->cx && bufr->cy == startcy) ||
 	    (endcx == bufr->cx && bufr->cy == endcy)) {
 		editorSetStatusMessage("Cannot transpose here");
 		return;
 	}
+
+	if (startcy == endcy && startcx >= endcx) {
+		editorSetStatusMessage("No words to transpose");
+		return;
+	}
+
+	if (startcy == endcy) {
+		struct erow *row = &bufr->row[startcy];
+		if (startcx < 0 || startcx > row->size || endcx < 0 ||
+		    endcx > row->size) {
+			editorSetStatusMessage("Invalid word boundaries");
+			return;
+		}
+	}
+
 	bufr->cx = startcx;
 	bufr->cy = startcy;
 	bufr->markx = endcx;
 	bufr->marky = endcy;
 
-	editorTransformRegion(ed, bufr, transformerTransposeWords);
+	uint8_t *regionText = NULL;
+
+	if (startcy == endcy) {
+		struct erow *row = &bufr->row[startcy];
+		int len = endcx - startcx;
+		regionText = malloc(len + 1);
+		if (regionText) {
+			memcpy(regionText, &row->chars[startcx], len);
+			regionText[len] = '\0';
+		}
+	} else {
+		editorSetStatusMessage(
+			"Multi-line word transpose not supported");
+		return;
+	}
+
+	if (!regionText) {
+		editorSetStatusMessage("Failed to extract words");
+		return;
+	}
+
+	uint8_t *result = transformerTransposeWords(regionText);
+	if (!result) {
+		free(regionText);
+		editorSetStatusMessage("Transpose failed");
+		return;
+	}
+
+	bufr->cx = startcx;
+	bufr->cy = startcy;
+	bufr->markx = endcx;
+	bufr->marky = endcy;
+
+	editorKillRegion(ed, bufr);
+
+	for (int i = 0; result[i] != '\0'; i++) {
+		editorInsertChar(bufr, result[i]);
+	}
+
+	free(regionText);
+	free(result);
 }
 
 void editorTransposeChars(struct editorConfig *ed, struct editorBuffer *bufr) {
@@ -1841,7 +1167,6 @@ void editorSwitchToNamedBuffer(struct editorConfig *ed,
 					    ed->lastVisitedBuffer->filename :
 					    "*scratch*";
 	} else {
-		// Find the first buffer that isn't the current one
 		struct editorBuffer *defaultBuffer = ed->firstBuf;
 		while (defaultBuffer == current && defaultBuffer->next) {
 			defaultBuffer = defaultBuffer->next;
@@ -1865,7 +1190,6 @@ void editorSwitchToNamedBuffer(struct editorConfig *ed,
 		editorPrompt(current, (uint8_t *)prompt, PROMPT_BASIC, NULL);
 
 	if (buffer_name == NULL) {
-		// User canceled the prompt
 		editorSetStatusMessage("Buffer switch canceled");
 		return;
 	}
@@ -1873,9 +1197,7 @@ void editorSwitchToNamedBuffer(struct editorConfig *ed,
 	struct editorBuffer *targetBuffer = NULL;
 
 	if (buffer_name[0] == '\0') {
-		// User pressed Enter without typing anything
 		if (defaultBufferName) {
-			// Find the default buffer
 			for (struct editorBuffer *buf = ed->firstBuf;
 			     buf != NULL; buf = buf->next) {
 				if (buf == current)
@@ -1919,8 +1241,7 @@ void editorSwitchToNamedBuffer(struct editorConfig *ed,
 	}
 
 	if (targetBuffer) {
-		ed->lastVisitedBuffer =
-			current; // Update the last visited buffer
+		ed->lastVisitedBuffer = current;
 		ed->focusBuf = targetBuffer;
 
 		const char *switchedBufferName =
@@ -1941,762 +1262,37 @@ void editorSwitchToNamedBuffer(struct editorConfig *ed,
 
 /* Where the magic happens */
 void editorProcessKeypress(int c) {
-	struct editorBuffer *bufr = E.focusBuf;
-	int idx;
-	struct editorWindow **windows;
-	uint8_t *prompt;
-	int windowIdx = windowFocusedIdx(&E);
-	struct editorWindow *win = E.windows[windowIdx];
-
-	if (E.micro) {
-#ifdef EMSYS_CUA
-		if (E.micro == REDO && (c == CTRL('_') || c == CTRL('z'))) {
-#else
-		if (E.micro == REDO && c == CTRL('_')) {
-#endif //EMSYS_CUA
-			editorDoRedo(bufr);
-			return;
-		} else {
-			E.micro = 0;
-		}
-	} else {
-		E.micro = 0;
+	/* Initialize keybindings on first use */
+	static int initialized = 0;
+	if (!initialized) {
+		initKeyBindings();
+		initialized = 1;
 	}
 
-	if (ALT_0 <= c && c <= ALT_9) {
-		if (!bufr->uarg_active) {
-			bufr->uarg_active = 1;
-			bufr->uarg = 0;
-		}
-		bufr->uarg *= 10;
-		bufr->uarg += c - ALT_0;
-		editorSetStatusMessage("uarg: %i", bufr->uarg);
-		return;
-	}
-
-#ifdef EMSYS_CU_UARG
-	// Handle C-u (Universal Argument)
-	if (c == UNIVERSAL_ARGUMENT) {
-		bufr->uarg_active = 1;
-		bufr->uarg = 4; // Default value for C-u is 4
-		editorSetStatusMessage("C-u");
-		return;
-	}
-
-	// Handle numeric input after C-u
-	if (bufr->uarg_active && c >= '0' && c <= '9') {
-		if (bufr->uarg == 4) { // If it's the first digit after C-u
-			bufr->uarg = c - '0';
-		} else {
-			bufr->uarg = bufr->uarg * 10 + (c - '0');
-		}
-		editorSetStatusMessage("C-u %d", bufr->uarg);
-		return;
-	}
-#endif //EMSYS_CU_UARG
-
-	// Handle PIPE_CMD before resetting uarg_active
-	if (c == PIPE_CMD) {
-		editorPipeCmd(&E, bufr);
-		bufr->uarg_active = 0;
-		bufr->uarg = 0;
-		return;
-	}
-
-	int rept = 1;
-	if (bufr->uarg_active) {
-		bufr->uarg_active = 0;
-		rept = bufr->uarg;
-	}
-
-	switch (c) {
-	case '\r':
-		for (int i = 0; i < rept; i++) {
-			editorUndoAppendChar(bufr, '\n');
-			editorInsertNewline(bufr);
-		}
-		break;
-	case BACKSPACE:
-	case CTRL('h'):
-		for (int i = 0; i < rept; i++) {
-			editorBackSpace(bufr);
-		}
-		break;
-	case DEL_KEY:
-	case CTRL('d'):
-		for (int i = 0; i < rept; i++) {
-			editorDelChar(bufr);
-		}
-		break;
-	case CTRL('l'):
-		editorRecenter(win);
-		break;
-	case QUIT:
-		if (E.recording) {
-			E.recording = 0;
-		}
-		// Check all buffers for unsaved changes, except the special buffers
-		struct editorBuffer *current = E.firstBuf;
-		int hasUnsavedChanges = 0;
-		while (current != NULL) {
-			if (current->dirty && current->filename != NULL &&
-			    !current->special_buffer) {
-				hasUnsavedChanges = 1;
-				break;
-			}
-			current = current->next;
-		}
-
-		if (hasUnsavedChanges) {
-			editorSetStatusMessage(
-				"There are unsaved changes. Really quit? (y or n)");
-			editorRefreshScreen();
-			int c = editorReadKey(E.focusBuf);
-			if (c == 'y' || c == 'Y') {
-				exit(0);
-			}
-			editorSetStatusMessage("");
-		} else {
-			exit(0);
-		}
-		break;
-	case ARROW_LEFT:
-	case ARROW_RIGHT:
-	case ARROW_UP:
-	case ARROW_DOWN:
-		for (int i = 0; i < rept; i++) {
-			editorMoveCursor(bufr, c);
-		}
-		break;
-	case PAGE_UP:
-#ifndef EMSYS_CUA
-	case CTRL('z'):
-#endif //EMSYS_CUA
-		if (bufr->truncate_lines) {
-			bufr->cy = win->rowoff;
-			int times = win->height;
-			while (times--)
-				editorMoveCursor(bufr, ARROW_UP);
-		} else {
-			int current_screen_line = 0;
-			for (int i = 0; i < bufr->cy; i++) {
-				current_screen_line +=
-					(bufr->row[i].renderwidth /
-					 E.screencols) +
-					1;
-			}
-			int target_screen_line =
-				current_screen_line - win->height;
-			if (target_screen_line < 0)
-				target_screen_line = 0;
-			while (current_screen_line > target_screen_line) {
-				bufr->cy--;
-				current_screen_line -=
-					(bufr->row[bufr->cy].renderwidth /
-					 E.screencols) +
-					1;
-			}
-		}
-		break;
-
-	case PAGE_DOWN:
-#ifndef EMSYS_CUA
-	case CTRL('v'):
-#endif //EMSYS_CUA
-		if (bufr->truncate_lines) {
-			bufr->cy = win->rowoff + win->height - 1;
-			if (bufr->cy > bufr->numrows)
-				bufr->cy = bufr->numrows;
-			int times = win->height;
-			while (times--)
-				editorMoveCursor(bufr, ARROW_DOWN);
-		} else {
-			int current_screen_line = 0;
-			for (int i = 0; i < bufr->cy; i++) {
-				current_screen_line +=
-					(bufr->row[i].renderwidth /
-					 E.screencols) +
-					1;
-			}
-			int target_screen_line =
-				current_screen_line + win->height;
-			while (current_screen_line < target_screen_line &&
-			       bufr->cy < bufr->numrows) {
-				current_screen_line +=
-					(bufr->row[bufr->cy].renderwidth /
-					 E.screencols) +
-					1;
-				bufr->cy++;
-			}
-			if (bufr->cy > bufr->numrows)
-				bufr->cy = bufr->numrows;
-		}
-		break;
-	case BEG_OF_FILE:
-		bufr->cy = 0;
-		bufr->cx = 0;
-		break;
-	case CUSTOM_INFO_MESSAGE: {
-		int winIdx = windowFocusedIdx(&E);
-		struct editorWindow *win = E.windows[winIdx];
-		struct editorBuffer *buf = win->buf;
-
-		editorSetStatusMessage(
-			"(buf->cx%d,cy%d) (win->scx%d,scy%d) win->height=%d screenrows=%d, rowoff=%d",
-			buf->cx, buf->cy, win->scx, win->scy, win->height,
-			E.screenrows, win->rowoff);
-	} break;
-	case END_OF_FILE:
-		bufr->cy = bufr->numrows;
-		bufr->cx = 0;
-		break;
-	case HOME_KEY:
-	case CTRL('a'):
-		bufr->cx = 0;
-		break;
-	case END_KEY:
-	case CTRL('e'):
-		if (bufr->row != NULL && bufr->cy < bufr->numrows) {
-			bufr->cx = bufr->row[bufr->cy].size;
-		}
-		break;
-	case CTRL('s'):
-		editorFind(bufr);
-		break;
-	case UNICODE_ERROR:
-		editorSetStatusMessage("Bad UTF-8 sequence");
-		break;
-	case UNICODE:
-		for (int i = 0; i < rept; i++) {
-			editorUndoAppendUnicode(&E, bufr);
-			editorInsertUnicode(bufr);
-		}
-		break;
-#ifdef EMSYS_CUA
-	case CUT:
-		editorKillRegion(&E, bufr);
-		editorClearMark(bufr);
-		break;
-#endif //EMSYS_CUA
-	case SAVE:
-		editorSave(bufr);
-		break;
-	case COPY:
-		editorCopyRegion(&E, bufr);
-		editorClearMark(bufr);
-		break;
-#ifdef EMSYS_CUA
-	case CTRL('C'):
-		editorCopyRegion(&E, bufr);
-		editorClearMark(bufr);
-		break;
-#endif //EMSYS_CUA
-	case CTRL('@'):
-		editorSetMark(bufr);
-		break;
-	case CTRL('y'):
-#ifdef EMSYS_CUA
-	case CTRL('v'):
-#endif //EMSYS_CUA
-		for (int i = 0; i < rept; i++) {
-			editorYank(&E, bufr);
-		}
-		break;
-	case CTRL('w'):
-		for (int i = 0; i < rept; i++) {
-			editorKillRegion(&E, bufr);
-		}
-		editorClearMark(bufr);
-		break;
-	case CTRL('i'):
-		editorIndent(bufr, rept);
-		break;
-	case CTRL('_'):
-#ifdef EMSYS_CUA
-	case CTRL('z'):
-#endif //EMSYS_CUA
-		for (int i = 0; i < rept; i++) {
-			editorDoUndo(bufr);
-		}
-		break;
-	case CTRL('k'):
-		for (int i = 0; i < rept; i++) {
-			editorKillLine(bufr);
-		}
-		break;
-	case CTRL('u'):
-		editorKillLineBackwards(bufr);
-		break;
-	case CTRL('j'):
-		for (int i = 0; i < rept; i++) {
-			editorInsertNewlineAndIndent(bufr);
-		}
-		break;
-	case CTRL('o'):
-		for (int i = 0; i < rept; i++) {
-			editorOpenLine(bufr);
-		}
-		break;
-	case CTRL('q'):;
-		int nread;
-		while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
-			if (nread == -1 && errno != EAGAIN)
-				die("read");
-		}
-		for (int i = 0; i < rept; i++) {
-			editorUndoAppendChar(bufr, c);
-			editorInsertChar(bufr, c);
-		}
-		break;
-	case FORWARD_WORD:
-		for (int i = 0; i < rept; i++) {
-			editorForwardWord(bufr);
-		}
-		break;
-	case BACKWARD_WORD:
-		for (int i = 0; i < rept; i++) {
-			editorBackWord(bufr);
-		}
-		break;
-	case FORWARD_PARA:
-		for (int i = 0; i < rept; i++) {
-			editorForwardPara(bufr);
-		}
-		break;
-	case BACKWARD_PARA:
-		for (int i = 0; i < rept; i++) {
-			editorBackPara(bufr);
-		}
-		break;
-	case REDO:
-		for (int i = 0; i < rept; i++) {
-			editorDoRedo(bufr);
-			if (bufr->redo != NULL) {
-				editorSetStatusMessage(
-					"Press C-_ or C-/ to redo again");
-				E.micro = REDO;
-			}
-		}
-		break;
-	case SWITCH_BUFFER:
-		editorSwitchToNamedBuffer(&E, E.focusBuf);
-		break;
-	case NEXT_BUFFER:
-		E.focusBuf = E.focusBuf->next;
-		if (E.focusBuf == NULL) {
-			E.focusBuf = E.firstBuf;
-		}
-		for (int i = 0; i < E.nwindows; i++) {
-			if (E.windows[i]->focused) {
-				E.windows[i]->buf = E.focusBuf;
-			}
-		}
-		break;
-	case PREVIOUS_BUFFER:
-		if (E.focusBuf == E.firstBuf) {
-			// If we're at the first buffer, go to the last buffer
-			E.focusBuf = E.firstBuf;
-			while (E.focusBuf->next != NULL) {
-				E.focusBuf = E.focusBuf->next;
-			}
-		} else {
-			// Otherwise, go to the previous buffer
-			struct editorBuffer *temp = E.firstBuf;
-			while (temp->next != E.focusBuf) {
-				temp = temp->next;
-			}
-			E.focusBuf = temp;
-		}
-		// Update the focused buffer in all windows
-		for (int i = 0; i < E.nwindows; i++) {
-			if (E.windows[i]->focused) {
-				E.windows[i]->buf = E.focusBuf;
-			}
-		}
-		break;
-	case MARK_BUFFER:
-		if (bufr->numrows > 0) {
-			bufr->cy = bufr->numrows;
-			bufr->cx = bufr->row[--bufr->cy].size;
-			editorSetMark(bufr);
-			bufr->cy = 0;
-			bufr->cx = 0;
-		}
-		break;
-
-	case FIND_FILE:
-		prompt = editorPrompt(E.focusBuf, "Find File: %s", PROMPT_FILES,
-				      NULL);
-		if (prompt == NULL) {
-			editorSetStatusMessage("Canceled.");
-			break;
-		}
-		if (prompt[strlen(prompt) - 1] == '/') {
-			editorSetStatusMessage(
-				"Directory editing not supported.");
-			break;
-		}
-
-		// Check if a buffer with the same filename already exists
-		struct editorBuffer *buf = E.firstBuf;
-		while (buf != NULL) {
-			if (buf->filename != NULL &&
-			    strcmp(buf->filename, (char *)prompt) == 0) {
-				editorSetStatusMessage(
-					"File '%s' already open in a buffer.",
-					prompt);
-				free(prompt);
-				E.focusBuf =
-					buf; // Switch to the existing buffer
-
-				// Update the focused window to display the found buffer
-				idx = windowFocusedIdx(&E);
-				E.windows[idx]->buf = E.focusBuf;
-
-				editorRefreshScreen(); // Refresh to reflect the change
-				break; // Exit the loop and the case
-			}
-			buf = buf->next;
-		}
-
-		// If a buffer with the same filename was found, don't create a new one
-		if (buf != NULL) {
-			break;
-		}
-
-		E.firstBuf = newBuffer();
-		editorOpen(E.firstBuf, prompt);
-		free(prompt);
-		E.firstBuf->next = E.focusBuf;
-		E.focusBuf = E.firstBuf;
-		idx = windowFocusedIdx(&E);
-		E.windows[idx]->buf = E.focusBuf;
-		break;
-
-	case OTHER_WINDOW:
-		editorSwitchWindow(&E);
-		break;
-
-	case CREATE_WINDOW:
-		E.windows = realloc(E.windows, sizeof(struct editorWindow *) *
-						       (++E.nwindows));
-		E.windows[E.nwindows - 1] = malloc(sizeof(struct editorWindow));
-		E.windows[E.nwindows - 1]->focused = 0;
-		E.windows[E.nwindows - 1]->buf = E.focusBuf;
-		E.windows[E.nwindows - 1]->cx = E.focusBuf->cx;
-		E.windows[E.nwindows - 1]->cy = E.focusBuf->cy;
-		E.windows[E.nwindows - 1]->rowoff = 0;
-		E.windows[E.nwindows - 1]->coloff = 0;
-		E.windows[E.nwindows - 1]->height =
-			(E.screenrows - minibuffer_height) / E.nwindows -
-			statusbar_height;
-		break;
-
-	case DESTROY_WINDOW:
-		if (E.nwindows == 1) {
-			editorSetStatusMessage("Can't kill last window");
-			break;
-		}
-		idx = windowFocusedIdx(&E);
-		editorSwitchWindow(&E);
-		free(E.windows[idx]);
-		windows =
-			malloc(sizeof(struct editorWindow *) * (--E.nwindows));
-		int j = 0;
-		for (int i = 0; i <= E.nwindows; i++) {
-			if (i != idx) {
-				windows[j] = E.windows[i];
-				if (windows[j]->focused) {
-					E.focusBuf = windows[j]->buf;
-				}
-				j++;
-			}
-		}
-		free(E.windows);
-		E.windows = windows;
-		break;
-
-	case DESTROY_OTHER_WINDOWS:
-		if (E.nwindows == 1) {
-			editorSetStatusMessage("No other windows to delete");
-			break;
-		}
-		idx = windowFocusedIdx(&E);
-		windows = malloc(sizeof(struct editorWindow *));
-		for (int i = 0; i < E.nwindows; i++) {
-			if (i != idx) {
-				free(E.windows[i]);
-			}
-		}
-		windows[0] = E.windows[idx];
-		windows[0]->focused = 1;
-		E.focusBuf = windows[0]->buf;
-		E.nwindows = 1;
-		free(E.windows);
-		E.windows = windows;
-		editorRefreshScreen();
-		break;
-	case KILL_BUFFER:
-		// Bypass confirmation for special buffers
-		if (bufr->dirty && bufr->filename != NULL &&
-		    !bufr->special_buffer) {
-			editorSetStatusMessage(
-				"Buffer %.20s modified; kill anyway? (y or n)",
-				bufr->filename);
-			editorRefreshScreen();
-			int c = editorReadKey();
-			if (c != 'y' && c != 'Y') {
-				editorSetStatusMessage("");
-				break;
-			}
-		}
-
-		// Find the previous buffer (if any)
-		struct editorBuffer *prevBuf = NULL;
-		if (E.focusBuf != E.firstBuf) {
-			prevBuf = E.firstBuf;
-			while (prevBuf->next != E.focusBuf) {
-				prevBuf = prevBuf->next;
-			}
-		}
-
-		// Update window focus
-		for (int i = 0; i < E.nwindows; i++) {
-			if (E.windows[i]->buf == bufr) {
-				// If it's the last buffer, create a new scratch buffer
-				if (bufr->next == NULL && prevBuf == NULL) {
-					E.windows[i]->buf = newBuffer();
-					E.windows[i]->buf->filename =
-						stringdup("*scratch*");
-					E.windows[i]->buf->special_buffer = 1;
-					E.firstBuf = E.windows[i]->buf;
-					E.focusBuf =
-						E.firstBuf; // Ensure E.focusBuf is updated
-				} else if (bufr->next == NULL) {
-					E.windows[i]->buf = E.firstBuf;
-					E.focusBuf =
-						E.firstBuf; // Ensure E.focusBuf is updated
-				} else {
-					E.windows[i]->buf = bufr->next;
-					E.focusBuf =
-						bufr->next; // Ensure E.focusBuf is updated
-				}
-			}
-		}
-
-		// Update the main buffer list
-		if (E.firstBuf == bufr) {
-			E.firstBuf = bufr->next;
-		} else if (prevBuf != NULL) {
-			prevBuf->next = bufr->next;
-		}
-
-		// Update the focused buffer
-		if (E.focusBuf == bufr) {
-			E.focusBuf = (bufr->next != NULL) ? bufr->next :
-							    prevBuf;
-		}
-
-		destroyBuffer(bufr);
-		break;
-
-	case SUSPEND:
-		raise(SIGTSTP);
-		break;
-
-	case DELETE_WORD:
-		for (int i = 0; i < rept; i++) {
-			editorDeleteWord(bufr);
-		}
-		break;
-	case BACKSPACE_WORD:
-		for (int i = 0; i < rept; i++) {
-			editorBackspaceWord(bufr);
-		}
-		break;
-
-	case UPCASE_WORD:
-		editorUpcaseWord(&E, bufr, rept);
-		break;
-
-	case DOWNCASE_WORD:
-		editorDowncaseWord(&E, bufr, rept);
-		break;
-
-	case CAPCASE_WORD:
-		editorCapitalCaseWord(&E, bufr, rept);
-		break;
-
-	case UPCASE_REGION:
-		editorTransformRegion(&E, bufr, transformerUpcase);
-		break;
-
-	case DOWNCASE_REGION:
-		editorTransformRegion(&E, bufr, transformerDowncase);
-		break;
-	case TOGGLE_TRUNCATE_LINES:
-		editorToggleTruncateLines(&E, bufr);
-		break;
-
-	case WHAT_CURSOR:
-		c = 0;
-		if (bufr->cy >= bufr->numrows) {
-			editorSetStatusMessage("End of buffer");
-			break;
-		} else if (bufr->row[bufr->cy].size <= bufr->cx) {
-			c = (uint8_t)'\n';
-		} else {
-			c = (uint8_t)bufr->row[bufr->cy].chars[bufr->cx];
-		}
-
-		int npoint = 0, point;
-		for (int y = 0; y < bufr->numrows; y++) {
-			for (int x = 0; x <= bufr->row[y].size; x++) {
-				npoint++;
-				if (x == bufr->cx && y == bufr->cy) {
-					point = npoint;
-				}
-			}
-		}
-		int perc = ((point - 1) * 100) / npoint;
-
-		if (c == 127) {
-			editorSetStatusMessage("char: ^? (%d #o%03o #x%02X)"
-					       " point=%d of %d (%d%%)",
-					       c, c, c, point, npoint, perc);
-		} else if (c < ' ') {
-			editorSetStatusMessage("char: ^%c (%d #o%03o #x%02X)"
-					       " point=%d of %d (%d%%)",
-					       c + 0x40, c, c, c, point, npoint,
-					       perc);
-		} else {
-			editorSetStatusMessage("char: %c (%d #o%03o #x%02X)"
-					       " point=%d of %d (%d%%)",
-					       c, c, c, c, point, npoint, perc);
-		}
-		break;
-
-	case TRANSPOSE_WORDS:
-		editorTransposeWords(&E, bufr);
-		break;
-
-	case CTRL('t'):
-		editorTransposeChars(&E, bufr);
-		break;
-
-	case EXEC_CMD:;
-		uint8_t *cmd =
-			editorPrompt(bufr, "cmd: %s", PROMPT_BASIC, NULL);
-		if (cmd != NULL) {
-			runCommand(cmd, &E, bufr);
-			free(cmd);
-		}
-		break;
-	case QUERY_REPLACE:
-		editorQueryReplace(&E, bufr);
-		break;
-
-	case GOTO_LINE:
-		editorGotoLine(bufr);
-		break;
-
-	case CTRL('x'):
-	case 033:
-		/* These take care of their own error messages */
-		break;
-
-	case CTRL('g'):
-		editorClearMark(bufr);
-		editorSetStatusMessage("Quit");
-		break;
-
-	case BACKTAB:
-		editorUnindent(bufr, rept);
-		break;
-
-	case SWAP_MARK:
-		if (0 <= bufr->markx &&
-		    (0 <= bufr->marky && bufr->marky < bufr->numrows)) {
-			int swapx = bufr->cx;
-			int swapy = bufr->cy;
-			bufr->cx = bufr->markx;
-			bufr->cy = bufr->marky;
-			bufr->markx = swapx;
-			bufr->marky = swapy;
-		}
-		break;
-
-	case JUMP_REGISTER:
-		editorJumpToRegister(&E);
-		break;
-	case MACRO_REGISTER:
-		editorMacroToRegister(&E);
-		break;
-	case POINT_REGISTER:
-		editorPointToRegister(&E);
-		break;
-	case NUMBER_REGISTER:
-		editorNumberToRegister(&E, rept);
-		break;
-	case REGION_REGISTER:
-		editorRegionToRegister(&E, bufr);
-		break;
-	case INC_REGISTER:
-		editorIncrementRegister(&E, bufr);
-		break;
-	case INSERT_REGISTER:
-		editorInsertRegister(&E, bufr);
-		break;
-	case VIEW_REGISTER:
-		editorViewRegister(&E, bufr);
-		break;
-
-	case STRING_RECT:
-		editorStringRectangle(&E, bufr);
-		break;
-
-	case COPY_RECT:
-		editorCopyRectangle(&E, bufr);
-		editorClearMark(bufr);
-		break;
-
-	case KILL_RECT:
-		editorKillRectangle(&E, bufr);
-		editorClearMark(bufr);
-		break;
-
-	case YANK_RECT:
-		editorYankRectangle(&E, bufr);
-		break;
-
-	case RECT_REGISTER:
-		editorRectRegister(&E, bufr);
-		break;
-
-	case EXPAND:
-		editorCompleteWord(&E, bufr);
-		break;
-
-	default:
-		if (ISCTRL(c)) {
-			editorSetStatusMessage("Unknown command C-%c",
-					       c | 0x60);
-		} else {
-			for (int i = 0; i < rept; i++) {
-				editorUndoAppendChar(bufr, c);
-				editorInsertChar(bufr, c);
-			}
-		}
-		break;
-	}
+	/* Process the key using the new system */
+	processKeySequence(c);
 }
-
 /*** init ***/
+
+void crashHandler(int sig) {
+	/* Safely restore terminal without calling die() */
+	tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios);
+	write(STDOUT_FILENO, CSI "?1049l", 8);
+	fprintf(stderr, "\nProgram terminated by signal %d\n", sig);
+	exit(sig);
+}
 
 void setupHandlers() {
 	signal(SIGWINCH, editorResizeScreen);
 	signal(SIGCONT, editorResume);
 	signal(SIGTSTP, editorSuspend);
+
+	/* Graceful crash handling */
+	signal(SIGINT, crashHandler);
+	signal(SIGTERM, crashHandler);
+	signal(SIGSEGV, crashHandler);
+	signal(SIGABRT, crashHandler);
+	signal(SIGQUIT, crashHandler);
 }
 
 struct editorBuffer *newBuffer() {
@@ -2718,12 +1314,59 @@ struct editorBuffer *newBuffer() {
 	ret->uarg = 0;
 	ret->uarg_active = 0;
 	ret->truncate_lines = 0;
+	ret->rectangle_mode = 0;
+	ret->screen_line_start = NULL;
+	ret->screen_line_cache_size = 0;
+	ret->screen_line_cache_valid = 0;
 	return ret;
+}
+
+void invalidateScreenCache(struct editorBuffer *buf) {
+	buf->screen_line_cache_valid = 0;
+}
+
+void buildScreenCache(struct editorBuffer *buf) {
+	if (buf->screen_line_cache_valid)
+		return;
+
+	if (buf->screen_line_cache_size < buf->numrows) {
+		buf->screen_line_cache_size = buf->numrows + 100;
+		buf->screen_line_start =
+			realloc(buf->screen_line_start,
+				buf->screen_line_cache_size * sizeof(int));
+	}
+
+	if (!buf->screen_line_start)
+		return;
+
+	int screen_line = 0;
+	for (int i = 0; i < buf->numrows; i++) {
+		buf->screen_line_start[i] = screen_line;
+		if (buf->truncate_lines) {
+			screen_line += 1;
+		} else {
+			int lines_used =
+				(buf->row[i].renderwidth / E.screencols) + 1;
+			screen_line += lines_used;
+		}
+	}
+
+	buf->screen_line_cache_valid = 1;
+}
+
+int getScreenLineForRow(struct editorBuffer *buf, int row) {
+	if (!buf->screen_line_cache_valid) {
+		buildScreenCache(buf);
+	}
+	if (row >= buf->numrows || row < 0)
+		return 0;
+	return buf->screen_line_start[row];
 }
 
 void destroyBuffer(struct editorBuffer *buf) {
 	clearUndosAndRedos(buf);
 	free(buf->filename);
+	free(buf->screen_line_start);
 	free(buf);
 }
 
@@ -2734,6 +1377,12 @@ void initEditor() {
 	E.windows = malloc(sizeof(struct editorWindow *) * 1);
 	E.windows[0] = malloc(sizeof(struct editorWindow));
 	E.windows[0]->focused = 1;
+	E.windows[0]->cx = 0;
+	E.windows[0]->cy = 0;
+	E.windows[0]->scx = 0;
+	E.windows[0]->scy = 0;
+	E.windows[0]->rowoff = 0;
+	E.windows[0]->coloff = 0;
 	E.nwindows = 1;
 	E.recording = 0;
 	E.macro.nkeys = 0;

@@ -11,4 +11,7 @@ void editorRowInsertUnicode(struct editorConfig *ed, struct editorBuffer *bufr,
 void editorRowAppendString(struct editorBuffer *bufr, erow *row, char *s,
 			   size_t len);
 void editorRowDelChar(struct editorBuffer *bufr, erow *row, int at);
+int charsToRenderIndex(erow *row, int chars_idx);
+int renderToCharsIndex(erow *row, int render_idx);
+int charsToScreenWidth(erow *row, int chars_idx);
 #endif

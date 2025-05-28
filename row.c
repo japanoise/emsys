@@ -91,6 +91,7 @@ void editorInsertRow(struct editorBuffer *bufr, int at, char *s, size_t len) {
 
 	bufr->numrows++;
 	bufr->dirty = 1;
+	invalidateScreenCache(bufr);
 }
 
 void editorFreeRow(erow *row) {
@@ -106,6 +107,7 @@ void editorDelRow(struct editorBuffer *bufr, int at) {
 		sizeof(erow) * (bufr->numrows - at - 1));
 	bufr->numrows--;
 	bufr->dirty = 1;
+	invalidateScreenCache(bufr);
 }
 
 void editorRowInsertChar(struct editorBuffer *bufr, erow *row, int at, int c) {
@@ -117,6 +119,7 @@ void editorRowInsertChar(struct editorBuffer *bufr, erow *row, int at, int c) {
 	row->chars[at] = c;
 	editorUpdateRow(row);
 	bufr->dirty = 1;
+	invalidateScreenCache(bufr);
 }
 
 void editorRowInsertUnicode(struct editorConfig *ed, struct editorBuffer *bufr,
@@ -130,6 +133,7 @@ void editorRowInsertUnicode(struct editorConfig *ed, struct editorBuffer *bufr,
 	memcpy(&row->chars[at], ed->unicode, ed->nunicode);
 	editorUpdateRow(row);
 	bufr->dirty = 1;
+	invalidateScreenCache(bufr);
 }
 
 void editorRowAppendString(struct editorBuffer *bufr, erow *row, char *s,
@@ -140,6 +144,7 @@ void editorRowAppendString(struct editorBuffer *bufr, erow *row, char *s,
 	row->chars[row->size] = '\0';
 	editorUpdateRow(row);
 	bufr->dirty = 1;
+	invalidateScreenCache(bufr);
 }
 
 void editorRowDelChar(struct editorBuffer *bufr, erow *row, int at) {
@@ -151,4 +156,94 @@ void editorRowDelChar(struct editorBuffer *bufr, erow *row, int at) {
 	row->size -= size;
 	editorUpdateRow(row);
 	bufr->dirty = 1;
+	invalidateScreenCache(bufr);
+}
+
+int charsToRenderIndex(erow *row, int chars_idx) {
+	if (!row || chars_idx < 0)
+		return 0;
+	if (chars_idx >= row->size)
+		return row->rsize;
+
+	int render_idx = 0;
+	for (int i = 0; i < chars_idx && i < row->size; i++) {
+		if (row->chars[i] == '\t') {
+			render_idx++;
+			while (render_idx % EMSYS_TAB_STOP != 0) {
+				render_idx++;
+			}
+		} else if (row->chars[i] == 0x7f) {
+			render_idx += 9; // ESC[7m^?ESC[m
+		} else if (ISCTRL(row->chars[i])) {
+			render_idx += 9; // ESC[7m^XESC[m
+		} else if (row->chars[i] > 0x7f) {
+			render_idx++;
+		} else if (utf8_isCont(row->chars[i])) {
+			render_idx++;
+		} else {
+			render_idx++;
+		}
+	}
+	return render_idx;
+}
+
+int renderToCharsIndex(erow *row, int render_idx) {
+	if (!row || render_idx <= 0)
+		return 0;
+	if (render_idx >= row->rsize)
+		return row->size;
+
+	int current_render_idx = 0;
+	for (int chars_idx = 0; chars_idx < row->size; chars_idx++) {
+		if (current_render_idx >= render_idx) {
+			return chars_idx;
+		}
+
+		if (row->chars[chars_idx] == '\t') {
+			current_render_idx++;
+			while (current_render_idx % EMSYS_TAB_STOP != 0) {
+				current_render_idx++;
+				if (current_render_idx >= render_idx) {
+					return chars_idx;
+				}
+			}
+		} else if (ISCTRL(row->chars[chars_idx])) {
+			current_render_idx += 9;
+		} else if (row->chars[chars_idx] > 0x7f) {
+			current_render_idx++;
+		} else if (utf8_isCont(row->chars[chars_idx])) {
+			current_render_idx++;
+		} else {
+			current_render_idx++;
+		}
+	}
+	return row->size;
+}
+
+int charsToScreenWidth(erow *row, int chars_idx) {
+	if (!row || chars_idx < 0)
+		return 0;
+	if (chars_idx >= row->size)
+		return row->renderwidth;
+
+	int screen_width = 0;
+	for (int i = 0; i < chars_idx && i < row->size; i++) {
+		if (row->chars[i] == '\t') {
+			screen_width++;
+			while (screen_width % EMSYS_TAB_STOP != 0) {
+				screen_width++;
+			}
+		} else if (row->chars[i] == 0x7f) {
+			screen_width += 2;
+		} else if (ISCTRL(row->chars[i])) {
+			screen_width += 2;
+		} else if (row->chars[i] > 0x7f) {
+			int width = charInStringWidth(row->chars, i);
+			screen_width += width;
+		} else if (utf8_isCont(row->chars[i])) {
+		} else {
+			screen_width += 1;
+		}
+	}
+	return screen_width;
 }

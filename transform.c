@@ -62,7 +62,17 @@ uint8_t *transformerCapitalCase(uint8_t *input) {
 uint8_t *transformerTransposeChars(uint8_t *input) {
 	MKOUTPUT(input, len, output);
 
+	if (len == 0) {
+		output[0] = 0;
+		return output;
+	}
+
 	int endFirst = utf8_nBytes(input[0]);
+
+	if (endFirst > len) {
+		memcpy(output, input, len + 1);
+		return output;
+	}
 
 	memcpy(output, input + endFirst, len - endFirst);
 	memcpy(output + (len - endFirst), input, endFirst);
@@ -73,9 +83,22 @@ uint8_t *transformerTransposeChars(uint8_t *input) {
 }
 
 uint8_t *transformerTransposeWords(uint8_t *input) {
+	if (input == NULL) {
+		return (uint8_t *)stringdup("");
+	}
+
+	int inputLen = strlen(input);
+	if (inputLen == 0) {
+		return (uint8_t *)stringdup("");
+	}
+
 	MKOUTPUT(input, len, output);
 
-	int endFirst, startSecond = 0;
+	if (output == NULL) {
+		return NULL;
+	}
+
+	int endFirst = -1, startSecond = -1;
 	int which = 0;
 	for (int i = 0; i <= len; i++) {
 		if (!which) {
@@ -90,12 +113,41 @@ uint8_t *transformerTransposeWords(uint8_t *input) {
 			}
 		}
 	}
+
+	if (endFirst == -1 || startSecond == -1 || endFirst >= startSecond ||
+	    startSecond > len || endFirst < 0) {
+		memcpy(output, input, len + 1);
+		return output;
+	}
+
+	if (startSecond > len || endFirst >= startSecond) {
+		memcpy(output, input, len + 1);
+		return output;
+	}
+
+	int part1_len = endFirst;
+	int part2_len = startSecond - endFirst;
+	int part3_len = len - startSecond;
+
+	if (part1_len < 0 || part2_len < 0 || part3_len < 0 ||
+	    part1_len + part2_len + part3_len != len) {
+		memcpy(output, input, len + 1);
+		return output;
+	}
+
 	int offset = 0;
-	memcpy(output, input + startSecond, len - startSecond);
-	offset += len - startSecond;
-	memcpy(output + offset, input + endFirst, startSecond - endFirst);
-	offset += startSecond - endFirst;
-	memcpy(output + offset, input, endFirst);
+	if (part3_len > 0) {
+		memcpy(output + offset, input + startSecond, part3_len);
+		offset += part3_len;
+	}
+	if (part2_len > 0) {
+		memcpy(output + offset, input + endFirst, part2_len);
+		offset += part2_len;
+	}
+	if (part1_len > 0) {
+		memcpy(output + offset, input, part1_len);
+		offset += part1_len;
+	}
 
 	output[len] = 0;
 

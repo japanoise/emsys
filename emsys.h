@@ -54,6 +54,7 @@ enum editorKey {
 	NEXT_BUFFER,
 	PREVIOUS_BUFFER,
 	MARK_BUFFER,
+	MARK_RECTANGLE,
 	DELETE_WORD,
 	BACKSPACE_WORD,
 	OTHER_WINDOW,
@@ -87,6 +88,7 @@ enum editorKey {
 	WHAT_CURSOR,
 	PIPE_CMD,
 	CUSTOM_INFO_MESSAGE,
+	ISEARCH_FORWARD_REGEXP,
 	QUERY_REPLACE,
 	GOTO_LINE,
 	BACKTAB,
@@ -111,6 +113,7 @@ enum editorKey {
 enum promptType {
 	PROMPT_BASIC,
 	PROMPT_FILES,
+	PROMPT_COMMANDS,
 };
 /*** data ***/
 
@@ -146,8 +149,9 @@ struct editorBuffer {
 	int uarg;
 	int uarg_active;
 	int special_buffer;
-	int truncate_lines; // 0 for wrapped, 1 for unwrapped
+	int truncate_lines;
 	int word_wrap;
+	int rectangle_mode;
 	erow *row;
 	char *filename;
 	uint8_t *query;
@@ -155,13 +159,16 @@ struct editorBuffer {
 	struct editorUndo *undo;
 	struct editorUndo *redo;
 	struct editorBuffer *next;
+	int *screen_line_start;
+	int screen_line_cache_size;
+	int screen_line_cache_valid;
 };
 
 struct editorWindow {
 	int focused;
 	struct editorBuffer *buf;
 	int scx, scy;
-	int cx, cy; // Buffer cx,cy  (only updated when switching windows)
+	int cx, cy;
 	int rowoff;
 	int coloff;
 	int height;
@@ -242,6 +249,8 @@ struct editorConfig {
 
 /*** prototypes ***/
 
+void crashHandler(int sig);
+void setupHandlers();
 void editorSetStatusMessage(const char *fmt, ...);
 void editorRefreshScreen();
 uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
@@ -254,11 +263,21 @@ void editorInsertNewline(struct editorBuffer *bufr);
 void editorInsertChar(struct editorBuffer *bufr, int c);
 void editorOpen(struct editorBuffer *bufr, char *filename);
 void die(const char *s);
+
+/* Safe memory allocation wrappers */
+void *xmalloc(size_t size);
+void *xrealloc(void *ptr, size_t size);
+void *xcalloc(size_t nmemb, size_t size);
+
 struct editorBuffer *newBuffer();
+void invalidateScreenCache(struct editorBuffer *buf);
+void buildScreenCache(struct editorBuffer *buf);
+int getScreenLineForRow(struct editorBuffer *buf, int row);
 void destroyBuffer(struct editorBuffer *);
 int editorReadKey();
 void editorRecordKey(int c);
 void editorRecenter(struct editorWindow *win);
+void editorRecenterCommand(struct editorConfig *ed, struct editorBuffer *buf);
 void editorExecMacro(struct editorMacro *macro);
 char *stringdup(const char *s);
 int windowFocusedIdx(struct editorConfig *ed);

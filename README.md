@@ -99,7 +99,8 @@ Control-x, `M-x` means Alt-x or Escape then x).
 * `C-e` or END - Move cursor to end of line
 * `C-v` or PGDN - Move cursor down a page/screen
 * `C-z` or `M-v` or PGUP - Move cursor up a page/screen
-* `C-s` - *S*earch
+* `C-s` - *S*earch (incremental)
+* `C-M-s` - Regex search (incremental)
 * `M-g` - *G*oto line number
 
 ### Text Editing
@@ -214,26 +215,29 @@ bottommost line.
 
 ### Regular Expression Syntax
 
-emsys uses [kokke's tiny-regex-c][tiny-regex] for regular expression support,
-and has the following syntax for regular expressions:
+emsys uses POSIX Extended Regular Expressions (ERE) for pattern matching.
+The following regex syntax is supported:
 
+**Basic Patterns:**
   -  `.`         Dot, matches any character
-  -  `^`         Start anchor, matches beginning of string
-  -  `$`         End anchor, matches end of string
+  -  `^`         Start anchor, matches beginning of line
+  -  `$`         End anchor, matches end of line
   -  `*`         Asterisk, match zero or more (greedy)
   -  `+`         Plus, match one or more (greedy)
   -  `?`         Question, match zero or one (non-greedy)
-  -  `[abc]`     Character class, match if one of {'a', 'b', 'c'}
-  -  `[^abc]`   Inverted class, match if NOT one of {'a', 'b', 'c'}
-  -  `[a-zA-Z]` Character ranges, the character set of the ranges { a-z | A-Z }
-  -  `\s`       Whitespace, \t \f \r \n \v and spaces
-  -  `\S`       Non-whitespace
-  -  `\w`       Alphanumeric, [a-zA-Z0-9_]
-  -  `\W`       Non-alphanumeric
-  -  `\d`       Digits, [0-9]
-  -  `\D`       Non-digits
 
-[tiny-regex]: https://github.com/kokke/tiny-regex-c
+**Character Classes:**
+  -  `[abc]`     Character class, match any of {'a', 'b', 'c'}
+  -  `[^abc]`    Inverted class, match any NOT in {'a', 'b', 'c'}
+  -  `[a-zA-Z]`  Character ranges, letters a-z and A-Z
+  -  `[0-9]`     Digit range
+
+**Grouping:**
+  -  `(pattern)` Group for precedence
+  -  `|`         Alternation (OR)
+
+**Note:** Advanced features like `\w`, `\d`, `\s` may not be available.
+Test your patterns as POSIX ERE compliance varies by system.
 
 ## Forks
 

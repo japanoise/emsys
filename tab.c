@@ -1,9 +1,11 @@
+#include "platform.h"
+#include "compat.h"
 #include <glob.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <regex.h>
 #include "emsys.h"
-#include "re.h"
 #include "row.h"
 #include "tab.h"
 #include "undo.h"
@@ -16,14 +18,11 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 	int capacity = 8; // Initial capacity
 	uint8_t *ret = input;
 
-	// Allocate initial memory
 	completions = malloc(capacity * sizeof(char *));
 	if (completions == NULL) {
-		// Handle allocation failure
 		return ret;
 	}
 
-	// Collect matching buffer names
 	for (struct editorBuffer *b = ed->firstBuf; b != NULL; b = b->next) {
 		if (b == currentBuffer)
 			continue;
@@ -31,13 +30,10 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 		char *name = b->filename ? b->filename : "*scratch*";
 		if (strncmp(name, (char *)input, strlen((char *)input)) == 0) {
 			if (count + 1 >= capacity) {
-				// Double capacity and reallocate
 				capacity *= 2;
 				char **new_completions = realloc(
 					completions, capacity * sizeof(char *));
 				if (new_completions == NULL) {
-					// Handle reallocation failure
-					// Free existing completions and return
 					for (int i = 0; i < count; i++) {
 						free(completions[i]);
 					}
@@ -59,7 +55,6 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 		goto cleanup;
 	}
 
-	// Multiple matches, allow cycling through them
 	int cur = 0;
 	for (;;) {
 		editorSetStatusMessage("Multiple options: %s",
@@ -99,7 +94,6 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 	if (*prompt == '~') {
 		char *home_dir = getenv("HOME");
 		if (!home_dir) {
-			// Handle error: HOME environment variable not found
 			return prompt;
 		}
 
@@ -109,7 +103,6 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 			malloc(home_len + prompt_len - 1 +
 			       1); // -1 for removed '~', +1 for null terminator
 		if (!new_prompt) {
-			// Handle memory allocation failure
 			return prompt;
 		}
 
@@ -130,13 +123,28 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 	prompt[end + 1] = 0;
 #endif
 
-#ifndef GLOB_TILDE
-	/* This isn't in POSIX, so define a fallback. */
-#define GLOB_TILDE 0
-#endif
-
+#if HAVE_GLOB_TILDE
 	if (glob((char *)prompt, GLOB_TILDE | GLOB_MARK, NULL, &globlist))
 		goto TC_FILES_CLEANUP;
+#else
+	char *expanded_prompt = NULL;
+	int tilde_result =
+		portable_glob_tilde_expand((char *)prompt, &expanded_prompt);
+	if (tilde_result < 0) {
+		goto TC_FILES_CLEANUP;
+	}
+
+	const char *final_prompt = tilde_result > 0 ? expanded_prompt :
+						      (char *)prompt;
+	int glob_result = glob(final_prompt, GLOB_MARK, NULL, &globlist);
+
+	if (expanded_prompt) {
+		portable_glob_tilde_free(expanded_prompt);
+	}
+
+	if (glob_result)
+		goto TC_FILES_CLEANUP;
+#endif
 
 	size_t cur = 0;
 
@@ -191,6 +199,79 @@ TC_FILES_CLEANUP:
 	return ret;
 }
 
+uint8_t *tabCompleteCommands(struct editorConfig *ed, uint8_t *input) {
+	char **completions = NULL;
+	int count = 0;
+	int capacity = 8; // Initial capacity
+	uint8_t *ret = input;
+
+	completions = malloc(capacity * sizeof(char *));
+	if (completions == NULL) {
+		return ret;
+	}
+
+	for (int i = 0; i < ed->cmd_count; i++) {
+		const char *cmd_name = ed->cmd[i].key;
+		if (strncmp(cmd_name, (char *)input, strlen((char *)input)) ==
+		    0) {
+			if (count + 1 >= capacity) {
+				capacity *= 2;
+				char **new_completions = realloc(
+					completions, capacity * sizeof(char *));
+				if (new_completions == NULL) {
+					for (int j = 0; j < count; j++) {
+						free(completions[j]);
+					}
+					free(completions);
+					return ret;
+				}
+				completions = new_completions;
+			}
+			completions[count++] = stringdup(cmd_name);
+		}
+	}
+
+	if (count < 1) {
+		goto cleanup;
+	}
+
+	if (count == 1) {
+		ret = (uint8_t *)stringdup(completions[0]);
+		goto cleanup;
+	}
+
+	int cur = 0;
+	for (;;) {
+		editorSetStatusMessage("Multiple options: %s",
+				       completions[cur]);
+		editorRefreshScreen();
+		editorCursorBottomLine(strlen(completions[cur]) + 19);
+
+		int c = editorReadKey();
+		switch (c) {
+		case '\r':
+			ret = (uint8_t *)stringdup(completions[cur]);
+			goto cleanup;
+		case CTRL('i'):
+			cur = (cur + 1) % count;
+			break;
+		case BACKTAB:
+			cur = (cur == 0) ? count - 1 : cur - 1;
+			break;
+		case CTRL('g'):
+			goto cleanup;
+		}
+	}
+
+cleanup:
+	for (int i = 0; i < count; i++) {
+		free(completions[i]);
+	}
+	free(completions);
+
+	return ret;
+}
+
 static int alnum(uint8_t c) {
 	return c > 127 || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') ||
 	       ('0' <= c && c <= '9') || c == '_';
@@ -226,7 +307,18 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 	int ncand = 0;
 	int scand = 32;
 	char **candidates = malloc(sizeof(uint8_t *) * scand);
-	re_t pattern = re_compile(word);
+	regex_t pattern;
+	regmatch_t matches[1];
+	int regcomp_result = regcomp(&pattern, word, REG_EXTENDED);
+	if (regcomp_result != 0) {
+		char error_msg[256];
+		regerror(regcomp_result, &pattern, error_msg,
+			 sizeof(error_msg));
+		editorSetStatusMessage("Regex error: %s", error_msg);
+		free(word);
+		free(candidates);
+		return;
+	}
 
 	/* This is a deeply naive algorithm. */
 	/* First, find every word that starts with the word to complete */
@@ -235,9 +327,14 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 			if (buf == bufr && buf->cy == i)
 				continue;
 			struct erow *row = &bufr->row[i];
-			int match_length;
-			int match_idx = re_matchp(pattern, (char *)row->chars,
-						  &match_length);
+			int regexec_result = regexec(
+				&pattern, (char *)row->chars, 1, matches, 0);
+			int match_idx =
+				(regexec_result == 0) ? matches[0].rm_so : -1;
+			int match_length =
+				(regexec_result == 0) ?
+					(matches[0].rm_eo - matches[0].rm_so) :
+					0;
 			if (match_idx >= 0) {
 				candidates[ncand] = calloc(match_length + 1, 1);
 				strncpy(candidates[ncand],
@@ -253,6 +350,7 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 			}
 		}
 	}
+	regfree(&pattern);
 	/* Dunmatchin'. Restore word to non-regex contents. */
 	word[bufr->cx - wordStart] = 0;
 

@@ -4,4 +4,5 @@
 #include "emsys.h"
 void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key);
 void editorFind(struct editorBuffer *bufr);
+void editorRegexFind(struct editorBuffer *bufr);
 #endif

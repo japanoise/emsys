@@ -5,6 +5,7 @@
 #include <string.h>
 #include "emsys.h"
 #include "command.h"
+#include "find.h"
 #include "region.h"
 #include "register.h"
 #include "row.h"
@@ -12,6 +13,11 @@
 #include "undo.h"
 #include "unicode.h"
 #include "unused.h"
+
+static void editorRegexFindCommand(struct editorConfig *ed,
+				   struct editorBuffer *buf) {
+	editorRegexFind(buf);
+}
 
 // https://stackoverflow.com/a/779960
 // You must free the result if result is non-NULL.
@@ -140,8 +146,9 @@ void editorReplaceString(struct editorConfig *ed, struct editorBuffer *buf) {
 		return;
 	}
 
-	uint8_t *prompt = malloc(strlen(orig) + 20);
-	sprintf(prompt, "Replace %s with: %%s", orig);
+	size_t prompt_size = strlen(orig) + 20;
+	uint8_t *prompt = xmalloc(prompt_size);
+	snprintf(prompt, prompt_size, "Replace %s with: %%s", orig);
 	repl = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 	free(prompt);
 	if (repl == NULL) {
@@ -190,8 +197,9 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 		return;
 	}
 
-	uint8_t *prompt = malloc(strlen(orig) + 25);
-	sprintf(prompt, "Query replace %s with: %%s", orig);
+	size_t prompt_size = strlen(orig) + 25;
+	uint8_t *prompt = xmalloc(prompt_size);
+	snprintf(prompt, prompt_size, "Query replace %s with: %%s", orig);
 	repl = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 	free(prompt);
 	if (repl == NULL) {
@@ -200,8 +208,10 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 		return;
 	}
 
-	prompt = malloc(strlen(orig) + strlen(repl) + 32);
-	sprintf(prompt, "Query replacing %s with %s:", orig, repl);
+	prompt_size = strlen(orig) + strlen(repl) + 32;
+	prompt = xmalloc(prompt_size);
+	snprintf(prompt, prompt_size, "Query replacing %s with %s:", orig,
+		 repl);
 	int bufwidth = stringWidth(prompt);
 	int savedMx = buf->markx;
 	int savedMy = buf->marky;
@@ -271,8 +281,10 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 			buf->cx -= strlen(orig);
 			break;
 		case CTRL('r'):
-			prompt = malloc(strlen(orig) + 25);
-			sprintf(prompt, "Replace this %s with: %%s", orig);
+			prompt_size = strlen(orig) + 25;
+			prompt = xmalloc(prompt_size);
+			snprintf(prompt, prompt_size,
+				 "Replace this %s with: %%s", orig);
 			newStr = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 			free(prompt);
 			if (newStr == NULL) {
@@ -289,8 +301,10 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 			break;
 		case 'e':
 		case 'E':
-			prompt = malloc(strlen(orig) + 25);
-			sprintf(prompt, "Query replace %s with: %%s", orig);
+			prompt_size = strlen(orig) + 25;
+			prompt = xmalloc(prompt_size);
+			snprintf(prompt, prompt_size,
+				 "Query replace %s with: %%s", orig);
 			newStr = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 			free(prompt);
 			if (newStr == NULL) {
@@ -302,9 +316,10 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 					      transformerReplaceString);
 			NEXT_OCCUR(true);
 RESET_PROMPT:
-			prompt = malloc(strlen(orig) + strlen(repl) + 32);
-			sprintf(prompt, "Query replacing %s with %s:", orig,
-				repl);
+			prompt_size = strlen(orig) + strlen(repl) + 32;
+			prompt = xmalloc(prompt_size);
+			snprintf(prompt, prompt_size,
+				 "Query replacing %s with %s:", orig, repl);
 			bufwidth = stringWidth(prompt);
 			break;
 		case CTRL('l'):
@@ -397,8 +412,10 @@ void setupCommands(struct editorConfig *ed) {
 		{ "capitalize-region", editorCapitalizeRegion },
 		{ "indent-spaces", editorIndentSpaces },
 		{ "indent-tabs", editorIndentTabs },
+		{ "isearch-forward-regexp", editorRegexFindCommand },
 		{ "kanaya", editorCapitalizeRegion },
 		{ "query-replace", editorQueryReplace },
+		{ "recenter", editorRecenterCommand },
 		{ "replace-regexp", editorReplaceRegex },
 		{ "replace-string", editorReplaceString },
 		{ "revert", editorRevert },
