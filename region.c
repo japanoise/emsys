@@ -826,6 +826,19 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	ed->kill = okill;
 }
 
+void editorMarkWholeBuffer(struct editorBuffer *buf) {
+	buf->cy = 0;
+	buf->cx = 0;
+	if (buf->numrows > 0) {
+		buf->marky = buf->numrows - 1;
+		buf->markx = buf->row[buf->marky].size;
+	} else {
+		buf->marky = 0;
+		buf->markx = 0;
+	}
+	editorSetStatusMessage("Mark set at beginning of buffer");
+}
+
 void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	uint8_t *okill = NULL;
 	if (ed->kill != NULL) {

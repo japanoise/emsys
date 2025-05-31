@@ -33,4 +33,6 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf);
 
 void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf);
 
+void editorMarkWholeBuffer(struct editorBuffer *buf);
+
 #endif

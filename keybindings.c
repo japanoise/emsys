@@ -644,6 +644,11 @@ static void handle_yank_rectangle(struct editorConfig *ed,
 	editorYankRectangle(ed, buf);
 }
 
+static void handle_mark_whole_buffer(struct editorConfig *ed,
+				     struct editorBuffer *buf, int rept) {
+	editorMarkWholeBuffer(buf);
+}
+
 static void handle_custom_info(struct editorConfig *ed,
 			       struct editorBuffer *buf, int rept) {
 	struct editorWindow *win = ed->windows[windowFocusedIdx(ed)];
@@ -942,6 +947,7 @@ static KeyBinding ctrl_x_bindings[] = {
 	{ COPY_RECT, handle_copy_rectangle, "copy-rectangle-to-register" },
 	{ KILL_RECT, handle_kill_rectangle, "kill-rectangle" },
 	{ YANK_RECT, handle_yank_rectangle, "yank-rectangle" },
+	{ 'h', handle_mark_whole_buffer, "mark-whole-buffer" },
 	{ '?', handle_custom_info, "custom-info" },
 };
 
