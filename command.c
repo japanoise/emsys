@@ -14,7 +14,7 @@
 #include "unicode.h"
 #include "unused.h"
 
-static void editorRegexFindCommand(struct editorConfig *ed,
+static void editorRegexFindCommand(struct editorConfig *UNUSED(ed),
 				   struct editorBuffer *buf) {
 	editorRegexFind(buf);
 }
@@ -378,6 +378,68 @@ void editorToggleTruncateLines(struct editorConfig *UNUSED(ed),
 				       "Truncate long lines disabled");
 }
 
+void editorDescribeKey(struct editorConfig *ed,
+		       struct editorBuffer *UNUSED(buf)) {
+	editorSetStatusMessage("Describe key: ");
+	ed->describe_key_mode = 1;
+}
+
+void editorViewManPage(struct editorConfig *ed, struct editorBuffer *buf) {
+	FILE *fp = popen("man -w emsys 2>/dev/null", "r");
+	if (!fp) {
+		editorSetStatusMessage("Cannot check for man page");
+		return;
+	}
+
+	char path[256];
+	if (!fgets(path, sizeof(path), fp) || strlen(path) < 2) {
+		pclose(fp);
+		editorSetStatusMessage("No man page found for emsys");
+		return;
+	}
+	pclose(fp);
+
+	struct editorBuffer *manpage = newBuffer();
+	manpage->filename = stringdup("*man emsys*");
+	manpage->special_buffer = 1;
+
+	fp = popen("man emsys 2>/dev/null | col -b", "r");
+	if (!fp) {
+		destroyBuffer(manpage);
+		editorSetStatusMessage("Cannot run man command");
+		return;
+	}
+
+	char line[1024];
+	while (fgets(line, sizeof(line), fp)) {
+		int len = strlen(line);
+		if (len > 0 && line[len - 1] == '\n') {
+			line[len - 1] = '\0';
+			len--;
+		}
+		editorInsertRow(manpage, manpage->numrows, line, len);
+	}
+	pclose(fp);
+
+	if (manpage->numrows == 0) {
+		destroyBuffer(manpage);
+		editorSetStatusMessage("Man page is empty");
+		return;
+	}
+
+	ed->focusBuf = manpage;
+	for (int i = 0; i < ed->nwindows; i++) {
+		if (ed->windows[i]->focused) {
+			ed->windows[i]->buf = manpage;
+		}
+	}
+}
+
+void editorHelpForHelp(struct editorConfig *ed, struct editorBuffer *buf) {
+	editorSetStatusMessage(
+		"C-h k: describe key, C-h m: view man page, M-x TAB: list commands");
+}
+
 #define ADDCMD(name, func)               \
 	newCmd = malloc(sizeof *newCmd); \
 	newCmdName = name;               \
@@ -409,10 +471,14 @@ static int compare_commands(const void *a, const void *b) {
 void setupCommands(struct editorConfig *ed) {
 	static struct editorCommand commands[] = {
 		{ "capitalize-region", editorCapitalizeRegion },
+		{ "describe-key", editorDescribeKey },
+		{ "help", editorViewManPage },
+		{ "help-for-help", editorHelpForHelp },
 		{ "indent-spaces", editorIndentSpaces },
 		{ "indent-tabs", editorIndentTabs },
 		{ "isearch-forward-regexp", editorRegexFindCommand },
 		{ "kanaya", editorCapitalizeRegion },
+		{ "man", editorViewManPage },
 		{ "query-replace", editorQueryReplace },
 		{ "recenter", editorRecenterCommand },
 		{ "replace-regexp", editorReplaceRegex },
@@ -420,6 +486,7 @@ void setupCommands(struct editorConfig *ed) {
 		{ "revert", editorRevert },
 		{ "toggle-truncate-lines", editorToggleTruncateLines },
 		{ "version", editorVersion },
+		{ "view-man-page", editorViewManPage },
 		{ "view-register", editorViewRegister },
 		{ "whitespace-cleanup", editorWhitespaceCleanup },
 #ifdef EMSYS_DEBUG_UNDO

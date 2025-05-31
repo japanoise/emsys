@@ -36,6 +36,181 @@ is /usr/local by default)
 .Bl -tag -width xx
 .It + Ns Ns Ar number
 Go to the specified line number.
+.El
+.Sh KEYBINDINGS
+.Nm
+uses Emacs-style keybindings where
+.Em C-x
+means Control-x and
+.Em M-x
+means Alt-x or Escape then x.
+.Ss Basic Commands
+.Bl -tag -width "C-x C-f"
+.It C-x C-s
+Save buffer
+.It C-x k
+Kill buffer
+.It C-x C-f
+Open file
+.It C-x C-c
+Quit
+.It M-x ...
+Run named command
+.It M-x version
+Display version information
+.El
+.Ss Cursor Movement
+.Bl -tag -width "C-M-s"
+.It C-n, DOWN
+Move cursor to next line
+.It C-p, UP
+Move cursor to previous line
+.It C-f, RIGHT
+Move cursor forward
+.It C-b, LEFT
+Move cursor backward
+.It M-f
+Move cursor forward word
+.It M-b
+Move cursor backward word
+.It M-n
+Move cursor to next paragraph
+.It M-p
+Move cursor to previous paragraph
+.It M-<
+Move cursor to start of buffer
+.It M->
+Move cursor to end of buffer
+.It C-a, HOME
+Move cursor to start of line
+.It C-e, END
+Move cursor to end of line
+.It C-v, PGDN
+Move cursor down a page/screen
+.It C-z, M-v, PGUP
+Move cursor up a page/screen
+.It C-s
+Search (incremental)
+.It C-M-s
+Regex search (incremental)
+.It M-g
+Goto line number
+.El
+.Ss Text Editing
+.Bl -tag -width "SHIFT-TAB"
+.It C-_
+Undo (Control-/ on most terminals)
+.It C-x C-_
+Redo (keep pressing C-_ to keep redoing)
+.It C-@
+Set mark (Control-SPACE on most terminals)
+.It C-x C-x
+Swap mark and point
+.It C-x h
+Mark the entire buffer
+.It C-w
+Kill (cut) current region
+.It M-w
+Copy current region
+.It C-y
+Yank (paste)
+.It M-|
+Filter region through shell command
+.It C-j
+Insert a newline and indent
+.It C-o
+Insert a newline but do not move the point
+.It C-i, TAB
+Indent current line
+.It SHIFT-TAB
+Unindent current line
+.It BACKSPACE
+Delete backwards
+.It C-d, DELETE
+Delete forwards
+.It M-BACKSPACE
+Delete backwards word
+.It M-d
+Delete forwards word
+.It C-u
+Delete to beginning of line
+.It C-k
+Delete to end of line
+.It M-%
+Query replace (interactive search and replace)
+.It C-t
+Transpose characters around cursor
+.It M-t
+Transpose words
+.It M-u
+Uppercase word
+.It M-l
+Lowercase word
+.It M-c
+Capitalize word
+.It C-q
+Insert next character raw
+.It M-/
+Autocomplete current word
+.El
+.Ss Windows and Buffers
+.Bl -tag -width "C-x <right>"
+.It C-x b
+Switch buffer
+.It C-x <left>
+Previous buffer
+.It C-x <right>
+Next buffer
+.It C-x o
+Switch window
+.It C-x 0
+Kill current window
+.It C-x 1
+Kill other windows
+.It C-x 2
+Create new window
+.It C-l
+Center cursor in window
+.El
+.Ss Advanced Features
+.Bl -tag -width "C-x r C-@"
+.It C-x (
+Start defining keyboard macro
+.It C-x )
+Stop defining keyboard macro
+.It C-x e
+Execute macro
+.It C-x C-z
+Suspend emsys
+.It C-x =
+Describe cursor position
+.It M-0 to M-9
+Universal argument (repeat command N times)
+.It C-x r j
+Jump to point stored in register
+.It C-x r a
+Store macro in register
+.It C-x r n
+Store number in register
+.It C-x r C-@, C-x r SPACE
+Store point in register
+.It C-x r s
+Store region in register
+.It C-x r +
+Increment number or add to string in register
+.It C-x r v
+View contents of register
+.It C-x r r
+Copy rectangle to register
+.It C-x r t
+Replace rectangle contents with string
+.It C-x r k, C-x r C-w
+Kill rectangle
+.It C-x r M-w
+Copy rectangle
+.It C-x r y
+Yank rectangle
+.El
 .Sh BUGS
 Please report all bugs to me at the upstream repository:
 https://github.com/japanoise/emsys

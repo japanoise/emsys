@@ -235,8 +235,8 @@ void editorInsertRegister(struct editorConfig *ed, struct editorBuffer *bufr) {
 		break;
 	case REGISTER_NUMBER:;
 		char str[32];
-		snprintf(str, sizeof(str), "%ld",
-			 ed->registers[reg].rdata.number);
+		snprintf(str, sizeof(str), "%lld",
+			 (long long)ed->registers[reg].rdata.number);
 		ed->kill = (uint8_t *)str;
 		editorYank(ed, bufr);
 		ed->kill = tmp;

@@ -418,7 +418,7 @@ void editorDrawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
 	struct editorBuffer *bufr = win->buf;
 
 	abAppend(ab, "\x1b[7m", 4);
-	char status[80];
+	char status[256];
 	int len = 0;
 	if (win->focused) {
 		len = snprintf(status, sizeof(status),
@@ -514,6 +514,13 @@ void editorDrawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
 
 void editorDrawMinibuffer(struct abuf *ab) {
 	abAppend(ab, "\x1b[K", 3);
+
+	// Show prefix first if active
+	if (E.prefix_display[0]) {
+		abAppend(ab, E.prefix_display, strlen(E.prefix_display));
+	}
+
+	// Then show message
 	int msglen = strlen(E.minibuffer);
 	if (msglen > E.screencols)
 		msglen = E.screencols;

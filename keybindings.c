@@ -83,6 +83,8 @@ editorPrompt(struct editorBuffer *buf, uint8_t *prompt, enum promptType t,
 	     void (*callback)(struct editorBuffer *, uint8_t *, int));
 extern void destroyBuffer(struct editorBuffer *buf);
 extern void editorWhatCursor(struct editorBuffer *buf);
+extern void editorDescribeKey(struct editorConfig *ed,
+			      struct editorBuffer *buf);
 
 extern struct editorConfig E;
 
@@ -646,10 +648,38 @@ static void handle_custom_info(struct editorConfig *ed,
 	editorSetStatusMessage(msg);
 }
 
+static void showCommandsOnEmpty(struct editorBuffer *buf, uint8_t *input,
+				int key) {
+	// Only show commands on TAB with empty input
+	if (key == CTRL('i') && strlen((char *)input) == 0) {
+		// Build list of all commands
+		char msg[512];
+		strcpy(msg, "Commands: ");
+		int first = 1;
+
+		for (int i = 0; i < E.cmd_count; i++) {
+			// Stop if we're running out of space
+			if (strlen(msg) + strlen(E.cmd[i].key) + 3 >
+			    sizeof(msg) - 20) {
+				strcat(msg, "...");
+				break;
+			}
+
+			if (!first)
+				strcat(msg, ", ");
+			strcat(msg, E.cmd[i].key);
+			first = 0;
+		}
+
+		editorSetStatusMessage("%s", msg);
+	}
+}
+
 static void handle_execute_extended_command(struct editorConfig *ed,
 					    struct editorBuffer *buf,
 					    int rept) {
-	uint8_t *cmd = editorPrompt(buf, "M-x %s", PROMPT_COMMANDS, NULL);
+	uint8_t *cmd = editorPrompt(buf, "M-x %s", PROMPT_COMMANDS,
+				    showCommandsOnEmpty);
 	if (cmd == NULL)
 		return;
 	runCommand((char *)cmd, ed, buf);
@@ -661,6 +691,9 @@ static void handle_create_window(struct editorConfig *ed,
 	ed->windows = realloc(ed->windows,
 			      sizeof(struct editorWindow *) * (++ed->nwindows));
 	ed->windows[ed->nwindows - 1] = malloc(sizeof(struct editorWindow));
+	if (!ed->windows[ed->nwindows - 1]) {
+		die("malloc failed");
+	}
 	ed->windows[ed->nwindows - 1]->focused = 0;
 	ed->windows[ed->nwindows - 1]->buf = ed->focusBuf;
 	ed->windows[ed->nwindows - 1]->rowoff = 0;
@@ -825,7 +858,7 @@ static KeyBinding basic_bindings[] = {
 	{ CTRL('g'), handle_keyboard_quit, "keyboard-quit" },
 	{ CTRL('l'), handle_recenter, "recenter" },
 	{ CTRL('t'), handle_transpose_chars, "transpose-chars" },
-	{ CTRL('h'), handle_backward_delete_char, "backward-delete-char" },
+	{ CTRL('h'), NULL, "help-prefix" },
 	{ CTRL('d'), handle_delete_char, "delete-char" },
 	{ CTRL('q'), handle_quoted_insert, "quoted-insert" },
 	{ CTRL('i'), handle_tab, "tab" },
@@ -976,8 +1009,59 @@ int handleUniversalArgument(int key, struct editorBuffer *buf) {
 	return 0;
 }
 
+static void describeKey(int key) {
+	// Build key description
+	char keydesc[64];
+	if (ISCTRL(key) && key < 32) {
+		snprintf(keydesc, sizeof(keydesc), "C-%c", key + '@');
+	} else if (key == 127) {
+		strcpy(keydesc, "DEL");
+	} else if (key < 256) {
+		snprintf(keydesc, sizeof(keydesc), "%c", key);
+	} else {
+		// Special keys
+		switch (key) {
+		case ARROW_UP:
+			strcpy(keydesc, "<up>");
+			break;
+		case ARROW_DOWN:
+			strcpy(keydesc, "<down>");
+			break;
+		case ARROW_LEFT:
+			strcpy(keydesc, "<left>");
+			break;
+		case ARROW_RIGHT:
+			strcpy(keydesc, "<right>");
+			break;
+		default:
+			snprintf(keydesc, sizeof(keydesc), "<%d>", key);
+			break;
+		}
+	}
+
+	// Find binding
+	const char *command = "is undefined";
+
+	// Check global keys
+	for (int i = 0; i < global_keys.count; i++) {
+		if (global_keys.bindings[i].key == key) {
+			command = global_keys.bindings[i].name;
+			break;
+		}
+	}
+
+	editorSetStatusMessage("%s %s", keydesc, command);
+}
+
 void processKeySequence(int key) {
 	struct editorBuffer *buf = E.focusBuf;
+
+	// Handle describe-key mode
+	if (E.describe_key_mode) {
+		E.describe_key_mode = 0;
+		describeKey(key);
+		return;
+	}
 
 	if (E.micro == REDO) {
 #ifdef EMSYS_CUA
@@ -1009,20 +1093,37 @@ void processKeySequence(int key) {
 
 	if (key == CTRL('x') && prefix_state == PREFIX_NONE) {
 		prefix_state = PREFIX_CTRL_X;
-		editorSetStatusMessage("C-x-");
-		editorRefreshScreen();
+		strcpy(E.prefix_display, "C-x ");
 		return;
 	}
 	if (key == 033 && prefix_state == PREFIX_NONE) {
 		prefix_state = PREFIX_META;
-		editorSetStatusMessage("ESC-");
-		editorRefreshScreen();
+		strcpy(E.prefix_display, "M-");
 		return;
 	}
 	if (key == 'r' && prefix_state == PREFIX_CTRL_X) {
 		prefix_state = PREFIX_CTRL_X_R;
-		editorSetStatusMessage("C-x r-");
-		editorRefreshScreen();
+		strcpy(E.prefix_display, "C-x r ");
+		return;
+	}
+
+	// Handle C-h prefix commands
+	if (key == CTRL('h') && prefix_state == PREFIX_NONE) {
+		int help_key = editorReadKey(buf);
+		switch (help_key) {
+		case 'k':
+			editorDescribeKey(&E, E.focusBuf);
+			break;
+		case 'b':
+		case 'i':
+		case 'm':
+			editorViewManPage(&E, E.focusBuf);
+			break;
+		case '?':
+		default:
+			editorHelpForHelp(&E, E.focusBuf);
+			break;
+		}
 		return;
 	}
 
@@ -1049,6 +1150,7 @@ void processKeySequence(int key) {
 			editorSetStatusMessage("Unknown key sequence");
 		}
 		prefix_state = PREFIX_NONE;
+		E.prefix_display[0] = '\0';
 		return;
 	}
 
@@ -1058,7 +1160,7 @@ void processKeySequence(int key) {
 
 	if (prefix_state != PREFIX_NONE) {
 		prefix_state = PREFIX_NONE;
-		editorSetStatusMessage("");
+		E.prefix_display[0] = '\0';
 	}
 
 	binding->handler(&E, buf, rept);

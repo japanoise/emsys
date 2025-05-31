@@ -11,7 +11,7 @@
 #define EMSYS_TAB_STOP 8
 
 #ifndef EMSYS_VERSION
-#define EMSYS_VERSION "unknown"
+#define EMSYS_VERSION "1.0.0"
 #endif
 
 #ifndef EMSYS_BUILD_DATE
@@ -227,7 +227,8 @@ struct editorConfig {
 	int screencols;
 	uint8_t unicode[4];
 	int nunicode;
-	char minibuffer[80];
+	char minibuffer[256];
+	char prefix_display[32];
 	time_t statusmsg_time;
 	struct termios orig_termios;
 	struct editorBuffer *firstBuf;
@@ -242,6 +243,7 @@ struct editorConfig {
 	int cmd_count;
 	struct editorRegister registers[127];
 	struct editorBuffer *lastVisitedBuffer;
+	int describe_key_mode;
 };
 
 /*** prototypes ***/

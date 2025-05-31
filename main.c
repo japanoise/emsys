@@ -499,7 +499,8 @@ void editorSetStatusMessage(const char *fmt, ...) {
 	E.statusmsg_time = time(NULL);
 }
 
-void editorRecenterCommand(struct editorConfig *ed, struct editorBuffer *buf) {
+void editorRecenterCommand(struct editorConfig *ed,
+			   struct editorBuffer *UNUSED(buf)) {
 	int winIdx = windowFocusedIdx(ed);
 	editorRecenter(ed->windows[winIdx]);
 }
@@ -1362,6 +1363,8 @@ void destroyBuffer(struct editorBuffer *buf) {
 
 void initEditor() {
 	E.minibuffer[0] = 0;
+	E.prefix_display[0] = '\0';
+	E.describe_key_mode = 0;
 	E.kill = NULL;
 	E.rectKill = NULL;
 	E.windows = malloc(sizeof(struct editorWindow *) * 1);
