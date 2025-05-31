@@ -60,10 +60,6 @@ static uint8_t *transformerPipeCmd(uint8_t *input) {
 }
 
 uint8_t *editorPipe(struct editorConfig *ed, struct editorBuffer *bf) {
-#ifdef EMSYS_DISABLE_PIPE
-	editorSetStatusMessage("Shell pipe command disabled for security");
-	return NULL;
-#endif
 	buf = calloc(1, BUFSIZ + 1);
 	cmd = NULL;
 	cmd = editorPrompt(

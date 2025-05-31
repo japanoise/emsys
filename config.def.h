@@ -10,7 +10,4 @@
 /* CUA mode*/
 /* #define EMSYS_CUA */
 
-/* Disable shell pipe command for security */
-#define EMSYS_DISABLE_PIPE
-
 #endif /* _EMSYS_CONFIG_H */
