@@ -159,7 +159,7 @@ void editorSetScxScy(struct editorWindow *win) {
 		return;
 	}
 
-	int total_width = charsToScreenWidth(row, buf->cx);
+	int total_width = charsToDisplayColumn(row, buf->cx);
 
 	if (buf->truncate_lines) {
 		win->scx = total_width - win->coloff;

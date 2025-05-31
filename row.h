@@ -13,5 +13,4 @@ void editorRowDelChar(struct editorBuffer *bufr, erow *row, int at);
 int calculateLineWidth(erow *row);
 int charsToDisplayColumn(erow *row, int chars_idx);
 int displayColumnToChars(erow *row, int display_col);
-int charsToScreenWidth(erow *row, int chars_idx);
 #endif

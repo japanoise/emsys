@@ -148,8 +148,3 @@ int displayColumnToChars(erow *row, int display_col) {
 	}
 	return row->size;
 }
-
-int charsToScreenWidth(erow *row, int chars_idx) {
-	/* TODO maybe replace charsToScreenWidth() with charsToDisplayColumn */
-	return charsToDisplayColumn(row, chars_idx);
-}
