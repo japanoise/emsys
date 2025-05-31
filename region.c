@@ -115,7 +115,6 @@ void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 	}
 
 	buf->dirty = 1;
-	editorUpdateBuffer(buf);
 }
 
 void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf) {
@@ -187,7 +186,6 @@ void editorYank(struct editorConfig *ed, struct editorBuffer *buf) {
 	buf->undo = new;
 
 	buf->dirty = 1;
-	editorUpdateBuffer(buf);
 }
 
 void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
@@ -400,7 +398,6 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 	buf->cx = new->endx;
 	buf->cy = new->endy;
 
-	editorUpdateBuffer(buf);
 	regfree(&pattern);
 	free(regex);
 	free(repl);
@@ -580,7 +577,6 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->datalen = strlen((char *)new->data);
 
 	buf->dirty = 1;
-	editorUpdateBuffer(buf);
 	ed->kill = okill;
 }
 
@@ -823,7 +819,6 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->datalen = strlen((char *)new->data);
 
 	buf->dirty = 1;
-	editorUpdateBuffer(buf);
 	ed->kill = okill;
 }
 
@@ -999,6 +994,5 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->datalen = strlen((char *)new->data);
 
 	buf->dirty = 1;
-	editorUpdateBuffer(buf);
 	ed->kill = okill;
 }

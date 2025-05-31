@@ -119,10 +119,7 @@ enum promptType {
 
 typedef struct erow {
 	int size;
-	int rsize;
-	int renderwidth;
 	uint8_t *chars;
-	uint8_t *render;
 } erow;
 
 struct editorUndo {
@@ -258,7 +255,6 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 		      void (*callback)(struct editorBuffer *, uint8_t *, int));
 void editorCursorBottomLine(int);
 void editorCursorBottomLineLong(long);
-void editorUpdateBuffer(struct editorBuffer *buf);
 void editorInsertNewline(struct editorBuffer *bufr);
 void editorInsertChar(struct editorBuffer *bufr, int c);
 void editorOpen(struct editorBuffer *bufr, char *filename);

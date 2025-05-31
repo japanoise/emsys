@@ -52,8 +52,6 @@ void editorDoUndo(struct editorBuffer *buf) {
 		buf->cy = buf->undo->starty;
 	}
 
-	editorUpdateBuffer(buf);
-
 	struct editorUndo *orig = buf->redo;
 	buf->redo = buf->undo;
 	buf->undo = buf->undo->prev;
@@ -107,8 +105,6 @@ void editorDoRedo(struct editorBuffer *buf) {
 		buf->cx = buf->redo->endx;
 		buf->cy = buf->redo->endy;
 	}
-
-	editorUpdateBuffer(buf);
 
 	struct editorUndo *orig = buf->undo;
 	buf->undo = buf->redo;

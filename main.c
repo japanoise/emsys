@@ -83,12 +83,6 @@ void *xcalloc(size_t nmemb, size_t size) {
 	return ptr;
 }
 
-void editorUpdateBuffer(struct editorBuffer *buf) {
-	for (int i = 0; i < buf->numrows; i++) {
-		editorUpdateRow(&buf->row[i]);
-	}
-}
-
 int windowFocusedIdx(struct editorConfig *ed) {
 	for (int i = 0; i < E.nwindows; i++) {
 		if (ed->windows[i]->focused) {
@@ -166,7 +160,6 @@ void editorInsertNewline(struct editorBuffer *bufr) {
 		row = &bufr->row[bufr->cy];
 		row->size = bufr->cx;
 		row->chars[row->size] = '\0';
-		editorUpdateRow(row);
 	}
 	bufr->cy++;
 	bufr->cx = 0;
@@ -264,7 +257,6 @@ UNINDENT_PERFORM:
 	memmove(&row->chars[0], &row->chars[trunc], row->size - trunc);
 	row->size -= trunc;
 	bufr->cx -= trunc;
-	editorUpdateRow(row);
 	bufr->dirty = 1;
 }
 
@@ -352,7 +344,6 @@ void editorKillLine(struct editorBuffer *buf) {
 
 		row->size = buf->cx;
 		row->chars[row->size] = '\0';
-		editorUpdateRow(row);
 		buf->dirty = 1;
 		editorClearMark(buf);
 	}
@@ -393,7 +384,6 @@ void editorKillLineBackwards(struct editorBuffer *buf) {
 	row->size -= buf->cx;
 	memmove(row->chars, &row->chars[buf->cx], row->size);
 	row->chars[row->size] = '\0';
-	editorUpdateRow(row);
 	buf->cx = 0;
 	buf->dirty = 1;
 }
@@ -1345,8 +1335,8 @@ void buildScreenCache(struct editorBuffer *buf) {
 		if (buf->truncate_lines) {
 			screen_line += 1;
 		} else {
-			int lines_used =
-				(buf->row[i].renderwidth / E.screencols) + 1;
+			int width = calculateLineWidth(&buf->row[i]);
+			int lines_used = (width / E.screencols) + 1;
 			screen_line += lines_used;
 		}
 	}

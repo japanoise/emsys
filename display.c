@@ -49,8 +49,8 @@ static int isRenderPosInRegion(struct editorBuffer *buf, int row,
 		if (row < top_row || row > bottom_row)
 			return 0;
 
-		int left_render = charsToRenderIndex(erow_ptr, left_col);
-		int right_render = charsToRenderIndex(erow_ptr, right_col);
+		int left_render = charsToDisplayColumn(erow_ptr, left_col);
+		int right_render = charsToDisplayColumn(erow_ptr, right_col);
 
 		return (render_pos >= left_render && render_pos < right_render);
 	} else {
@@ -72,18 +72,20 @@ static int isRenderPosInRegion(struct editorBuffer *buf, int row,
 
 		if (row == start_row && row == end_row) {
 			int start_render =
-				charsToRenderIndex(erow_ptr, start_col);
-			int end_render = charsToRenderIndex(erow_ptr, end_col);
+				charsToDisplayColumn(erow_ptr, start_col);
+			int end_render =
+				charsToDisplayColumn(erow_ptr, end_col);
 			return (render_pos >= start_render &&
 				render_pos < end_render);
 		}
 		if (row == start_row) {
 			int start_render =
-				charsToRenderIndex(erow_ptr, start_col);
+				charsToDisplayColumn(erow_ptr, start_col);
 			return (render_pos >= start_render);
 		}
 		if (row == end_row) {
-			int end_render = charsToRenderIndex(erow_ptr, end_col);
+			int end_render =
+				charsToDisplayColumn(erow_ptr, end_col);
 			return (render_pos < end_render);
 		}
 		return 1;
@@ -102,8 +104,8 @@ static int isRenderPosCurrentSearchMatch(struct editorBuffer *buf, int row,
 		return 0;
 
 	int match_len = strlen((char *)buf->query);
-	int start_render = charsToRenderIndex(erow_ptr, buf->cx);
-	int end_render = charsToRenderIndex(erow_ptr, buf->cx + match_len);
+	int start_render = charsToDisplayColumn(erow_ptr, buf->cx);
+	int end_render = charsToDisplayColumn(erow_ptr, buf->cx + match_len);
 
 	return (render_pos >= start_render && render_pos < end_render);
 }
@@ -121,7 +123,7 @@ int calculateRowsToScroll(struct editorBuffer *buf, struct editorWindow *win,
 		int line_height =
 			buf->truncate_lines ?
 				1 :
-				((row->renderwidth / E.screencols) + 1);
+				((calculateLineWidth(row) / E.screencols) + 1);
 		if (rendered_lines + line_height > win->height && direction < 0)
 			break;
 		rendered_lines += line_height;
@@ -162,7 +164,7 @@ void editorSetScxScy(struct editorWindow *win) {
 	if (buf->truncate_lines) {
 		win->scx = total_width - win->coloff;
 	} else {
-		int render_pos = charsToRenderIndex(row, buf->cx);
+		int render_pos = charsToDisplayColumn(row, buf->cx);
 		win->scy += render_pos / E.screencols;
 		win->scx = render_pos % E.screencols;
 	}
@@ -196,9 +198,10 @@ void editorScroll(void) {
 
 			for (int i = win->rowoff;
 			     i < buf->cy && i < buf->numrows; i++) {
-				int line_height = (buf->row[i].renderwidth /
-						   E.screencols) +
-						  1;
+				int line_height =
+					(calculateLineWidth(&buf->row[i]) /
+					 E.screencols) +
+					1;
 				cursor_screen_row += line_height;
 			}
 
@@ -227,7 +230,8 @@ void editorScroll(void) {
 				for (int i = buf->cy; i >= 0; i--) {
 					if (i < buf->numrows) {
 						int line_height =
-							(buf->row[i].renderwidth /
+							(calculateLineWidth(
+								 &buf->row[i]) /
 							 E.screencols) +
 							1;
 						if (visible_rows + line_height >
@@ -274,6 +278,83 @@ void editorScroll(void) {
 	editorSetScxScy(win);
 }
 
+static void renderLineWithHighlighting(erow *row, struct abuf *ab,
+				       int start_col, int end_col,
+				       struct editorBuffer *buf, int filerow) {
+	int render_x = 0;
+	int char_idx = 0;
+	int current_highlight = 0;
+
+	while (char_idx < row->size && render_x < start_col) {
+		if (row->chars[char_idx] == '\t') {
+			render_x = (render_x + EMSYS_TAB_STOP) /
+				   EMSYS_TAB_STOP * EMSYS_TAB_STOP;
+		} else if (ISCTRL(row->chars[char_idx])) {
+			render_x += 2;
+		} else if (row->chars[char_idx] < 0x80) {
+			render_x += 1;
+		} else {
+			render_x += charInStringWidth(row->chars, char_idx);
+		}
+		char_idx += utf8_nBytes(row->chars[char_idx]);
+	}
+
+	while (char_idx < row->size && render_x < end_col) {
+		uint8_t c = row->chars[char_idx];
+
+		int in_region = isRenderPosInRegion(buf, filerow, render_x);
+		int is_current_match =
+			isRenderPosCurrentSearchMatch(buf, filerow, render_x);
+		int new_highlight = (in_region || is_current_match) ? 1 : 0;
+
+		if (new_highlight != current_highlight) {
+			if (current_highlight > 0) {
+				abAppend(ab, "\x1b[0m", 4);
+			}
+			if (new_highlight == 1) {
+				abAppend(ab, "\x1b[7m", 4);
+			}
+			current_highlight = new_highlight;
+		}
+
+		if (c == '\t') {
+			int next_tab_stop = (render_x + EMSYS_TAB_STOP) /
+					    EMSYS_TAB_STOP * EMSYS_TAB_STOP;
+			while (render_x < next_tab_stop && render_x < end_col) {
+				if (render_x >= start_col) {
+					abAppend(ab, " ", 1);
+				}
+				render_x++;
+			}
+		} else if (ISCTRL(c)) {
+			if (render_x >= start_col) {
+				abAppend(ab, "^", 1);
+				if (c == 0x7f) {
+					abAppend(ab, "?", 1);
+				} else {
+					char sym = c | 0x40;
+					abAppend(ab, &sym, 1);
+				}
+			}
+			render_x += 2;
+		} else {
+			int width = charInStringWidth(row->chars, char_idx);
+			if (render_x >= start_col) {
+				int bytes = utf8_nBytes(c);
+				abAppend(ab, (char *)&row->chars[char_idx],
+					 bytes);
+			}
+			render_x += width;
+		}
+
+		char_idx += utf8_nBytes(row->chars[char_idx]);
+	}
+
+	if (current_highlight > 0) {
+		abAppend(ab, "\x1b[0m", 4);
+	}
+}
+
 void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 		    int screencols) {
 	struct editorBuffer *buf = win->buf;
@@ -286,97 +367,36 @@ void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 		} else {
 			erow *row = &buf->row[filerow];
 			if (buf->truncate_lines) {
-				int current_highlight = 0;
-				int start_render_pos =
-					charsToRenderIndex(row, win->coloff);
-
-				for (int idx = start_render_pos;
-				     idx < row->rsize &&
-				     (idx - start_render_pos) < screencols;
-				     idx++) {
-					int in_region = isRenderPosInRegion(
-						buf, filerow, idx);
-					int is_current_match =
-						isRenderPosCurrentSearchMatch(
-							buf, filerow, idx);
-
-					int new_highlight = 0;
-					if (in_region || is_current_match) {
-						new_highlight = 1;
-					}
-
-					if (new_highlight !=
-					    current_highlight) {
-						if (current_highlight > 0) {
-							abAppend(ab, "\x1b[0m",
-								 4);
-						}
-						if (new_highlight == 1) {
-							abAppend(ab, "\x1b[7m",
-								 4);
-						}
-						current_highlight =
-							new_highlight;
-					}
-
-					abAppend(ab, (char *)&row->render[idx],
-						 1);
-				}
-				if (current_highlight > 0) {
-					abAppend(ab, "\x1b[0m", 4);
-				}
+				renderLineWithHighlighting(
+					row, ab, win->coloff,
+					win->coloff + screencols, buf, filerow);
 				filerow++;
 			} else {
-				int current_highlight = 0;
-				int screen_col = 0;
+				int line_width = calculateLineWidth(row);
+				int start_col = 0;
 
-				for (int idx = 0; idx < row->rsize &&
-						  screen_col < screencols;
-				     idx++) {
-					int in_region = isRenderPosInRegion(
-						buf, filerow, idx);
-					int is_current_match =
-						isRenderPosCurrentSearchMatch(
-							buf, filerow, idx);
-
-					int new_highlight = 0;
-					if (in_region || is_current_match) {
-						new_highlight = 1;
+				while (start_col < line_width &&
+				       y < screenrows) {
+					int end_col = start_col + screencols;
+					if (end_col > line_width) {
+						end_col = line_width;
 					}
 
-					if (new_highlight !=
-					    current_highlight) {
-						if (current_highlight > 0) {
-							abAppend(ab, "\x1b[0m",
-								 4);
-						}
-						if (new_highlight == 1) {
-							abAppend(ab, "\x1b[7m",
-								 4);
-						}
-						current_highlight =
-							new_highlight;
-					}
+					renderLineWithHighlighting(row, ab,
+								   start_col,
+								   end_col, buf,
+								   filerow);
 
-					abAppend(ab, (char *)&row->render[idx],
-						 1);
-					screen_col++;
-
-					if (screen_col >= screencols) {
-						if (current_highlight > 0) {
-							abAppend(ab, "\x1b[0m",
-								 4);
-							current_highlight = 0;
+					start_col += screencols;
+					if (start_col < line_width) {
+						abAppend(ab, "\x1b[K", 3);
+						if (y < screenrows - 1) {
+							abAppend(ab, "\r\n", 2);
 						}
-						abAppend(ab, "\r\n", 2);
 						y++;
-						if (y >= screenrows)
-							break;
-						screen_col = 0;
+					} else {
+						break;
 					}
-				}
-				if (current_highlight > 0) {
-					abAppend(ab, "\x1b[0m", 4);
 				}
 				filerow++;
 			}

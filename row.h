@@ -1,7 +1,6 @@
 #ifndef EMSYS_ROW_H
 #define EMSYS_ROW_H
 #include "emsys.h"
-void editorUpdateRow(erow *row);
 void editorInsertRow(struct editorBuffer *bufr, int at, char *s, size_t len);
 void editorFreeRow(erow *row);
 void editorDelRow(struct editorBuffer *bufr, int at);
@@ -11,7 +10,8 @@ void editorRowInsertUnicode(struct editorConfig *ed, struct editorBuffer *bufr,
 void editorRowAppendString(struct editorBuffer *bufr, erow *row, char *s,
 			   size_t len);
 void editorRowDelChar(struct editorBuffer *bufr, erow *row, int at);
-int charsToRenderIndex(erow *row, int chars_idx);
-int renderToCharsIndex(erow *row, int render_idx);
+int calculateLineWidth(erow *row);
+int charsToDisplayColumn(erow *row, int chars_idx);
+int displayColumnToChars(erow *row, int display_col);
 int charsToScreenWidth(erow *row, int chars_idx);
 #endif

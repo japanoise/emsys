@@ -457,7 +457,6 @@ COMPLETE_WORD_DONE:;
 	       completelen);
 	row->size += completelen;
 	row->chars[row->size] = 0;
-	editorUpdateRow(row);
 
 	editorSetStatusMessage("Expanded %.30s to %.30s", word,
 			       candidates[sel]);
