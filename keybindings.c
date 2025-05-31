@@ -541,8 +541,13 @@ static void handle_find_file(struct editorConfig *ed, struct editorBuffer *buf,
 	if (prompt[0] == '~' && prompt[1] == '/') {
 		char *home = getenv("HOME");
 		if (home) {
-			snprintf(expanded, sizeof(expanded), "%s/%s", home,
-				 prompt + 2);
+			int ret = snprintf(expanded, sizeof(expanded), "%s/%s",
+					   home, prompt + 2);
+			if (ret >= (int)sizeof(expanded)) {
+				editorSetStatusMessage("Path too long");
+				free(prompt);
+				return;
+			}
 			filename = expanded;
 		}
 	}

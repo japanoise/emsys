@@ -115,7 +115,7 @@ Copy current region
 .It C-y
 Yank (paste)
 .It M-|
-Filter region through shell command
+Filter region through shell command (disabled by default for security)
 .It C-j
 Insert a newline and indent
 .It C-o
@@ -210,6 +210,20 @@ Kill rectangle
 Copy rectangle
 .It C-x r y
 Yank rectangle
+.El
+.Sh SECURITY
+The shell pipe command
+.Em M-|
+is disabled by default for security reasons as it allows execution of arbitrary shell commands.
+.Pp
+To enable this functionality:
+.Bl -enum
+.It
+Edit config.h
+.It
+Comment out the line: #define EMSYS_DISABLE_PIPE
+.It
+Recompile the program
 .El
 .Sh BUGS
 Please report all bugs to me at the upstream repository:

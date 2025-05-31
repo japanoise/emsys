@@ -52,9 +52,6 @@ void die(const char *s) {
 	write(STDOUT_FILENO, CSI "2J", 4);
 	write(STDOUT_FILENO, CSI "H", 3);
 	perror(s);
-	write(STDOUT_FILENO, CRLF, 2);
-	write(STDOUT_FILENO, "sleeping 5s", 11);
-	sleep(5);
 	exit(1);
 }
 
@@ -494,8 +491,11 @@ void editorSave(struct editorBuffer *bufr) {
 void editorSetStatusMessage(const char *fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
-	vsnprintf(E.minibuffer, sizeof(E.minibuffer), fmt, ap);
+	int ret = vsnprintf(E.minibuffer, sizeof(E.minibuffer), fmt, ap);
 	va_end(ap);
+	if (ret >= (int)sizeof(E.minibuffer)) {
+		strcpy(E.minibuffer + sizeof(E.minibuffer) - 4, "...");
+	}
 	E.statusmsg_time = time(NULL);
 }
 

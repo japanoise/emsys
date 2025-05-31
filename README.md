@@ -239,6 +239,16 @@ The following regex syntax is supported:
 **Note:** Advanced features like `\w`, `\d`, `\s` may not be available.
 Test your patterns as POSIX ERE compliance varies by system.
 
+## Security Configuration
+
+By default, emsys disables the shell pipe command (M-|) for security reasons. 
+This prevents arbitrary command execution through the editor.
+
+To enable shell pipe functionality:
+1. Edit config.h
+2. Comment out the line: `#define EMSYS_DISABLE_PIPE`
+3. Recompile
+
 ## Forks
 
 * [By Nicholas Carroll](https://github.com/nicholascarroll/emsys) 

@@ -1,13 +1,13 @@
 PROGNAME=emsys
 PREFIX=/usr/local
-VERSION?=git-$(shell git rev-parse --short HEAD)
+VERSION?=git-`git rev-parse --short HEAD`
 BINDIR=$(PREFIX)/bin
 MANDIR=$(PREFIX)/man/man1
 OBJECTS=main.o wcwidth.o unicode.o row.o region.o undo.o transform.o bound.o command.o find.o pipe.o tab.o register.o keybindings.o compat.o terminal.o display.o
-CFLAGS+=-std=c99 -D_POSIX_C_SOURCE=200112L -Wall -Wno-pointer-sign -DEMSYS_BUILD_DATE=\"$(shell date '+%Y-%m-%dT%H:%M:%S%z')\" -DEMSYS_VERSION=\"$(VERSION)\"
+CFLAGS+=-std=c99 -D_POSIX_C_SOURCE=200112L -Wall -Wno-pointer-sign -DEMSYS_BUILD_DATE=\"`date '+%Y-%m-%dT%H:%M:%S%z'`\" -DEMSYS_VERSION=\"$(VERSION)\"
 
 # Platform detection
-UNAME_S := $(shell uname -s)
+UNAME_S = `uname -s`
 ifeq ($(UNAME_S),FreeBSD)
     CFLAGS += -D__BSD_VISIBLE
 endif
