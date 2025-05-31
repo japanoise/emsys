@@ -33,7 +33,7 @@ void abFree(struct abuf *ab) {
 
 static int isRenderPosInRegion(struct editorBuffer *buf, int row,
 			       int render_pos) {
-	if (markInvalid(buf))
+	if (markInvalidSilent(buf))
 		return 0;
 
 	erow *erow_ptr = &buf->row[row];

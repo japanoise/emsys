@@ -36,11 +36,15 @@ void editorMarkRectangle(struct editorBuffer *buf) {
 	}
 }
 
+int markInvalidSilent(struct editorBuffer *buf) {
+	return (buf->markx < 0 || buf->marky < 0 || buf->numrows == 0 ||
+		buf->marky >= buf->numrows ||
+		buf->markx > (buf->row[buf->marky].size) ||
+		(buf->markx == buf->cx && buf->cy == buf->marky));
+}
+
 int markInvalid(struct editorBuffer *buf) {
-	int ret = (buf->markx < 0 || buf->marky < 0 || buf->numrows == 0 ||
-		   buf->marky >= buf->numrows ||
-		   buf->markx > (buf->row[buf->marky].size) ||
-		   (buf->markx == buf->cx && buf->cy == buf->marky));
+	int ret = markInvalidSilent(buf);
 
 	if (ret) {
 		editorSetStatusMessage("Mark invalid.");

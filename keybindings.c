@@ -85,6 +85,10 @@ extern void destroyBuffer(struct editorBuffer *buf);
 extern void editorWhatCursor(struct editorBuffer *buf);
 extern void editorDescribeKey(struct editorConfig *ed,
 			      struct editorBuffer *buf);
+extern void editorViewManPage(struct editorConfig *ed,
+			      struct editorBuffer *buf);
+extern void editorHelpForHelp(struct editorConfig *ed,
+			      struct editorBuffer *buf);
 
 extern struct editorConfig E;
 
@@ -1155,6 +1159,8 @@ void processKeySequence(int key) {
 	}
 
 	if (!binding->handler) {
+		prefix_state = PREFIX_NONE;
+		E.prefix_display[0] = '\0';
 		return;
 	}
 

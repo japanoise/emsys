@@ -6,6 +6,8 @@
 
 int markInvalid(struct editorBuffer *buf);
 
+int markInvalidSilent(struct editorBuffer *buf);
+
 void editorSetMark(struct editorBuffer *buf);
 
 void editorClearMark(struct editorBuffer *buf);

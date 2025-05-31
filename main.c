@@ -475,7 +475,7 @@ void editorSave(struct editorBuffer *bufr) {
 	int fd = open(bufr->filename, O_RDWR | O_CREAT, 0644);
 	if (fd != -1) {
 		if (ftruncate(fd, len) != -1) {
-			if (write(fd, buf, len)) {
+			if (write(fd, buf, len) == len) {
 				close(fd);
 				free(buf);
 				bufr->dirty = 0;
