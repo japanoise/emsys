@@ -37,10 +37,7 @@ const int page_overlap = 2;
 // POSIX 2001 compliant alternative to strdup
 char *stringdup(const char *s) {
 	size_t len = strlen(s) + 1; // +1 for the null terminator
-	char *new_str = malloc(len);
-	if (new_str == NULL) {
-		return NULL; // malloc failed
-	}
+	char *new_str = xmalloc(len);
 	return memcpy(new_str, s, len);
 }
 
@@ -164,6 +161,15 @@ void editorSwitchWindow(struct editorConfig *ed) {
 }
 
 /*** editor operations ***/
+
+void insertChar(int c) {
+	struct editorBuffer *bufr = E.focusBuf;
+	if (bufr->cy == bufr->numrows) {
+		editorInsertRow(bufr, bufr->numrows, "", 0);
+	}
+	editorRowInsertChar(bufr, &bufr->row[bufr->cy], bufr->cx, c);
+	bufr->cx++;
+}
 
 void editorInsertChar(struct editorBuffer *bufr, int c) {
 	if (bufr->cy == bufr->numrows) {
@@ -414,6 +420,44 @@ void editorKillLineBackwards(struct editorBuffer *buf) {
 	editorRowDeleteRange(buf, row, 0, buf->cx);
 	buf->cx = 0;
 	buf->dirty = 1;
+}
+
+/* Simplified API functions that access E.focusBuf internally */
+
+void backSpace() {
+	editorBackSpace(E.focusBuf);
+}
+
+void delChar() {
+	editorDelChar(E.focusBuf);
+}
+
+void insertNewline() {
+	editorInsertNewline(E.focusBuf);
+}
+
+void killLine() {
+	editorKillLine(E.focusBuf);
+}
+
+void doUndo() {
+	editorDoUndo(E.focusBuf);
+}
+
+void setMark() {
+	editorSetMark(E.focusBuf);
+}
+
+void clearMark() {
+	editorClearMark(E.focusBuf);
+}
+
+void find() {
+	editorFind(E.focusBuf);
+}
+
+void openLine() {
+	editorOpenLine(E.focusBuf);
 }
 
 void editorRecordKey(int c) {
@@ -753,6 +797,62 @@ PROMPT_BACKSPACE:
 
 		if (callback)
 			callback(bufr, buf, c);
+	}
+}
+
+void moveCursor(int key) {
+	struct editorBuffer *bufr = E.focusBuf;
+	erow *row = safeGetRow(bufr, bufr->cy);
+
+	switch (key) {
+	case ARROW_LEFT:
+		if (bufr->cx != 0) {
+			do
+				bufr->cx--;
+			while (bufr->cx != 0 &&
+			       utf8_isCont(row->chars[bufr->cx]));
+		} else if (bufr->cy > 0) {
+			bufr->cy--;
+			bufr->cx = bufr->row[bufr->cy].size;
+		}
+		break;
+
+	case ARROW_RIGHT:
+		if (row && bufr->cx < row->size) {
+			bufr->cx += utf8_nBytes(row->chars[bufr->cx]);
+		} else if (row && bufr->cx == row->size) {
+			bufr->cy++;
+			bufr->cx = 0;
+		}
+		break;
+	case ARROW_UP:
+		if (bufr->cy > 0) {
+			bufr->cy--;
+			if (bufr->row[bufr->cy].chars == NULL)
+				break;
+			while (utf8_isCont(bufr->row[bufr->cy].chars[bufr->cx]))
+				bufr->cx++;
+		}
+		break;
+	case ARROW_DOWN:
+		if (bufr->cy < bufr->numrows) {
+			bufr->cy++;
+			if (bufr->cy == bufr->numrows) {
+				bufr->cx = 0;
+				break;
+			}
+			if (bufr->row[bufr->cy].chars == NULL)
+				break;
+			while (bufr->cx < bufr->row[bufr->cy].size &&
+			       utf8_isCont(bufr->row[bufr->cy].chars[bufr->cx]))
+				bufr->cx++;
+		}
+		break;
+	}
+	row = safeGetRow(bufr, bufr->cy);
+	int rowlen = row ? row->size : 0;
+	if (bufr->cx > rowlen) {
+		bufr->cx = rowlen;
 	}
 }
 

@@ -109,7 +109,7 @@ void editorDoRedo(struct editorBuffer *buf) {
 }
 
 struct editorUndo *newUndo() {
-	struct editorUndo *ret = malloc(sizeof(*ret));
+	struct editorUndo *ret = xmalloc(sizeof(*ret));
 	ret->prev = NULL;
 	ret->paired = 0;
 	ret->startx = 0;
@@ -120,7 +120,7 @@ struct editorUndo *newUndo() {
 	ret->delete = 0;
 	ret->datalen = 0;
 	ret->datasize = 22;
-	ret->data = malloc(ret->datasize);
+	ret->data = xmalloc(ret->datasize);
 	ret->data[0] = 0;
 	return ret;
 }
@@ -224,7 +224,7 @@ void editorUndoBackSpace(struct editorBuffer *buf, uint8_t c) {
 	buf->undo->data[buf->undo->datalen] = 0;
 	if (buf->undo->datalen >= buf->undo->datasize - 2) {
 		buf->undo->datasize *= 2;
-		buf->undo->data = realloc(buf->undo->data, buf->undo->datasize);
+		buf->undo->data = xrealloc(buf->undo->data, buf->undo->datasize);
 	}
 	if (c == '\n') {
 		buf->undo->starty--;
@@ -255,7 +255,7 @@ void editorUndoDelChar(struct editorBuffer *buf, erow *row) {
 		if (buf->undo->datalen >= buf->undo->datasize - 2) {
 			buf->undo->datasize *= 2;
 			buf->undo->data =
-				realloc(buf->undo->data, buf->undo->datasize);
+				xrealloc(buf->undo->data, buf->undo->datasize);
 		}
 		memmove(&buf->undo->data[1], buf->undo->data,
 			buf->undo->datalen - 1);
@@ -268,7 +268,7 @@ void editorUndoDelChar(struct editorBuffer *buf, erow *row) {
 		if (buf->undo->datalen >= buf->undo->datasize - 2) {
 			buf->undo->datasize *= 2;
 			buf->undo->data =
-				realloc(buf->undo->data, buf->undo->datasize);
+				xrealloc(buf->undo->data, buf->undo->datasize);
 		}
 		memmove(&buf->undo->data[n], buf->undo->data,
 			buf->undo->datalen - n);

@@ -9,12 +9,12 @@ void editorInsertRow(struct editorBuffer *bufr, int at, char *s, size_t len) {
 	if (at < 0 || at > bufr->numrows)
 		return;
 
-	bufr->row = realloc(bufr->row, sizeof(erow) * (bufr->numrows + 1));
+	bufr->row = xrealloc(bufr->row, sizeof(erow) * (bufr->numrows + 1));
 	memmove(&bufr->row[at + 1], &bufr->row[at],
 		sizeof(erow) * (bufr->numrows - at));
 
 	bufr->row[at].size = len;
-	bufr->row[at].chars = malloc(len + 1);
+	bufr->row[at].chars = xmalloc(len + 1);
 	memcpy(bufr->row[at].chars, s, len);
 	bufr->row[at].chars[len] = '\0';
 	bufr->row[at].cached_width = 0;
@@ -43,7 +43,7 @@ void editorDelRow(struct editorBuffer *bufr, int at) {
 void editorRowInsertChar(struct editorBuffer *bufr, erow *row, int at, int c) {
 	if (at < 0 || at > row->size)
 		at = row->size;
-	row->chars = realloc(row->chars, row->size + 2);
+	row->chars = xrealloc(row->chars, row->size + 2);
 	memmove(&row->chars[at + 1], &row->chars[at], row->size - at + 1);
 	row->size++;
 	row->chars[at] = c;
@@ -56,7 +56,7 @@ void editorRowInsertUnicode(struct editorConfig *ed, struct editorBuffer *bufr,
 			    erow *row, int at) {
 	if (at < 0 || at > row->size)
 		at = row->size;
-	row->chars = realloc(row->chars, row->size + 1 + ed->nunicode);
+	row->chars = xrealloc(row->chars, row->size + 1 + ed->nunicode);
 	memmove(&row->chars[at + ed->nunicode], &row->chars[at],
 		row->size - at + 1);
 	row->size += ed->nunicode;
@@ -82,7 +82,7 @@ void editorRowInsertString(struct editorBuffer *bufr, erow *row, int at,
 			   char *s, size_t len) {
 	if (at < 0 || at > row->size)
 		at = row->size;
-	row->chars = realloc(row->chars, row->size + len + 1);
+	row->chars = xrealloc(row->chars, row->size + len + 1);
 	memmove(&row->chars[at + len], &row->chars[at], row->size - at + 1);
 	memcpy(&row->chars[at], s, len);
 	row->size += len;
@@ -111,7 +111,7 @@ void editorRowReplaceRange(struct editorBuffer *bufr, erow *row, int start,
 	int size_change = len - delete_len;
 
 	if (size_change > 0) {
-		row->chars = realloc(row->chars, row->size + size_change + 1);
+		row->chars = xrealloc(row->chars, row->size + size_change + 1);
 	}
 
 	memmove(&row->chars[start + len], &row->chars[end],

@@ -90,7 +90,7 @@ static uint8_t *transformerPipeCmd(uint8_t *input) {
 }
 
 uint8_t *editorPipe(struct editorConfig *ed, struct editorBuffer *bf) {
-	buf = calloc(1, BUFSIZ + 1);
+	buf = xcalloc(1, BUFSIZ + 1);
 	cmd = NULL;
 	cmd = editorPrompt(
 		bf,

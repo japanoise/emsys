@@ -261,7 +261,18 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 void editorCursorBottomLine(int);
 void editorCursorBottomLineLong(long);
 void editorInsertNewline(struct editorBuffer *bufr);
+void insertChar(int c);
 void editorInsertChar(struct editorBuffer *bufr, int c);
+void moveCursor(int key);
+void backSpace(void);
+void delChar(void);
+void insertNewline(void);
+void killLine(void);
+void doUndo(void);
+void setMark(void);
+void clearMark(void);
+void find(void);
+void openLine(void);
 void editorOpen(struct editorBuffer *bufr, char *filename);
 void die(const char *s);
 
@@ -290,4 +301,11 @@ void editorExecMacro(struct editorMacro *macro);
 char *stringdup(const char *s);
 int windowFocusedIdx(struct editorConfig *ed);
 void editorScroll();
+
+/* Simplified API functions that access E.focusBuf internally */
+void backSpace();
+void delChar();
+void insertNewline();
+void killLine();
+
 #endif

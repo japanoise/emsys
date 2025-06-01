@@ -11,7 +11,7 @@
 static void ensureRowWidth(erow *row, int target_width, int extra_space,
 			   struct editorUndo *undo) {
 	if (row->size < target_width) {
-		char *newchars = realloc(row->chars, target_width + 1);
+		char *newchars = xrealloc(row->chars, target_width + 1);
 		if (newchars == NULL) {
 			return;
 		}
@@ -21,7 +21,7 @@ static void ensureRowWidth(erow *row, int target_width, int extra_space,
 		row->width_valid = 0;
 		if (undo) {
 			undo->datasize += row->size + 1;
-			char *newdata = realloc(undo->data, undo->datasize);
+			char *newdata = xrealloc(undo->data, undo->datasize);
 			if (newdata == NULL) {
 				return;
 			}
@@ -30,7 +30,7 @@ static void ensureRowWidth(erow *row, int target_width, int extra_space,
 	}
 	if (extra_space > 0) {
 		char *newchars =
-			realloc(row->chars, row->size + 1 + extra_space);
+			xrealloc(row->chars, row->size + 1 + extra_space);
 		if (newchars == NULL) {
 			return;
 		}
@@ -176,7 +176,7 @@ void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 	free(new->data);
 	new->datalen = strlen(ed->kill);
 	new->datasize = new->datalen + 1;
-	new->data = malloc(new->datasize);
+	new->data = xmalloc(new->datasize);
 	/* XXX: have to copy kill to undo in reverse */
 	for (int i = 0; i < new->datalen; i++) {
 		new->data[i] = ed->kill[new->datalen - i - 1];
@@ -201,7 +201,7 @@ void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 		struct erow *last = &buf->row[buf->cy + 1];
 		row->size = buf->cx;
 		row->size += last->size - buf->markx;
-		char *newchars = realloc(row->chars, row->size);
+		char *newchars = xrealloc(row->chars, row->size);
 		if (newchars == NULL) {
 			return;
 		}
@@ -225,7 +225,7 @@ void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 	normalizeRegion(buf);
 	free(ed->kill);
 	int regionSize = 32;
-	ed->kill = malloc(regionSize);
+	ed->kill = xmalloc(regionSize);
 
 	int killpos = 0;
 	while (!(buf->cy == buf->marky && buf->cx == buf->markx)) {
@@ -241,7 +241,7 @@ void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 
 		if (killpos >= regionSize - 2) {
 			regionSize *= 2;
-			ed->kill = realloc(ed->kill, regionSize);
+			ed->kill = xrealloc(ed->kill, regionSize);
 		}
 	}
 	ed->kill[killpos] = 0;
@@ -294,7 +294,7 @@ void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
 
 	uint8_t *okill = NULL;
 	if (ed->kill != NULL) {
-		okill = malloc(strlen(ed->kill) + 1);
+		okill = xmalloc(strlen(ed->kill) + 1);
 		strcpy(okill, ed->kill);
 	}
 	editorKillRegion(ed, buf);
@@ -368,7 +368,7 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	uint8_t *okill = NULL;
 	if (ed->kill != NULL) {
-		okill = malloc(strlen((char *)ed->kill) + 1);
+		okill = xmalloc(strlen((char *)ed->kill) + 1);
 		strcpy((char *)okill, (char *)ed->kill);
 	}
 	editorCopyRegion(ed, buf);
@@ -383,7 +383,7 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->datalen = strlen((char *)ed->kill);
 	if (new->datasize < new->datalen + 1) {
 		new->datasize = new->datalen + 1;
-		new->data = realloc(new->data, new->datasize);
+		new->data = xrealloc(new->data, new->datasize);
 	}
 	for (int i = 0; i < new->datalen; i++) {
 		new->data[i] = ed->kill[new->datalen - i - 1];
@@ -402,7 +402,7 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->datalen = buf->undo->datalen;
 	if (new->datasize < new->datalen + 1) {
 		new->datasize = new->datalen + 1;
-		new->data = realloc(new->data, new->datasize);
+		new->data = xrealloc(new->data, new->datasize);
 	}
 	new->prev = buf->undo;
 	new->append = 0;
@@ -465,13 +465,13 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 		int extra = replen - match_length;
 		if (extra > 0) {
 			char *newchars =
-				realloc(row->chars, row->size + 1 + extra);
+				xrealloc(row->chars, row->size + 1 + extra);
 			if (newchars == NULL) {
 				return;
 			}
 			row->chars = newchars;
 			new->datasize += extra;
-			char *newdata = realloc(new->data, new->datasize);
+			char *newdata = xrealloc(new->data, new->datasize);
 			if (newdata == NULL) {
 				return;
 			}
@@ -530,7 +530,7 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	uint8_t *okill = NULL;
 	if (ed->kill != NULL) {
-		okill = malloc(strlen((char *)ed->kill) + 1);
+		okill = xmalloc(strlen((char *)ed->kill) + 1);
 		strcpy((char *)okill, (char *)ed->kill);
 	}
 
@@ -578,7 +578,7 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	free(new->data);
 	new->datalen = strlen((char *)ed->kill);
 	new->datasize = new->datalen + 1;
-	new->data = malloc(new->datasize);
+	new->data = xmalloc(new->datasize);
 	for (int i = 0; i < new->datalen; i++) {
 		new->data[i] = ed->kill[new->datalen - i - 1];
 	}
@@ -603,7 +603,7 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	} else {
 		new->datasize = strlen((char *)ed->kill);
 	}
-	new->data = malloc(new->datasize);
+	new->data = xmalloc(new->datasize);
 	new->data[0] = 0;
 	new->append = 0;
 	new->paired = 1;
@@ -692,7 +692,7 @@ void editorCopyRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		buf->markx = botx;
 	}
 
-	ed->rectKill = calloc((ed->rx * ed->ry) + 1, 1);
+	ed->rectKill = xcalloc((ed->rx * ed->ry) + 1, 1);
 
 	extractRectangleData(ed, buf, topx, topy, botx, boty, ed->rx, ed->ry,
 			     NULL, 0);
@@ -705,7 +705,7 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	uint8_t *okill = NULL;
 	if (ed->kill != NULL) {
-		okill = malloc(strlen((char *)ed->kill) + 1);
+		okill = xmalloc(strlen((char *)ed->kill) + 1);
 		strcpy((char *)okill, (char *)ed->kill);
 	}
 	free(ed->rectKill);
@@ -734,7 +734,7 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	editorCopyRegion(ed, buf);
 	clearRedos(buf);
 
-	ed->rectKill = calloc((ed->rx * ed->ry) + 1, 1);
+	ed->rectKill = xcalloc((ed->rx * ed->ry) + 1, 1);
 
 	struct editorUndo *new = newUndo();
 	new->startx = buf->cx;
@@ -744,7 +744,7 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	free(new->data);
 	new->datalen = strlen((char *)ed->kill);
 	new->datasize = new->datalen + 1;
-	new->data = malloc(new->datasize);
+	new->data = xmalloc(new->datasize);
 	for (int i = 0; i < new->datalen; i++) {
 		new->data[i] = ed->kill[new->datalen - i - 1];
 	}
@@ -764,7 +764,7 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	free(new->data);
 	new->datalen = strlen((char *)ed->kill) - (ed->rx * ed->ry);
 	new->datasize = 1 + new->datalen;
-	new->data = malloc(new->datasize);
+	new->data = xmalloc(new->datasize);
 	new->data[0] = 0;
 	new->append = 0;
 	new->paired = 1;
@@ -794,7 +794,7 @@ void editorMarkWholeBuffer(struct editorBuffer *buf) {
 void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	uint8_t *okill = NULL;
 	if (ed->kill != NULL) {
-		okill = malloc(strlen((char *)ed->kill) + 1);
+		okill = xmalloc(strlen((char *)ed->kill) + 1);
 		strcpy((char *)okill, (char *)ed->kill);
 	}
 
@@ -803,7 +803,7 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	topy = buf->cy;
 	botx = topx;
 	boty = topy + ed->ry - 1;
-	char *string = calloc(ed->rx + 1, 1);
+	char *string = xcalloc(ed->rx + 1, 1);
 
 	buf->marky = boty;
 	if (botx > buf->row[boty].size) {
@@ -825,7 +825,7 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		new->endy = buf->numrows - 1;
 		if (extralines >= new->datasize) {
 			new->datasize = extralines + 1;
-			new->data = realloc(new->data, new->datasize);
+			new->data = xrealloc(new->data, new->datasize);
 		}
 		memset(new->data, '\n', extralines);
 		new->data[extralines] = 0;
@@ -851,7 +851,7 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		new->datalen = strlen((char *)ed->kill);
 	}
 	new->datasize = new->datalen + 1;
-	new->data = malloc(new->datasize);
+	new->data = xmalloc(new->datasize);
 	if (ed->kill == NULL) {
 		new->data[0] = 0;
 	} else {
@@ -881,7 +881,7 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	} else {
 		new->datasize = strlen((char *)ed->kill);
 	}
-	new->data = malloc(new->datasize);
+	new->data = xmalloc(new->datasize);
 	new->data[0] = 0;
 	new->append = 0;
 	new->paired = 1;

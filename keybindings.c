@@ -104,14 +104,14 @@ static void handle_newline(struct editorConfig *ed, struct editorBuffer *buf,
 			   int rept) {
 	for (int i = 0; i < rept; i++) {
 		editorUndoAppendChar(buf, '\n');
-		editorInsertNewline(buf);
+		insertNewline();
 	}
 }
 
 static void handle_open_line(struct editorConfig *ed, struct editorBuffer *buf,
 			     int rept) {
 	for (int i = 0; i < rept; i++) {
-		editorOpenLine(buf);
+		openLine();
 	}
 }
 
@@ -129,37 +129,37 @@ static void handle_end_of_line(struct editorConfig *ed,
 static void handle_forward_char(struct editorConfig *ed,
 				struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		editorMoveCursor(buf, ARROW_RIGHT);
+		moveCursor(ARROW_RIGHT);
 }
 
 static void handle_backward_char(struct editorConfig *ed,
 				 struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		editorMoveCursor(buf, ARROW_LEFT);
+		moveCursor(ARROW_LEFT);
 }
 
 static void handle_next_line(struct editorConfig *ed, struct editorBuffer *buf,
 			     int rept) {
 	for (int i = 0; i < rept; i++)
-		editorMoveCursor(buf, ARROW_DOWN);
+		moveCursor(ARROW_DOWN);
 }
 
 static void handle_previous_line(struct editorConfig *ed,
 				 struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		editorMoveCursor(buf, ARROW_UP);
+		moveCursor(ARROW_UP);
 }
 
 static void handle_kill_line(struct editorConfig *ed, struct editorBuffer *buf,
 			     int rept) {
 	for (int i = 0; i < rept; i++)
-		editorKillLine(buf);
+		killLine();
 }
 
 static void handle_kill_region(struct editorConfig *ed,
 			       struct editorBuffer *buf, int rept) {
 	editorKillRegion(ed, buf);
-	editorClearMark(buf);
+	clearMark();
 }
 
 static void handle_yank(struct editorConfig *ed, struct editorBuffer *buf,
@@ -171,12 +171,12 @@ static void handle_yank(struct editorConfig *ed, struct editorBuffer *buf,
 static void handle_undo(struct editorConfig *ed, struct editorBuffer *buf,
 			int rept) {
 	for (int i = 0; i < rept; i++)
-		editorDoUndo(buf);
+		doUndo();
 }
 
 static void handle_set_mark(struct editorConfig *ed, struct editorBuffer *buf,
 			    int rept) {
-	editorSetMark(buf);
+	setMark();
 }
 
 static void handle_mark_rectangle(struct editorConfig *ed,
@@ -186,7 +186,7 @@ static void handle_mark_rectangle(struct editorConfig *ed,
 
 static void handle_isearch_forward(struct editorConfig *ed,
 				   struct editorBuffer *buf, int rept) {
-	editorFind(buf);
+	find();
 }
 
 static void handle_isearch_forward_regexp(struct editorConfig *ed,
@@ -196,7 +196,7 @@ static void handle_isearch_forward_regexp(struct editorConfig *ed,
 
 static void handle_keyboard_quit(struct editorConfig *ed,
 				 struct editorBuffer *buf, int rept) {
-	editorClearMark(buf);
+	clearMark();
 	editorSetStatusMessage("Quit");
 }
 
@@ -230,13 +230,13 @@ static void handle_capitalize_word(struct editorConfig *ed,
 static void handle_backward_delete_char(struct editorConfig *ed,
 					struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		editorBackSpace(buf);
+		backSpace();
 }
 
 static void handle_delete_char(struct editorConfig *ed,
 			       struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		editorDelChar(buf);
+		delChar();
 }
 
 static void handle_quoted_insert(struct editorConfig *ed,
@@ -248,7 +248,7 @@ static void handle_quoted_insert(struct editorConfig *ed,
 	}
 	for (int i = 0; i < rept; i++) {
 		editorUndoAppendChar(buf, c);
-		editorInsertChar(buf, c);
+		insertChar(c);
 	}
 }
 
@@ -259,12 +259,12 @@ static void handle_tab(struct editorConfig *ed, struct editorBuffer *buf,
 			int origx = buf->cx;
 			for (int j = 0; j < buf->indent; j++) {
 				editorUndoAppendChar(buf, ' ');
-				editorInsertChar(buf, ' ');
+				insertChar(' ');
 			}
 			buf->cx = origx + buf->indent;
 		} else {
 			editorUndoAppendChar(buf, '\t');
-			editorInsertChar(buf, '\t');
+			insertChar('\t');
 		}
 	}
 }
@@ -509,7 +509,7 @@ static void handle_save_buffer(struct editorConfig *ed,
 static void handle_copy_region(struct editorConfig *ed,
 			       struct editorBuffer *buf, int rept) {
 	editorCopyRegion(ed, buf);
-	editorClearMark(buf);
+	clearMark();
 }
 
 static void handle_swap_mark(struct editorConfig *ed, struct editorBuffer *buf,
@@ -696,12 +696,9 @@ static void handle_execute_extended_command(struct editorConfig *ed,
 
 static void handle_create_window(struct editorConfig *ed,
 				 struct editorBuffer *buf, int rept) {
-	ed->windows = realloc(ed->windows,
-			      sizeof(struct editorWindow *) * (++ed->nwindows));
-	ed->windows[ed->nwindows - 1] = malloc(sizeof(struct editorWindow));
-	if (!ed->windows[ed->nwindows - 1]) {
-		die("malloc failed");
-	}
+	ed->windows = xrealloc(ed->windows,
+			       sizeof(struct editorWindow *) * (++ed->nwindows));
+	ed->windows[ed->nwindows - 1] = xmalloc(sizeof(struct editorWindow));
 	ed->windows[ed->nwindows - 1]->focused = 0;
 	ed->windows[ed->nwindows - 1]->buf = ed->focusBuf;
 	ed->windows[ed->nwindows - 1]->rowoff = 0;
@@ -727,8 +724,8 @@ static void handle_destroy_window(struct editorConfig *ed,
 	}
 
 	ed->nwindows--;
-	ed->windows = realloc(ed->windows,
-			      sizeof(struct editorWindow *) * ed->nwindows);
+	ed->windows = xrealloc(ed->windows,
+			       sizeof(struct editorWindow *) * ed->nwindows);
 
 	if (winIdx > 0) {
 		ed->windows[winIdx - 1]->focused = 1;
@@ -750,7 +747,7 @@ static void handle_destroy_other_windows(struct editorConfig *ed,
 
 	ed->windows[0] = focusedWin;
 	ed->nwindows = 1;
-	ed->windows = realloc(ed->windows, sizeof(struct editorWindow *));
+	ed->windows = xrealloc(ed->windows, sizeof(struct editorWindow *));
 }
 
 static void handle_kill_buffer(struct editorConfig *ed,
@@ -1153,7 +1150,7 @@ void processKeySequence(int key) {
 		if (!ISCTRL(key) && key < 256 && prefix_state == PREFIX_NONE) {
 			for (int i = 0; i < rept; i++) {
 				editorUndoAppendChar(buf, key);
-				editorInsertChar(buf, key);
+				insertChar(key);
 			}
 		} else {
 			editorSetStatusMessage("Unknown key sequence");

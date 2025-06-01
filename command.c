@@ -46,7 +46,7 @@ char *str_replace(char *orig, char *rep, char *with) {
 		ins = tmp + len_rep;
 	}
 
-	tmp = result = malloc(strlen(orig) + (len_with - len_rep) * count + 1);
+	tmp = result = xmalloc(strlen(orig) + (len_with - len_rep) * count + 1);
 
 	if (!result)
 		return NULL;
@@ -441,7 +441,7 @@ void editorHelpForHelp(struct editorConfig *ed, struct editorBuffer *buf) {
 }
 
 #define ADDCMD(name, func)               \
-	newCmd = malloc(sizeof *newCmd); \
+	newCmd = xmalloc(sizeof *newCmd); \
 	newCmdName = name;               \
 	newCmd->cmd = func;              \
 	HASH_ADD_KEYPTR(hh, ed->cmd, newCmdName, strlen(newCmdName), newCmd)

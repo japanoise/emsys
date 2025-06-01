@@ -23,7 +23,7 @@ void abAppend(struct abuf *ab, const char *s, int len) {
 		while (new_capacity < ab->len + len) {
 			new_capacity *= 2;
 		}
-		char *new = realloc(ab->b, new_capacity);
+		char *new = xrealloc(ab->b, new_capacity);
 		if (new == NULL)
 			return;
 		ab->b = new;

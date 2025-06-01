@@ -18,7 +18,7 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 	int capacity = 8; // Initial capacity
 	uint8_t *ret = input;
 
-	completions = malloc(capacity * sizeof(char *));
+	completions = xmalloc(capacity * sizeof(char *));
 	if (completions == NULL) {
 		return ret;
 	}
@@ -31,7 +31,7 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 		if (strncmp(name, (char *)input, strlen((char *)input)) == 0) {
 			if (count + 1 >= capacity) {
 				capacity *= 2;
-				char **new_completions = realloc(
+				char **new_completions = xrealloc(
 					completions, capacity * sizeof(char *));
 				if (new_completions == NULL) {
 					for (int i = 0; i < count; i++) {
@@ -100,7 +100,7 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 		size_t home_len = strlen(home_dir);
 		size_t prompt_len = strlen((char *)prompt);
 		char *new_prompt =
-			malloc(home_len + prompt_len - 1 +
+			xmalloc(home_len + prompt_len - 1 +
 			       1); // -1 for removed '~', +1 for null terminator
 		if (!new_prompt) {
 			return prompt;
@@ -166,7 +166,7 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 		switch (c) {
 		case '\r':;
 TC_FILES_ACCEPT:;
-			ret = calloc(strlen(globlist.gl_pathv[cur]) + 1, 1);
+			ret = xcalloc(strlen(globlist.gl_pathv[cur]) + 1, 1);
 			strcpy((char *)ret, globlist.gl_pathv[cur]);
 			goto TC_FILES_CLEANUP;
 			break;
@@ -205,7 +205,7 @@ uint8_t *tabCompleteCommands(struct editorConfig *ed, uint8_t *input) {
 	int capacity = 8; // Initial capacity
 	uint8_t *ret = input;
 
-	completions = malloc(capacity * sizeof(char *));
+	completions = xmalloc(capacity * sizeof(char *));
 	if (completions == NULL) {
 		return ret;
 	}
@@ -216,7 +216,7 @@ uint8_t *tabCompleteCommands(struct editorConfig *ed, uint8_t *input) {
 		    0) {
 			if (count + 1 >= capacity) {
 				capacity *= 2;
-				char **new_completions = realloc(
+				char **new_completions = xrealloc(
 					completions, capacity * sizeof(char *));
 				if (new_completions == NULL) {
 					for (int j = 0; j < count; j++) {
@@ -301,12 +301,12 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 	}
 
 	char rpattern[] = "[A-Za-z0-9\200-\377_]+";
-	char *word = calloc(bufr->cx - wordStart + 1 + sizeof(rpattern), 1);
+	char *word = xcalloc(bufr->cx - wordStart + 1 + sizeof(rpattern), 1);
 	strncpy(word, (char *)&row->chars[wordStart], bufr->cx - wordStart);
 	strcat(word, rpattern);
 	int ncand = 0;
 	int scand = 32;
-	char **candidates = malloc(sizeof(uint8_t *) * scand);
+	char **candidates = xmalloc(sizeof(uint8_t *) * scand);
 	regex_t pattern;
 	regmatch_t matches[1];
 	int regcomp_result = regcomp(&pattern, word, REG_EXTENDED);
@@ -336,7 +336,7 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 					(matches[0].rm_eo - matches[0].rm_so) :
 					0;
 			if (match_idx >= 0) {
-				candidates[ncand] = calloc(match_length + 1, 1);
+				candidates[ncand] = xcalloc(match_length + 1, 1);
 				strncpy(candidates[ncand],
 					(char *)&row->chars[match_idx],
 					match_length);
@@ -344,7 +344,7 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 				if (ncand >= scand) {
 					scand <<= 1;
 					candidates =
-						realloc(candidates,
+						xrealloc(candidates,
 							sizeof(char *) * scand);
 				}
 			}
@@ -441,7 +441,7 @@ COMPLETE_WORD_DONE:;
 	new->endy = bufr->cy;
 	new->datalen = completelen;
 	if (new->datasize < completelen + 1) {
-		new->data = realloc(new->data, new->datalen + 1);
+		new->data = xrealloc(new->data, new->datalen + 1);
 		new->datasize = new->datalen + 1;
 	}
 	new->append = 0;

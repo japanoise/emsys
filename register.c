@@ -111,13 +111,13 @@ void editorMacroToRegister(struct editorConfig *ed) {
 	GET_REGISTER(reg, "Macro to register");
 	clearRegister(ed, reg);
 	ed->registers[reg].rtype = REGISTER_MACRO;
-	ed->registers[reg].rdata.macro = malloc(sizeof(struct editorMacro));
+	ed->registers[reg].rdata.macro = xmalloc(sizeof(struct editorMacro));
 	/* Copy data, creating a shallow copy. */
 	memcpy(ed->registers[reg].rdata.macro, &(ed->macro),
 	       sizeof(struct editorMacro));
 	/* Now copy the keys too, to make a deep copy. */
 	ed->registers[reg].rdata.macro->keys =
-		malloc(sizeof(int) * ed->macro.skeys);
+		xmalloc(sizeof(int) * ed->macro.skeys);
 	memcpy(ed->registers[reg].rdata.macro->keys, ed->macro.keys,
 	       ed->macro.nkeys * sizeof(int));
 	registerMessage("Saved macro to register %s", reg);
@@ -127,7 +127,7 @@ void editorPointToRegister(struct editorConfig *ed) {
 	GET_REGISTER(reg, "Point to register");
 	clearRegister(ed, reg);
 	ed->registers[reg].rtype = REGISTER_POINT;
-	ed->registers[reg].rdata.point = malloc(sizeof(struct editorPoint));
+	ed->registers[reg].rdata.point = xmalloc(sizeof(struct editorPoint));
 	ed->registers[reg].rdata.point->buf = ed->focusBuf;
 	ed->registers[reg].rdata.point->cx = ed->focusBuf->cx;
 	ed->registers[reg].rdata.point->cy = ed->focusBuf->cy;
@@ -168,7 +168,7 @@ void editorRectRegister(struct editorConfig *ed, struct editorBuffer *bufr) {
 	ed->rectKill = NULL;
 	editorCopyRectangle(ed, bufr);
 	ed->registers[reg].rtype = REGISTER_RECTANGLE;
-	ed->registers[reg].rdata.rect = malloc(sizeof(struct editorRectangle));
+	ed->registers[reg].rdata.rect = xmalloc(sizeof(struct editorRectangle));
 	ed->registers[reg].rdata.rect->rect = ed->rectKill;
 	ed->registers[reg].rdata.rect->rx = ed->rx;
 	ed->registers[reg].rdata.rect->ry = ed->ry;
@@ -192,7 +192,7 @@ void editorIncrementRegister(struct editorConfig *ed,
 		int len = strlen((char *)ed->kill) +
 			  strlen((char *)ed->registers[reg].rdata.region) + 1;
 		ed->registers[reg].rdata.region =
-			realloc(ed->registers[reg].rdata.region, len);
+			xrealloc(ed->registers[reg].rdata.region, len);
 		strcat((char *)ed->registers[reg].rdata.region,
 		       (char *)ed->kill);
 		ed->kill = tmp;
