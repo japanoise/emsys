@@ -9,6 +9,7 @@
 /*** util ***/
 
 #define EMSYS_TAB_STOP 8
+#define HISTORY_SIZE 50
 
 #ifndef EMSYS_VERSION
 #define EMSYS_VERSION "1.0.0"
@@ -120,6 +121,8 @@ enum promptType {
 typedef struct erow {
 	int size;
 	uint8_t *chars;
+	int cached_width;
+	int width_valid;
 } erow;
 
 struct editorUndo {
@@ -266,6 +269,13 @@ void die(const char *s);
 void *xmalloc(size_t size);
 void *xrealloc(void *ptr, size_t size);
 void *xcalloc(size_t nmemb, size_t size);
+
+/* Cursor validation functions */
+void validateCursorY(struct editorBuffer *buf);
+void validateCursorX(struct editorBuffer *buf);
+void validateCursorPosition(struct editorBuffer *buf);
+erow *safeGetRow(struct editorBuffer *buf, int row_index);
+int nextScreenX(char *chars, int *i, int current_screen_x);
 
 struct editorBuffer *newBuffer();
 void invalidateScreenCache(struct editorBuffer *buf);

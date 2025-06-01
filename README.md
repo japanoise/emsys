@@ -55,8 +55,38 @@ Then, `make && make install` and you should be laughing.
 No dependencies (yet), so long as you have `make` and a C compiler you should
 be able to just `make && sudo make install`.
 
-[gomacs]: https://github.com/japanoise/gomacs
-[tutorial]: https://viewsourcecode.org/snaptoken/kilo/index.html
+### Android (Termux)
+
+emsys can be built and run on Android using [Termux](https://termux.com/).
+
+#### Prerequisites
+
+Install the required packages in Termux:
+
+```bash
+pkg update
+pkg install clang binutils
+```
+
+#### Building
+
+Clone the repository and build:
+
+```bash
+git clone <repository-url>
+cd emsys
+make PLATFORM=android
+```
+
+#### Installation
+
+To install system-wide in Termux:
+
+```bash
+cp emsys /data/data/com.termux/files/usr/bin/
+```
+
+
 
 ## Usage
 

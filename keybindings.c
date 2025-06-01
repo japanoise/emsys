@@ -309,13 +309,7 @@ static void handle_page_up(struct editorConfig *ed, struct editorBuffer *buf,
 		buf->cy = win->rowoff + win->height - 1;
 	}
 
-	if (buf->cy >= buf->numrows) {
-		buf->cy = buf->numrows > 0 ? buf->numrows - 1 : 0;
-	}
-
-	if (buf->cy < buf->numrows && buf->cx > buf->row[buf->cy].size) {
-		buf->cx = buf->row[buf->cy].size;
-	}
+	validateCursorPosition(buf);
 }
 
 static void handle_page_down(struct editorConfig *ed, struct editorBuffer *buf,
@@ -363,10 +357,10 @@ static void handle_page_down(struct editorConfig *ed, struct editorBuffer *buf,
 	}
 
 	if (buf->cy >= buf->numrows) {
-		buf->cy = buf->numrows > 0 ? buf->numrows - 1 : 0;
+		validateCursorY(buf);
 		buf->cx = 0;
-	} else if (buf->cx > buf->row[buf->cy].size) {
-		buf->cx = buf->row[buf->cy].size;
+	} else {
+		validateCursorX(buf);
 	}
 }
 

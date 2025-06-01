@@ -95,12 +95,7 @@ void editorJumpToRegister(struct editorConfig *ed) {
 		struct editorBuffer *buf = ed->focusBuf;
 		buf->cx = ed->registers[reg].rdata.point->cx;
 		buf->cy = ed->registers[reg].rdata.point->cy;
-		if (buf->cy >= buf->numrows)
-			buf->cy = buf->numrows - 1;
-		if (buf->cy < 0)
-			buf->cy = 0;
-		if (buf->cx > buf->row[buf->cy].size)
-			buf->cx = buf->row[buf->cy].size;
+		validateCursorPosition(buf);
 		break;
 	case REGISTER_MACRO:
 		registerMessage("Executing macro in register %s...", reg);

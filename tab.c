@@ -450,13 +450,9 @@ COMPLETE_WORD_DONE:;
 	strcat((char *)new->data, &candidates[sel][bufr->cx - wordStart]);
 	bufr->undo = new;
 
-	row->chars = realloc(row->chars, row->size + 1 + completelen);
-	memcpy(&row->chars[bufr->cx + completelen], &row->chars[bufr->cx],
-	       row->size - bufr->cx);
-	memcpy(&row->chars[bufr->cx], &candidates[sel][bufr->cx - wordStart],
-	       completelen);
-	row->size += completelen;
-	row->chars[row->size] = 0;
+	editorRowInsertString(bufr, row, bufr->cx,
+			      &candidates[sel][bufr->cx - wordStart],
+			      completelen);
 
 	editorSetStatusMessage("Expanded %.30s to %.30s", word,
 			       candidates[sel]);

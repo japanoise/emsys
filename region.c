@@ -8,6 +8,94 @@
 #include "row.h"
 #include "undo.h"
 
+static void ensureRowWidth(erow *row, int target_width, int extra_space,
+			   struct editorUndo *undo) {
+	if (row->size < target_width) {
+		char *newchars = realloc(row->chars, target_width + 1);
+		if (newchars == NULL) {
+			return;
+		}
+		row->chars = newchars;
+		memset(&row->chars[row->size], ' ', target_width - row->size);
+		row->size = target_width;
+		row->width_valid = 0;
+		if (undo) {
+			undo->datasize += row->size + 1;
+			char *newdata = realloc(undo->data, undo->datasize);
+			if (newdata == NULL) {
+				return;
+			}
+			undo->data = newdata;
+		}
+	}
+	if (extra_space > 0) {
+		char *newchars =
+			realloc(row->chars, row->size + 1 + extra_space);
+		if (newchars == NULL) {
+			return;
+		}
+		row->chars = newchars;
+	}
+}
+
+static void extractRectangleData(struct editorConfig *ed,
+				 struct editorBuffer *buf, int topx, int topy,
+				 int botx, int boty, int rx, int ry,
+				 struct editorUndo *undo, int rectKill) {
+	int idx = 0;
+
+	for (int line = topy; line <= boty; line++) {
+		struct erow *row = &buf->row[line];
+
+		if (row->size < botx) {
+			memset(&ed->rectKill[idx * rx], ' ', rx);
+			if (row->size > botx - rx) {
+				strncpy((char *)&ed->rectKill[idx * rx],
+					(char *)&row->chars[botx - rx],
+					row->size - (botx - rx));
+			}
+		} else {
+			strncpy((char *)&ed->rectKill[idx * rx],
+				(char *)&row->chars[botx - rx], rx);
+		}
+
+		if (rectKill) {
+			if (idx > 0 && undo) {
+				strcat((char *)undo->data, "\n");
+			}
+
+			if (row->size < botx) {
+				if (row->size > botx - rx) {
+					row->size -= (row->size - (botx - rx));
+					row->chars[row->size] = 0;
+					row->width_valid = 0;
+				}
+			} else {
+				memcpy(&row->chars[topx], &row->chars[botx],
+				       row->size - botx);
+				row->size -= rx;
+				row->chars[row->size] = 0;
+				row->width_valid = 0;
+			}
+
+			if (undo) {
+				if (line == topy && boty != topy) {
+					strcat((char *)undo->data,
+					       (char *)&row->chars[topx]);
+				} else if (line > topy && line < boty) {
+					strcat((char *)undo->data,
+					       (char *)row->chars);
+				} else if (line == boty && boty != topy) {
+					strncat((char *)undo->data,
+						(char *)row->chars, topx);
+				}
+			}
+		}
+
+		idx++;
+	}
+}
+
 void editorSetMark(struct editorBuffer *buf) {
 	buf->markx = buf->cx;
 	buf->marky = buf->cy;
@@ -105,6 +193,7 @@ void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 			row->size - buf->markx);
 		row->size -= buf->markx - buf->cx;
 		row->chars[row->size] = 0;
+		row->width_valid = 0;
 	} else {
 		for (int i = buf->cy + 1; i < buf->marky; i++) {
 			editorDelRow(buf, buf->cy + 1);
@@ -112,9 +201,14 @@ void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 		struct erow *last = &buf->row[buf->cy + 1];
 		row->size = buf->cx;
 		row->size += last->size - buf->markx;
-		row->chars = realloc(row->chars, row->size);
+		char *newchars = realloc(row->chars, row->size);
+		if (newchars == NULL) {
+			return;
+		}
+		row->chars = newchars;
 		memcpy(&row->chars[buf->cx], &last->chars[buf->markx],
 		       last->size - buf->markx);
+		row->width_valid = 0;
 		editorDelRow(buf, buf->cy + 1);
 	}
 
@@ -370,9 +464,18 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 		row = &buf->row[i];
 		int extra = replen - match_length;
 		if (extra > 0) {
-			row->chars = realloc(row->chars, row->size + 1 + extra);
+			char *newchars =
+				realloc(row->chars, row->size + 1 + extra);
+			if (newchars == NULL) {
+				return;
+			}
+			row->chars = newchars;
 			new->datasize += extra;
-			new->data = realloc(new->data, new->datasize);
+			char *newdata = realloc(new->data, new->datasize);
+			if (newdata == NULL) {
+				return;
+			}
+			new->data = newdata;
 		}
 		memmove(&row->chars[match_idx + replen],
 			&row->chars[match_idx + match_length],
@@ -380,6 +483,7 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 		memcpy(&row->chars[match_idx], repl, replen);
 		row->size += extra;
 		row->chars[row->size] = 0;
+		row->width_valid = 0;
 		if (buf->cy == buf->marky) {
 			buf->markx += extra;
 			strncat((char *)new->data, (char *)&row->chars[buf->cx],
@@ -514,21 +618,12 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	 */
 	/* First, topy */
 	struct erow *row = &buf->row[topy];
-	if (row->size < botx) {
-		row->chars = realloc(row->chars, botx + 1);
-		memset(&row->chars[row->size], ' ', botx - row->size);
-		row->size = botx;
-		/* Better safe than sorry */
-		new->datasize += row->size + 1;
-		new->data = realloc(new->data, new->datasize);
-	}
-	if (extra > 0) {
-		row->chars = realloc(row->chars, row->size + 1 + extra);
-	}
+	ensureRowWidth(row, botx, extra, new);
 	memcpy(&row->chars[topx + slen], &row->chars[botx], row->size - botx);
 	memcpy(&row->chars[topx], string, slen);
 	row->size += extra;
 	row->chars[row->size] = 0;
+	row->width_valid = 0;
 	if (boty == topy) {
 		strcat((char *)new->data, (char *)string);
 	} else {
@@ -539,21 +634,13 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		strcat((char *)new->data, "\n");
 		/* Next, middle lines */
 		row = &buf->row[i];
-		if (row->size < botx) {
-			row->chars = realloc(row->chars, botx + 1);
-			memset(&row->chars[row->size], ' ', botx - row->size);
-			row->size = botx;
-			new->datasize += row->size + 1;
-			new->data = realloc(new->data, new->datasize);
-		}
-		if (extra > 0) {
-			row->chars = realloc(row->chars, row->size + 1 + extra);
-		}
+		ensureRowWidth(row, botx, extra, new);
 		memcpy(&row->chars[topx + slen], &row->chars[botx],
 		       row->size - botx);
 		memcpy(&row->chars[topx], string, slen);
 		row->size += extra;
 		row->chars[row->size] = 0;
+		row->width_valid = 0;
 		strcat((char *)new->data, (char *)row->chars);
 	}
 
@@ -561,21 +648,13 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	if (topy != boty) {
 		strcat((char *)new->data, "\n");
 		row = &buf->row[boty];
-		if (row->size < botx) {
-			row->chars = realloc(row->chars, botx + 1);
-			memset(&row->chars[row->size], ' ', botx - row->size);
-			row->size = botx;
-			new->datasize += row->size + 1;
-			new->data = realloc(new->data, new->datasize);
-		}
-		if (extra > 0) {
-			row->chars = realloc(row->chars, row->size + 1 + extra);
-		}
+		ensureRowWidth(row, botx, extra, new);
 		memcpy(&row->chars[topx + slen], &row->chars[botx],
 		       row->size - botx);
 		memcpy(&row->chars[topx], string, slen);
 		row->size += extra;
 		row->chars[row->size] = 0;
+		row->width_valid = 0;
 		strncat((char *)new->data, (char *)row->chars, botx + extra);
 	}
 	new->datalen = strlen((char *)new->data);
@@ -615,57 +694,8 @@ void editorCopyRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	ed->rectKill = calloc((ed->rx * ed->ry) + 1, 1);
 
-	/* First, topy */
-	int idx = 0;
-	struct erow *row = &buf->row[topy + idx];
-	if (row->size < botx) {
-		memset(&ed->rectKill[idx * ed->rx], ' ', ed->rx);
-		if (row->size > botx - ed->rx) {
-			strncpy((char *)&ed->rectKill[idx * ed->rx],
-				(char *)&row->chars[botx - ed->rx],
-				row->size - (botx - ed->rx));
-		}
-	} else {
-		strncpy((char *)&ed->rectKill[idx * ed->rx],
-			(char *)&row->chars[botx - ed->rx], ed->rx);
-	}
-	idx++;
-
-	while ((topy + idx) < boty) {
-		/* Middle lines */
-		row = &buf->row[topy + idx];
-
-		if (row->size < botx) {
-			memset(&ed->rectKill[idx * ed->rx], ' ', ed->rx);
-			if (row->size > botx - ed->rx) {
-				strncpy((char *)&ed->rectKill[idx * +ed->rx],
-					(char *)&row->chars[botx - ed->rx],
-					row->size - (botx - ed->rx));
-			}
-		} else {
-			strncpy((char *)&ed->rectKill[idx * ed->rx],
-				(char *)&row->chars[botx - ed->rx], ed->rx);
-		}
-
-		idx++;
-	}
-
-	/* finally, end line */
-	if (topy != boty) {
-		row = &buf->row[topy + idx];
-
-		if (row->size < botx) {
-			memset(&ed->rectKill[idx * ed->rx], ' ', ed->rx);
-			if (row->size > botx - ed->rx) {
-				strncpy((char *)&ed->rectKill[idx * ed->rx],
-					(char *)&row->chars[botx - ed->rx],
-					row->size - (botx - ed->rx));
-			}
-		} else {
-			strncpy((char *)&ed->rectKill[idx * ed->rx],
-				(char *)&row->chars[botx - ed->rx], ed->rx);
-		}
-	}
+	extractRectangleData(ed, buf, topx, topy, botx, boty, ed->rx, ed->ry,
+			     NULL, 0);
 }
 
 void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
@@ -740,86 +770,8 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->paired = 1;
 	buf->undo = new;
 
-	/* First, topy */
-	int idx = 0;
-	struct erow *row = &buf->row[topy + idx];
-	if (row->size < botx) {
-		memset(&ed->rectKill[idx * ed->rx], ' ', ed->rx);
-		if (row->size > botx - ed->rx) {
-			strncpy((char *)&ed->rectKill[idx * ed->rx],
-				(char *)&row->chars[botx - ed->rx],
-				row->size - (botx - ed->rx));
-			row->size -= (row->size - (botx - ed->rx));
-			row->chars[row->size] = 0;
-			if (boty != topy) {
-				strcat((char *)new->data,
-				       (char *)&row->chars[botx - ed->rx]);
-			}
-		}
-	} else {
-		strncpy((char *)&ed->rectKill[idx * ed->rx],
-			(char *)&row->chars[botx - ed->rx], ed->rx);
-		memcpy(&row->chars[topx], &row->chars[botx], row->size - botx);
-		row->size -= ed->rx;
-		row->chars[row->size] = 0;
-		if (boty != topy) {
-			strcat((char *)new->data, (char *)&row->chars[topx]);
-		}
-	}
-	idx++;
-
-	while ((topy + idx) < boty) {
-		/* Middle lines */
-		strcat((char *)new->data, "\n");
-		row = &buf->row[topy + idx];
-
-		if (row->size < botx) {
-			memset(&ed->rectKill[idx * ed->rx], ' ', ed->rx);
-			if (row->size > botx - ed->rx) {
-				strncpy((char *)&ed->rectKill[idx * ed->rx],
-					(char *)&row->chars[botx - ed->rx],
-					row->size - (botx - ed->rx));
-				row->size -= (row->size - (botx - ed->rx));
-				row->chars[row->size] = 0;
-			}
-		} else {
-			strncpy((char *)&ed->rectKill[idx * ed->rx],
-				(char *)&row->chars[botx - ed->rx], ed->rx);
-			memcpy(&row->chars[topx], &row->chars[botx],
-			       row->size - botx);
-			row->size -= ed->rx;
-			row->chars[row->size] = 0;
-		}
-
-		strcat((char *)new->data, (char *)row->chars);
-		idx++;
-	}
-
-	/* Finally, end line */
-	if (topy != boty) {
-		strcat((char *)new->data, "\n");
-		row = &buf->row[topy + idx];
-
-		if (row->size < botx) {
-			memset(&ed->rectKill[idx * ed->rx], ' ', ed->rx);
-			if (row->size > botx - ed->rx) {
-				strncpy((char *)&ed->rectKill[idx * ed->rx],
-					(char *)&row->chars[botx - ed->rx],
-					row->size - (botx - ed->rx));
-				row->size -= (row->size - (botx - ed->rx));
-				row->chars[row->size] = 0;
-			}
-		} else {
-			strncpy((char *)&ed->rectKill[idx * ed->rx],
-				(char *)&row->chars[botx - ed->rx], ed->rx);
-			memcpy(&row->chars[topx], &row->chars[botx],
-			       row->size - botx);
-			row->size -= ed->rx;
-			row->chars[row->size] = 0;
-		}
-
-		strncat((char *)new->data, (char *)row->chars, topx);
-	}
+	extractRectangleData(ed, buf, topx, topy, botx, boty, ed->rx, ed->ry,
+			     new, 1);
 	new->datalen = strlen((char *)new->data);
 
 	buf->dirty = 1;
@@ -939,20 +891,12 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	int idx = 0;
 	struct erow *row = &buf->row[topy];
 	strncpy(string, (char *)&ed->rectKill[idx * ed->rx], ed->rx);
-	if (row->size < botx) {
-		row->chars = realloc(row->chars, botx + 1);
-		memset(&row->chars[row->size], ' ', botx - row->size);
-		row->size = botx;
-		new->datasize += row->size + 1;
-		new->data = realloc(new->data, new->datasize);
-	}
-	if (ed->rx > 0) {
-		row->chars = realloc(row->chars, row->size + 1 + ed->rx);
-	}
+	ensureRowWidth(row, botx, ed->rx, new);
 	memcpy(&row->chars[topx + ed->rx], &row->chars[botx], row->size - botx);
 	memcpy(&row->chars[topx], string, ed->rx);
 	row->size += ed->rx;
 	row->chars[row->size] = 0;
+	row->width_valid = 0;
 	if (boty == topy) {
 		strcat((char *)new->data, string);
 	} else {
@@ -965,22 +909,13 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		/* Next, middle lines */
 		row = &buf->row[topy + idx];
 		strncpy(string, (char *)&ed->rectKill[idx * ed->rx], ed->rx);
-		if (row->size < botx) {
-			row->chars = realloc(row->chars, botx + 1);
-			memset(&row->chars[row->size], ' ', botx - row->size);
-			row->size = botx;
-			new->datasize += row->size + 1;
-			new->data = realloc(new->data, new->datasize);
-		}
-		if (ed->rx > 0) {
-			row->chars =
-				realloc(row->chars, row->size + 1 + ed->rx);
-		}
+		ensureRowWidth(row, botx, ed->rx, new);
 		memcpy(&row->chars[topx + ed->rx], &row->chars[botx],
 		       row->size - botx);
 		memcpy(&row->chars[topx], string, ed->rx);
 		row->size += ed->rx;
 		row->chars[row->size] = 0;
+		row->width_valid = 0;
 		strcat((char *)new->data, (char *)row->chars);
 		idx++;
 	}
@@ -990,22 +925,13 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		strcat((char *)new->data, "\n");
 		strncpy(string, (char *)&ed->rectKill[idx * ed->rx], ed->rx);
 		row = &buf->row[boty];
-		if (row->size < botx) {
-			row->chars = realloc(row->chars, botx + 1);
-			memset(&row->chars[row->size], ' ', botx - row->size);
-			row->size = botx;
-			new->datasize += row->size + 1;
-			new->data = realloc(new->data, new->datasize);
-		}
-		if (ed->rx > 0) {
-			row->chars =
-				realloc(row->chars, row->size + 1 + ed->rx);
-		}
+		ensureRowWidth(row, botx, ed->rx, new);
 		memcpy(&row->chars[topx + ed->rx], &row->chars[botx],
 		       row->size - botx);
 		memcpy(&row->chars[topx], string, ed->rx);
 		row->size += ed->rx;
 		row->chars[row->size] = 0;
+		row->width_valid = 0;
 		strncat((char *)new->data, (char *)row->chars, botx + ed->rx);
 	}
 	new->datalen = strlen((char *)new->data);

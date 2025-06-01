@@ -18,12 +18,18 @@ extern const int minibuffer_height;
 extern const int statusbar_height;
 
 void abAppend(struct abuf *ab, const char *s, int len) {
-	char *new = realloc(ab->b, ab->len + len);
-
-	if (new == NULL)
-		return;
-	memcpy(&new[ab->len], s, len);
-	ab->b = new;
+	if (ab->len + len > ab->capacity) {
+		int new_capacity = ab->capacity == 0 ? 1024 : ab->capacity * 2;
+		while (new_capacity < ab->len + len) {
+			new_capacity *= 2;
+		}
+		char *new = realloc(ab->b, new_capacity);
+		if (new == NULL)
+			return;
+		ab->b = new;
+		ab->capacity = new_capacity;
+	}
+	memcpy(&ab->b[ab->len], s, len);
 	ab->len += len;
 }
 
@@ -227,6 +233,9 @@ void editorScroll(void) {
 
 			if (cursor_screen_row >= win->height) {
 				int visible_rows = 0;
+				if (buf->cy == buf->numrows) {
+					visible_rows = 1;
+				}
 				for (int i = buf->cy; i >= 0; i--) {
 					if (i < buf->numrows) {
 						int line_height =
@@ -286,17 +295,14 @@ static void renderLineWithHighlighting(erow *row, struct abuf *ab,
 	int current_highlight = 0;
 
 	while (char_idx < row->size && render_x < start_col) {
-		if (row->chars[char_idx] == '\t') {
-			render_x = (render_x + EMSYS_TAB_STOP) /
-				   EMSYS_TAB_STOP * EMSYS_TAB_STOP;
-		} else if (ISCTRL(row->chars[char_idx])) {
-			render_x += 2;
-		} else if (row->chars[char_idx] < 0x80) {
+		if (row->chars[char_idx] < 0x80 &&
+		    !ISCTRL(row->chars[char_idx])) {
 			render_x += 1;
+			char_idx++;
 		} else {
-			render_x += charInStringWidth(row->chars, char_idx);
+			render_x = nextScreenX(row->chars, &char_idx, render_x);
+			char_idx++;
 		}
-		char_idx += utf8_nBytes(row->chars[char_idx]);
 	}
 
 	while (char_idx < row->size && render_x < end_col) {
@@ -535,8 +541,9 @@ void editorDrawMinibuffer(struct abuf *ab) {
 
 void editorRefreshScreen(void) {
 	struct abuf ab = ABUF_INIT;
-	abAppend(&ab, "\x1b[2J", 4);
 	abAppend(&ab, "\x1b[?25l", 6);
+	write(STDOUT_FILENO, ab.b, ab.len);
+	ab.len = 0;
 	abAppend(&ab, "\x1b[H", 3);
 
 	int focusedIdx = windowFocusedIdx(&E);

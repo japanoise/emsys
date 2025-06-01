@@ -17,6 +17,8 @@ void editorInsertRow(struct editorBuffer *bufr, int at, char *s, size_t len) {
 	bufr->row[at].chars = malloc(len + 1);
 	memcpy(bufr->row[at].chars, s, len);
 	bufr->row[at].chars[len] = '\0';
+	bufr->row[at].cached_width = 0;
+	bufr->row[at].width_valid = 0;
 
 	bufr->numrows++;
 	bufr->dirty = 1;
@@ -45,6 +47,7 @@ void editorRowInsertChar(struct editorBuffer *bufr, erow *row, int at, int c) {
 	memmove(&row->chars[at + 1], &row->chars[at], row->size - at + 1);
 	row->size++;
 	row->chars[at] = c;
+	row->width_valid = 0;
 	bufr->dirty = 1;
 	invalidateScreenCache(bufr);
 }
@@ -58,16 +61,7 @@ void editorRowInsertUnicode(struct editorConfig *ed, struct editorBuffer *bufr,
 		row->size - at + 1);
 	row->size += ed->nunicode;
 	memcpy(&row->chars[at], ed->unicode, ed->nunicode);
-	bufr->dirty = 1;
-	invalidateScreenCache(bufr);
-}
-
-void editorRowAppendString(struct editorBuffer *bufr, erow *row, char *s,
-			   size_t len) {
-	row->chars = realloc(row->chars, row->size + len + 1);
-	memcpy(&row->chars[row->size], s, len);
-	row->size += len;
-	row->chars[row->size] = '\0';
+	row->width_valid = 0;
 	bufr->dirty = 1;
 	invalidateScreenCache(bufr);
 }
@@ -79,24 +73,70 @@ void editorRowDelChar(struct editorBuffer *bufr, erow *row, int at) {
 	memmove(&row->chars[at], &row->chars[at + size],
 		row->size - ((at + size) - 1));
 	row->size -= size;
+	row->width_valid = 0;
+	bufr->dirty = 1;
+	invalidateScreenCache(bufr);
+}
+
+void editorRowInsertString(struct editorBuffer *bufr, erow *row, int at,
+			   char *s, size_t len) {
+	if (at < 0 || at > row->size)
+		at = row->size;
+	row->chars = realloc(row->chars, row->size + len + 1);
+	memmove(&row->chars[at + len], &row->chars[at], row->size - at + 1);
+	memcpy(&row->chars[at], s, len);
+	row->size += len;
+	row->width_valid = 0;
+	bufr->dirty = 1;
+	invalidateScreenCache(bufr);
+}
+
+void editorRowDeleteRange(struct editorBuffer *bufr, erow *row, int start,
+			  int end) {
+	if (start < 0 || end > row->size || start >= end)
+		return;
+	memmove(&row->chars[start], &row->chars[end], row->size - end);
+	row->size -= (end - start);
+	row->chars[row->size] = '\0';
+	row->width_valid = 0;
+	bufr->dirty = 1;
+	invalidateScreenCache(bufr);
+}
+
+void editorRowReplaceRange(struct editorBuffer *bufr, erow *row, int start,
+			   int end, char *s, size_t len) {
+	if (start < 0 || end > row->size || start > end)
+		return;
+	int delete_len = end - start;
+	int size_change = len - delete_len;
+
+	if (size_change > 0) {
+		row->chars = realloc(row->chars, row->size + size_change + 1);
+	}
+
+	memmove(&row->chars[start + len], &row->chars[end],
+		row->size - end + 1);
+	memcpy(&row->chars[start], s, len);
+	row->size += size_change;
+	row->width_valid = 0;
 	bufr->dirty = 1;
 	invalidateScreenCache(bufr);
 }
 
 int calculateLineWidth(erow *row) {
-	int width = 0;
-	for (int i = 0; i < row->size; i++) {
-		if (row->chars[i] == '\t') {
-			width = (width + EMSYS_TAB_STOP) / EMSYS_TAB_STOP *
-				EMSYS_TAB_STOP;
-		} else if (ISCTRL(row->chars[i])) {
-			width += 2;
-		} else {
-			width += charInStringWidth(row->chars, i);
-		}
-		i += utf8_nBytes(row->chars[i]) - 1;
+	if (row->width_valid) {
+		return row->cached_width;
 	}
-	return width;
+
+	int screen_x = 0;
+	for (int i = 0; i < row->size;) {
+		screen_x = nextScreenX(row->chars, &i, screen_x);
+		i++;
+	}
+
+	row->cached_width = screen_x;
+	row->width_valid = 1;
+	return screen_x;
 }
 
 int charsToDisplayColumn(erow *row, int chars_idx) {

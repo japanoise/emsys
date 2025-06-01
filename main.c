@@ -90,6 +90,40 @@ int windowFocusedIdx(struct editorConfig *ed) {
 	return 0;
 }
 
+void validateCursorY(struct editorBuffer *buf) {
+	if (buf->cy >= buf->numrows) {
+		buf->cy = buf->numrows > 0 ? buf->numrows - 1 : 0;
+	}
+}
+
+void validateCursorX(struct editorBuffer *buf) {
+	if (buf->cy < buf->numrows && buf->cx > buf->row[buf->cy].size) {
+		buf->cx = buf->row[buf->cy].size;
+	}
+}
+
+void validateCursorPosition(struct editorBuffer *buf) {
+	validateCursorY(buf);
+	validateCursorX(buf);
+}
+
+erow *safeGetRow(struct editorBuffer *buf, int row_index) {
+	return (row_index >= buf->numrows) ? NULL : &buf->row[row_index];
+}
+
+int nextScreenX(char *chars, int *i, int current_screen_x) {
+	if (chars[*i] == '\t') {
+		current_screen_x = (current_screen_x + EMSYS_TAB_STOP) /
+				   EMSYS_TAB_STOP * EMSYS_TAB_STOP;
+	} else if (ISCTRL(chars[*i])) {
+		current_screen_x += 2;
+	} else {
+		current_screen_x += charInStringWidth(chars, *i);
+	}
+	*i += utf8_nBytes(chars[*i]) - 1;
+	return current_screen_x;
+}
+
 void synchronizeBufferCursor(struct editorBuffer *buf,
 			     struct editorWindow *win) {
 	if (win->cy >= buf->numrows) {
@@ -155,8 +189,7 @@ void editorInsertNewline(struct editorBuffer *bufr) {
 		editorInsertRow(bufr, bufr->cy + 1, &row->chars[bufr->cx],
 				row->size - bufr->cx);
 		row = &bufr->row[bufr->cy];
-		row->size = bufr->cx;
-		row->chars[row->size] = '\0';
+		editorRowDeleteRange(bufr, row, bufr->cx, row->size);
 	}
 	bufr->cy++;
 	bufr->cx = 0;
@@ -251,8 +284,7 @@ UNINDENT_PERFORM:
 	new->datalen = trunc;
 
 	/* Perform row operation & dirty buffer */
-	memmove(&row->chars[0], &row->chars[trunc], row->size - trunc);
-	row->size -= trunc;
+	editorRowDeleteRange(bufr, row, 0, trunc);
 	bufr->cx -= trunc;
 	bufr->dirty = 1;
 }
@@ -268,7 +300,8 @@ void editorDelChar(struct editorBuffer *bufr) {
 	editorUndoDelChar(bufr, row);
 	if (bufr->cx == row->size) {
 		row = &bufr->row[bufr->cy + 1];
-		editorRowAppendString(bufr, &bufr->row[bufr->cy], row->chars,
+		editorRowInsertString(bufr, &bufr->row[bufr->cy],
+				      bufr->row[bufr->cy].size, row->chars,
 				      row->size);
 		editorDelRow(bufr, bufr->cy + 1);
 	} else {
@@ -296,8 +329,9 @@ void editorBackSpace(struct editorBuffer *bufr) {
 	} else {
 		editorUndoBackSpace(bufr, '\n');
 		bufr->cx = bufr->row[bufr->cy - 1].size;
-		editorRowAppendString(bufr, &bufr->row[bufr->cy - 1],
-				      row->chars, row->size);
+		editorRowInsertString(bufr, &bufr->row[bufr->cy - 1],
+				      bufr->row[bufr->cy - 1].size, row->chars,
+				      row->size);
 		editorDelRow(bufr, bufr->cy);
 		bufr->cy--;
 	}
@@ -339,8 +373,7 @@ void editorKillLine(struct editorBuffer *buf) {
 		}
 		new->data[kill_len] = '\0';
 
-		row->size = buf->cx;
-		row->chars[row->size] = '\0';
+		editorRowDeleteRange(buf, row, buf->cx, row->size);
 		buf->dirty = 1;
 		editorClearMark(buf);
 	}
@@ -378,9 +411,7 @@ void editorKillLineBackwards(struct editorBuffer *buf) {
 	}
 	new->data[buf->cx] = '\0';
 
-	row->size -= buf->cx;
-	memmove(row->chars, &row->chars[buf->cx], row->size);
-	row->chars[row->size] = '\0';
+	editorRowDeleteRange(buf, row, 0, buf->cx);
 	buf->cx = 0;
 	buf->dirty = 1;
 }
@@ -670,7 +701,12 @@ PROMPT_BACKSPACE:
 			buflen += E.nunicode;
 			if (buflen >= (bufsize - 5)) {
 				bufsize *= 2;
-				buf = realloc(buf, bufsize);
+				char *newbuf = realloc(buf, bufsize);
+				if (newbuf == NULL) {
+					free(buf);
+					return NULL;
+				}
+				buf = newbuf;
 			}
 			if (curs == buflen) {
 				for (int i = 0; i < E.nunicode; i++) {
@@ -693,7 +729,12 @@ PROMPT_BACKSPACE:
 			if (!ISCTRL(c) && c < 256) {
 				if (buflen >= bufsize - 5) {
 					bufsize *= 2;
-					buf = realloc(buf, bufsize);
+					char *newbuf = realloc(buf, bufsize);
+					if (newbuf == NULL) {
+						free(buf);
+						return NULL;
+					}
+					buf = newbuf;
 				}
 				if (curs == buflen) {
 					buf[buflen++] = c;
@@ -716,7 +757,7 @@ PROMPT_BACKSPACE:
 }
 
 void editorMoveCursor(struct editorBuffer *bufr, int key) {
-	erow *row = (bufr->cy >= bufr->numrows) ? NULL : &bufr->row[bufr->cy];
+	erow *row = safeGetRow(bufr, bufr->cy);
 
 	switch (key) {
 	case ARROW_LEFT:
@@ -751,20 +792,19 @@ void editorMoveCursor(struct editorBuffer *bufr, int key) {
 	case ARROW_DOWN:
 		if (bufr->cy < bufr->numrows) {
 			bufr->cy++;
-			if (bufr->cy < bufr->numrows) {
-				if (bufr->row[bufr->cy].chars == NULL)
-					break;
-				while (bufr->cx < bufr->row[bufr->cy].size &&
-				       utf8_isCont(bufr->row[bufr->cy]
-							   .chars[bufr->cx]))
-					bufr->cx++;
-			} else {
+			if (bufr->cy == bufr->numrows) {
 				bufr->cx = 0;
+				break;
 			}
+			if (bufr->row[bufr->cy].chars == NULL)
+				break;
+			while (bufr->cx < bufr->row[bufr->cy].size &&
+			       utf8_isCont(bufr->row[bufr->cy].chars[bufr->cx]))
+				bufr->cx++;
 		}
 		break;
 	}
-	row = (bufr->cy >= bufr->numrows) ? NULL : &bufr->row[bufr->cy];
+	row = safeGetRow(bufr, bufr->cy);
 	int rowlen = row ? row->size : 0;
 	if (bufr->cx > rowlen) {
 		bufr->cx = rowlen;
@@ -1266,11 +1306,10 @@ void editorProcessKeypress(int c) {
 /*** init ***/
 
 void crashHandler(int sig) {
-	/* Safely restore terminal without calling die() */
-	tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios);
+	/* Use only async-signal-safe functions */
 	write(STDOUT_FILENO, CSI "?1049l", 8);
-	fprintf(stderr, "\nProgram terminated by signal %d\n", sig);
-	exit(sig);
+	write(STDERR_FILENO, "\nProgram terminated by signal\n", 29);
+	_exit(sig);
 }
 
 void setupHandlers() {
@@ -1446,9 +1485,9 @@ int main(int argc, char *argv[]) {
 
 	editorSetStatusMessage("emsys " EMSYS_VERSION " - C-x C-c to quit");
 	setupHandlers();
+	editorRefreshScreen();
 
 	for (;;) {
-		editorRefreshScreen();
 		int c = editorReadKey();
 		if (c == MACRO_RECORD) {
 			if (E.recording) {
@@ -1486,6 +1525,7 @@ int main(int argc, char *argv[]) {
 			editorRecordKey(c);
 			editorProcessKeypress(c);
 		}
+		editorRefreshScreen();
 	}
 	return 0;
 }

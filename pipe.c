@@ -10,38 +10,67 @@
 #include "emsys.h"
 #include "region.h"
 #include "pipe.h"
+#ifndef __ANDROID__
 #include "subprocess.h"
+#endif
 
 static uint8_t *cmd;
 static char *buf;
 
 static uint8_t *transformerPipeCmd(uint8_t *input) {
 	int bsiz = BUFSIZ + 1;
-	/* Using sh -c lets us use pipes and stuff and takes care of quoting.
-	 * NOTE: This allows command injection by design - users can chain commands
-	 * with ; && || etc. This is intentional to support complex shell pipelines. */
-	const char *command_line[4] = { "/bin/sh", "-c", (char *)cmd, NULL };
-	struct subprocess_s subprocess;
-	int result = subprocess_create(command_line,
-				       subprocess_option_inherit_environment,
-				       &subprocess);
-	if (result) {
-		die("subprocess");
-	}
-	FILE *p_stdin = subprocess_stdin(&subprocess);
-	FILE *p_stdout = subprocess_stdout(&subprocess);
+	char temp_input_file[] = "/tmp/emsys_pipe_input_XXXXXX";
+	char temp_output_file[] = "/tmp/emsys_pipe_output_XXXXXX";
 
-	/* Write region to subprocess */
+	int input_fd = mkstemp(temp_input_file);
+	if (input_fd == -1) {
+		die("mkstemp input");
+	}
+
+	int output_fd = mkstemp(temp_output_file);
+	if (output_fd == -1) {
+		close(input_fd);
+		unlink(temp_input_file);
+		die("mkstemp output");
+	}
+
+	FILE *input_file = fdopen(input_fd, "w");
+	if (!input_file) {
+		close(input_fd);
+		close(output_fd);
+		unlink(temp_input_file);
+		unlink(temp_output_file);
+		die("fdopen input");
+	}
+
 	for (int i = 0; input[i]; i++) {
-		fputc(input[i], p_stdin);
+		fputc(input[i], input_file);
+	}
+	fclose(input_file);
+
+	char full_cmd[2048];
+	snprintf(full_cmd, sizeof(full_cmd), "%s < %s > %s", (char *)cmd,
+		 temp_input_file, temp_output_file);
+
+	int exit_code = system(full_cmd);
+	if (exit_code != 0) {
+		close(output_fd);
+		unlink(temp_input_file);
+		unlink(temp_output_file);
+		editorSetStatusMessage("Command failed with exit code %d",
+				       exit_code);
+		return (uint8_t *)buf;
 	}
 
-	/* Join process */
-	int sub_ret;
-	subprocess_join(&subprocess, &sub_ret);
+	FILE *output_file = fdopen(output_fd, "r");
+	if (!output_file) {
+		close(output_fd);
+		unlink(temp_input_file);
+		unlink(temp_output_file);
+		die("fdopen output");
+	}
 
-	/* Read stdout of process into buffer */
-	int c = fgetc(p_stdout);
+	int c = fgetc(output_file);
 	int i = 0;
 	while (c != EOF) {
 		buf[i++] = c;
@@ -50,12 +79,13 @@ static uint8_t *transformerPipeCmd(uint8_t *input) {
 			bsiz <<= 1;
 			buf = realloc(buf, bsiz);
 		}
-		c = fgetc(p_stdout);
+		c = fgetc(output_file);
 	}
 	editorSetStatusMessage("Read %d bytes", i);
 
-	/* Cleanup & return */
-	subprocess_destroy(&subprocess);
+	fclose(output_file);
+	unlink(temp_input_file);
+	unlink(temp_output_file);
 	return (uint8_t *)buf;
 }
 

@@ -6,9 +6,10 @@
 struct abuf {
 	char *b;
 	int len;
+	int capacity;
 };
 
-#define ABUF_INIT { NULL, 0 }
+#define ABUF_INIT { NULL, 0, 0 }
 
 void abAppend(struct abuf *ab, const char *s, int len);
 void abFree(struct abuf *ab);

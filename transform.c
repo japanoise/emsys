@@ -12,7 +12,7 @@
 uint8_t *transformerUpcase(uint8_t *input) {
 	MKOUTPUT(input, len, output);
 
-	for (int i = 0; i <= len; i++) {
+	for (int i = 0; i < len; i++) {
 		uint8_t c = input[i];
 		if ('a' <= c && c <= 'z') {
 			c &= 0x5f;
@@ -26,7 +26,7 @@ uint8_t *transformerUpcase(uint8_t *input) {
 uint8_t *transformerDowncase(uint8_t *input) {
 	MKOUTPUT(input, len, output);
 
-	for (int i = 0; i <= len; i++) {
+	for (int i = 0; i < len; i++) {
 		uint8_t c = input[i];
 		if ('A' <= c && c <= 'Z') {
 			c |= 0x60;
@@ -42,7 +42,7 @@ uint8_t *transformerCapitalCase(uint8_t *input) {
 
 	int first = 1;
 
-	for (int i = 0; i <= len; i++) {
+	for (int i = 0; i < len; i++) {
 		uint8_t c = input[i];
 		if ((('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')) &&
 		    first) {
@@ -100,7 +100,7 @@ uint8_t *transformerTransposeWords(uint8_t *input) {
 
 	int endFirst = -1, startSecond = -1;
 	int which = 0;
-	for (int i = 0; i <= len; i++) {
+	for (int i = 0; i < len; i++) {
 		if (!which) {
 			if (isWordBoundary(input[i])) {
 				which++;

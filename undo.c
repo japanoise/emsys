@@ -29,23 +29,19 @@ void editorDoUndo(struct editorBuffer *buf) {
 	} else {
 		struct erow *row = &buf->row[buf->undo->starty];
 		if (buf->undo->starty == buf->undo->endy) {
-			memmove(&row->chars[buf->undo->startx],
-				&row->chars[buf->undo->endx],
-				row->size - buf->undo->endx);
-			row->size -= buf->undo->endx - buf->undo->startx;
-			row->chars[row->size] = 0;
+			editorRowDeleteRange(buf, row, buf->undo->startx,
+					     buf->undo->endx);
 		} else {
 			for (int i = buf->undo->starty + 1; i < buf->undo->endy;
 			     i++) {
 				editorDelRow(buf, buf->undo->starty + 1);
 			}
 			struct erow *last = &buf->row[buf->undo->starty + 1];
-			row->size = buf->undo->startx;
-			row->size += last->size - buf->undo->endx;
-			row->chars = realloc(row->chars, row->size);
-			memcpy(&row->chars[buf->undo->startx],
-			       &last->chars[buf->undo->endx],
-			       last->size - buf->undo->endx);
+			editorRowDeleteRange(buf, row, buf->undo->startx,
+					     row->size);
+			editorRowInsertString(buf, row, row->size,
+					      &last->chars[buf->undo->endx],
+					      last->size - buf->undo->endx);
 			editorDelRow(buf, buf->undo->starty + 1);
 		}
 		buf->cx = buf->undo->startx;
@@ -71,23 +67,19 @@ void editorDoRedo(struct editorBuffer *buf) {
 	if (buf->redo->delete) {
 		struct erow *row = &buf->row[buf->redo->starty];
 		if (buf->redo->starty == buf->redo->endy) {
-			memmove(&row->chars[buf->redo->startx],
-				&row->chars[buf->redo->endx],
-				row->size - buf->redo->endx);
-			row->size -= buf->redo->endx - buf->redo->startx;
-			row->chars[row->size] = 0;
+			editorRowDeleteRange(buf, row, buf->redo->startx,
+					     buf->redo->endx);
 		} else {
 			for (int i = buf->redo->starty + 1; i < buf->redo->endy;
 			     i++) {
 				editorDelRow(buf, buf->redo->starty + 1);
 			}
 			struct erow *last = &buf->row[buf->redo->starty + 1];
-			row->size = buf->redo->startx;
-			row->size += last->size - buf->redo->endx;
-			row->chars = realloc(row->chars, row->size);
-			memcpy(&row->chars[buf->redo->startx],
-			       &last->chars[buf->redo->endx],
-			       last->size - buf->redo->endx);
+			editorRowDeleteRange(buf, row, buf->redo->startx,
+					     row->size);
+			editorRowInsertString(buf, row, row->size,
+					      &last->chars[buf->redo->endx],
+					      last->size - buf->redo->endx);
 			editorDelRow(buf, buf->redo->starty + 1);
 		}
 		buf->cx = buf->redo->startx;
@@ -281,7 +273,12 @@ void editorUndoDelChar(struct editorBuffer *buf, erow *row) {
 		memmove(&buf->undo->data[n], buf->undo->data,
 			buf->undo->datalen - n);
 		for (int i = 0; i < n; i++) {
-			buf->undo->data[i] = row->chars[buf->cx + n - i - 1];
+			int char_idx = buf->cx + n - i - 1;
+			if (char_idx >= 0 && char_idx < row->size) {
+				buf->undo->data[i] = row->chars[char_idx];
+			} else {
+				buf->undo->data[i] = ' ';
+			}
 			buf->undo->endx++;
 		}
 	}
