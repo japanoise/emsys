@@ -136,7 +136,8 @@ Control-x, `M-x` means Alt-x or Escape then x).
 ### Text Editing
 
 * `C-_` - Undo (this is Control-/ on most terminals)
-*  `C-x C-_` - Redo (keep pressing `C-_` to keep redoing)
+* `C-x C-_` - Redo (keep pressing `C-_` to keep redoing)
+* `C-M-_` - Redo (Ctrl+Alt+underscore, Emacs 28+ style)
 * `C-@` - Set mark (this is Control-SPACE on most terminals)
 * `C-x C-x` - Swap mark and point
 * `C-x h` - Mark the entire buffer

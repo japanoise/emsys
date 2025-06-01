@@ -868,7 +868,11 @@ static KeyBinding basic_bindings[] = {
 	{ CTRL('q'), handle_quoted_insert, "quoted-insert" },
 	{ CTRL('i'), handle_tab, "tab" },
 	{ CTRL('u'), handle_kill_line_backwards, "kill-line-backwards" },
+#ifdef EMSYS_CUA
+	{ CTRL('z'), handle_undo, "undo" },
+#else
 	{ CTRL('z'), handle_suspend, "suspend-emacs" },
+#endif
 	{ CTRL('x'), NULL, "ctrl-x-prefix" },
 	{ 033, NULL, "meta-prefix" },
 	{ BACKSPACE, handle_backward_delete_char, "backward-delete-char" },
@@ -941,6 +945,7 @@ static KeyBinding ctrl_x_bindings[] = {
 	{ YANK_RECT, handle_yank_rectangle, "yank-rectangle" },
 	{ 'h', handle_mark_whole_buffer, "mark-whole-buffer" },
 	{ '?', handle_custom_info, "custom-info" },
+	{ CTRL('_'), handle_redo, "redo" },
 };
 
 static KeyBinding meta_bindings[] = {
@@ -961,6 +966,7 @@ static KeyBinding meta_bindings[] = {
 	{ 'g', handle_goto_line, "goto-line" },
 	{ 't', handle_transpose_words, "transpose-words" },
 	{ 'x', handle_execute_extended_command, "execute-extended-command" },
+	{ CTRL('_'), handle_redo, "redo" },
 };
 
 KeyTable global_keys = { "global", basic_bindings,
@@ -1071,11 +1077,7 @@ void processKeySequence(int key) {
 	}
 
 	if (E.micro == REDO) {
-#ifdef EMSYS_CUA
-		if (key == CTRL('_') || key == CTRL('z')) {
-#else
 		if (key == CTRL('_')) {
-#endif
 			editorDoRedo(buf);
 			return;
 		}
@@ -1097,6 +1099,26 @@ void processKeySequence(int key) {
 	if (E.recording && key != CTRL('x')) {
 		editorRecordKey(key);
 	}
+
+#ifdef EMSYS_CUA
+	// CUA mode key bindings
+	if (key == CTRL('c') && prefix_state == PREFIX_NONE) {
+		if (buf->markx >= 0 && buf->marky >= 0) {
+			handle_copy_region(&E, buf, rept);
+		} else {
+			editorSetStatusMessage("No region selected");
+		}
+		return;
+	}
+	if (key == CTRL('v') && prefix_state == PREFIX_NONE) {
+		handle_yank(&E, buf, rept);
+		return;
+	}
+	if (key == CTRL('x') && prefix_state == PREFIX_NONE && buf->markx >= 0 && buf->marky >= 0) {
+		handle_kill_region(&E, buf, rept);
+		return;
+	}
+#endif
 
 	if (key == CTRL('x') && prefix_state == PREFIX_NONE) {
 		prefix_state = PREFIX_CTRL_X;
