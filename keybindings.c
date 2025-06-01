@@ -910,6 +910,7 @@ static KeyBinding basic_bindings[] = {
 	{ REDO, handle_redo, "redo" },
 	{ SAVE, handle_save_buffer, "save-buffer" },
 	{ COPY, handle_copy_region, "copy-region" },
+	{ CUT, handle_kill_region, "kill-region" },
 	{ SWAP_MARK, handle_swap_mark, "swap-mark" },
 	{ EXEC_CMD, handle_execute_extended_command,
 	  "execute-extended-command" },
