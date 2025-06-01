@@ -149,7 +149,17 @@ void editorSetScxScy(struct editorWindow *win) {
 
 	if (!buf->truncate_lines) {
 		if (buf->cy >= buf->numrows) {
-			win->scy = 0;
+			// For virtual line, calculate position as if there's a line at buf->numrows
+			if (buf->numrows > 0) {
+				int virtual_screen_line = getScreenLineForRow(buf, buf->numrows - 1);
+				// Add one line for the virtual line position
+				virtual_screen_line += ((calculateLineWidth(&buf->row[buf->numrows - 1]) / E.screencols) + 1);
+				int rowoff_screen_line = getScreenLineForRow(buf, win->rowoff);
+				win->scy = virtual_screen_line - rowoff_screen_line;
+			} else {
+				// Empty buffer case - virtual line is at position 0
+				win->scy = 0 - win->rowoff;
+			}
 		} else {
 			int cursor_screen_line =
 				getScreenLineForRow(buf, buf->cy);
@@ -578,7 +588,12 @@ void editorRefreshScreen(void) {
 	}
 
 	if (cursor_y > cumulative_height) {
-		cursor_y = cumulative_height - statusbar_height;
+		struct editorBuffer *buf = focusedWin->buf;
+		if (buf->cy >= buf->numrows) {
+			cursor_y = cumulative_height;
+		} else {
+			cursor_y = cumulative_height - statusbar_height;
+		}
 	}
 
 	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", cursor_y,
