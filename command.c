@@ -295,7 +295,7 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 			prompt_size = strlen(orig) + 25;
 			prompt = xmalloc(prompt_size);
 			snprintf(prompt, prompt_size,
-				 "Replace this %s with: %%s", orig);
+				 "Replace this %.60s with: ", orig);
 			newStr = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 			free(prompt);
 			if (newStr == NULL) {
@@ -315,7 +315,7 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 			prompt_size = strlen(orig) + 25;
 			prompt = xmalloc(prompt_size);
 			snprintf(prompt, prompt_size,
-				 "Query replace %s with: %%s", orig);
+				 "Query replace %.60s with: ", orig);
 			newStr = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 			free(prompt);
 			if (newStr == NULL) {
@@ -330,7 +330,7 @@ RESET_PROMPT:
 			prompt_size = strlen(orig) + strlen(repl) + 32;
 			prompt = xmalloc(prompt_size);
 			snprintf(prompt, prompt_size,
-				 "Query replacing %s with %s:", orig, repl);
+				 "Query replacing %.60s with %.60s:", orig, repl);
 			bufwidth = stringWidth(prompt);
 			break;
 		case CTRL('l'):
