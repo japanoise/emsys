@@ -278,8 +278,8 @@ void editorViewRegister(struct editorConfig *ed,
 				       ed->registers[reg].rdata.region);
 		break;
 	case REGISTER_NUMBER:
-		editorSetStatusMessage("%s (number): %d", str,
-				       ed->registers[reg].rdata.number);
+		editorSetStatusMessage("%s (number): %ld", str,
+				       (long)ed->registers[reg].rdata.number);
 		break;
 	case REGISTER_POINT:;
 		struct editorPoint *pt = ed->registers[reg].rdata.point;

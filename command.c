@@ -46,7 +46,18 @@ char *str_replace(char *orig, char *rep, char *with) {
 		ins = tmp + len_rep;
 	}
 
-	tmp = result = xmalloc(strlen(orig) + (len_with - len_rep) * count + 1);
+	size_t base_len = strlen(orig);
+	size_t diff = (len_with > len_rep) ? (len_with - len_rep) : 0;
+	
+	// Check for overflow
+	if (count > 0 && diff > 0 && count > SIZE_MAX / diff) {
+		return NULL;
+	}
+	if (base_len > SIZE_MAX - (diff * count) - 1) {
+		return NULL;
+	}
+	
+	tmp = result = xmalloc(base_len + (diff * count) + 1);
 
 	if (!result)
 		return NULL;
@@ -199,7 +210,7 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	size_t prompt_size = strlen(orig) + 25;
 	uint8_t *prompt = xmalloc(prompt_size);
-	snprintf(prompt, prompt_size, "Query replace %s with: %%s", orig);
+	snprintf(prompt, prompt_size, "Query replace %s with: ", orig);
 	repl = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 	free(prompt);
 	if (repl == NULL) {
@@ -228,7 +239,7 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 	NEXT_OCCUR(false);
 
 	for (;;) {
-		editorSetStatusMessage(prompt);
+		editorSetStatusMessage("%s", prompt);
 		editorRefreshScreen();
 		editorCursorBottomLine(bufwidth + 2);
 
