@@ -48,7 +48,7 @@ PLATFORM ?= $(DETECTED_PLATFORM)
 # Apply platform-specific settings
 ifeq ($(PLATFORM),android)
     CC = clang
-    CFLAGS += -O2 -fPIC -fPIE -DNDEBUG
+    CFLAGS += -O2 -fPIC -fPIE -DNDEBUG -DEMSYS_DISABLE_PIPE
     CRT_DIR = /data/data/com.termux/files/usr/lib
     LINK_CMD = ld -o $(PROGNAME) $(CRT_DIR)/crtbegin_dynamic.o $(OBJECTS) -lc --dynamic-linker=/system/bin/linker64 -L$(CRT_DIR) -pie --gc-sections $(CRT_DIR)/crtend_android.o
 endif
