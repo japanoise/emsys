@@ -61,7 +61,7 @@ extern void editorExecMacro(struct editorMacro *macro);
 extern int windowFocusedIdx(struct editorConfig *ed);
 extern void editorSetStatusMessage(const char *fmt, ...);
 extern void editorRefreshScreen();
-extern int editorReadKey(struct editorBuffer *buf);
+extern int editorReadKey(void);
 extern void editorRecordKey(int c);
 extern void editorOpen(struct editorBuffer *buf, char *filename);
 extern struct editorBuffer *newBuffer();
@@ -372,7 +372,7 @@ static void handle_quit(struct editorConfig *ed, struct editorBuffer *buf,
 			editorSetStatusMessage(
 				"There are unsaved changes. Really quit? (y or n)");
 			editorRefreshScreen();
-			if (editorReadKey(ed->focusBuf) == 'y')
+			if (editorReadKey() == 'y')
 				exit(0);
 			editorSetStatusMessage("");
 			return;
@@ -758,7 +758,7 @@ static void handle_kill_buffer(struct editorConfig *ed,
 		editorSetStatusMessage(
 			"Buffer has unsaved changes. Kill anyway? (y or n)");
 		editorRefreshScreen();
-		int c = editorReadKey(buf);
+		int c = editorReadKey();
 		if (c != 'y' && c != 'Y') {
 			editorSetStatusMessage("");
 			return;
@@ -1138,7 +1138,7 @@ void processKeySequence(int key) {
 
 	// Handle C-h prefix commands
 	if (key == CTRL('h') && prefix_state == PREFIX_NONE) {
-		int help_key = editorReadKey(buf);
+		int help_key = editorReadKey();
 		switch (help_key) {
 		case 'k':
 			editorDescribeKey(&E, E.focusBuf);

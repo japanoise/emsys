@@ -293,7 +293,7 @@ void invalidateScreenCache(struct editorBuffer *buf);
 void buildScreenCache(struct editorBuffer *buf);
 int getScreenLineForRow(struct editorBuffer *buf, int row);
 void destroyBuffer(struct editorBuffer *);
-int editorReadKey();
+int editorReadKey(void);
 void editorRecordKey(int c);
 void editorRecenter(struct editorWindow *win);
 void editorRecenterCommand(struct editorConfig *ed, struct editorBuffer *buf);
