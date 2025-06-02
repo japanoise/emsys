@@ -253,28 +253,22 @@ struct editorConfig {
 
 void crashHandler(int sig);
 void setupHandlers();
-void editorSetStatusMessage(const char *fmt, ...);
-void editorRefreshScreen();
-uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
+void setStatusMessage(const char *fmt, ...);
+void refreshScreen();
+uint8_t *promptUser(struct editorBuffer *bufr, uint8_t *prompt,
 		      enum promptType t,
 		      void (*callback)(struct editorBuffer *, uint8_t *, int));
-void editorCursorBottomLine(int);
-void editorCursorBottomLineLong(long);
-void editorInsertNewline(struct editorBuffer *bufr);
-void insertChar(int c);
-void editorInsertChar(struct editorBuffer *bufr, int c);
-void moveCursor(int key);
-void backSpace(void);
-void delChar(void);
-void insertNewline(void);
-void killLine(void);
-void doUndo(void);
-void setMark(void);
-void clearMark(void);
-void find(void);
-void openLine(void);
-void editorOpen(struct editorBuffer *bufr, char *filename);
+void cursorBottomLine(int);
+void cursorBottomLineLong(long);
+void insertNewline(struct editorBuffer *bufr);
+void editorInsertChar(int c);
+void bufferInsertChar(struct editorBuffer *bufr, int c);
+void editorMoveCursor(int key);
+void bufferMoveCursor(struct editorBuffer *bufr, int key);
+void editorOpenFile(struct editorBuffer *bufr, char *filename);
 void die(const char *s);
+void editorResume(int sig);
+void editorSuspend(int sig);
 
 /* Safe memory allocation wrappers */
 void *xmalloc(size_t size);
@@ -293,19 +287,14 @@ void invalidateScreenCache(struct editorBuffer *buf);
 void buildScreenCache(struct editorBuffer *buf);
 int getScreenLineForRow(struct editorBuffer *buf, int row);
 void destroyBuffer(struct editorBuffer *);
-int editorReadKey(void);
-void editorRecordKey(int c);
-void editorRecenter(struct editorWindow *win);
-void editorRecenterCommand(struct editorConfig *ed, struct editorBuffer *buf);
-void editorExecMacro(struct editorMacro *macro);
+int readKey(void);
+void recordKey(int c);
+void recenter(struct editorWindow *win);
+void recenterCommand(struct editorConfig *ed, struct editorBuffer *buf);
+void execMacro(struct editorMacro *macro);
 char *stringdup(const char *s);
 int windowFocusedIdx(struct editorConfig *ed);
-void editorScroll();
+void scroll();
 
-/* Simplified API functions that access E.focusBuf internally */
-void backSpace();
-void delChar();
-void insertNewline();
-void killLine();
 
 #endif

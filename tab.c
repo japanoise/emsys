@@ -8,6 +8,8 @@
 #include "emsys.h"
 #include "row.h"
 #include "tab.h"
+
+extern struct editorConfig E;
 #include "undo.h"
 #include "unicode.h"
 
@@ -57,12 +59,12 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 
 	int cur = 0;
 	for (;;) {
-		editorSetStatusMessage("Multiple options: %s",
+		setStatusMessage("Multiple options: %s",
 				       completions[cur]);
-		editorRefreshScreen();
-		editorCursorBottomLine(strlen(completions[cur]) + 19);
+		refreshScreen();
+		cursorBottomLine(strlen(completions[cur]) + 19);
 
-		int c = editorReadKey();
+		int c = readKey();
 		switch (c) {
 		case '\r':
 			ret = (uint8_t *)stringdup(completions[cur]);
@@ -157,12 +159,12 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 	int curw = stringWidth((uint8_t *)globlist.gl_pathv[cur]);
 
 	for (;;) {
-		editorSetStatusMessage("Multiple options: %s",
+		setStatusMessage("Multiple options: %s",
 				       globlist.gl_pathv[cur]);
-		editorRefreshScreen();
-		editorCursorBottomLine(curw + 19);
+		refreshScreen();
+		cursorBottomLine(curw + 19);
 
-		int c = editorReadKey();
+		int c = readKey();
 		switch (c) {
 		case '\r':;
 TC_FILES_ACCEPT:;
@@ -242,12 +244,12 @@ uint8_t *tabCompleteCommands(struct editorConfig *ed, uint8_t *input) {
 
 	int cur = 0;
 	for (;;) {
-		editorSetStatusMessage("Multiple options: %s",
+		setStatusMessage("Multiple options: %s",
 				       completions[cur]);
-		editorRefreshScreen();
-		editorCursorBottomLine(strlen(completions[cur]) + 19);
+		refreshScreen();
+		cursorBottomLine(strlen(completions[cur]) + 19);
 
-		int c = editorReadKey();
+		int c = readKey();
 		switch (c) {
 		case '\r':
 			ret = (uint8_t *)stringdup(completions[cur]);
@@ -283,9 +285,10 @@ static int sortstring(const void *str1, const void *str2) {
 	return strcmp(*pp1, *pp2);
 }
 
-void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
+void completeWord(void) {
+	struct editorBuffer *bufr = E.focusBuf;
 	if (bufr->cy >= bufr->numrows || bufr->cx == 0) {
-		editorSetStatusMessage("Nothing to complete here.");
+		setStatusMessage("Nothing to complete here.");
 		return;
 	}
 	struct erow *row = &bufr->row[bufr->cy];
@@ -296,7 +299,7 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 		wordStart = i;
 	}
 	if (wordStart == bufr->cx) {
-		editorSetStatusMessage("Nothing to complete here.");
+		setStatusMessage("Nothing to complete here.");
 		return;
 	}
 
@@ -314,7 +317,7 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 		char error_msg[256];
 		regerror(regcomp_result, &pattern, error_msg,
 			 sizeof(error_msg));
-		editorSetStatusMessage("Regex error: %s", error_msg);
+		setStatusMessage("Regex error: %s", error_msg);
 		free(word);
 		free(candidates);
 		return;
@@ -322,7 +325,7 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 
 	/* This is a deeply naive algorithm. */
 	/* First, find every word that starts with the word to complete */
-	for (struct editorBuffer *buf = ed->firstBuf; buf; buf = buf->next) {
+	for (struct editorBuffer *buf = E.firstBuf; buf; buf = buf->next) {
 		for (int i = 0; i < buf->numrows; i++) {
 			if (buf == bufr && buf->cy == i)
 				continue;
@@ -356,7 +359,7 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 
 	/* No matches? Cleanup. */
 	if (ncand == 0) {
-		editorSetStatusMessage("No match for %s", word);
+		setStatusMessage("No match for %s", word);
 		goto COMPLETE_WORD_CLEANUP;
 	}
 
@@ -396,11 +399,11 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 	/* Otherwise, standard tab complete interface. */
 	int selw = stringWidth((uint8_t *)candidates[sel]);
 	for (;;) {
-		editorSetStatusMessage("Multiple options: %s", candidates[sel]);
-		editorRefreshScreen();
-		editorCursorBottomLine(selw + 19);
+		setStatusMessage("Multiple options: %s", candidates[sel]);
+		refreshScreen();
+		cursorBottomLine(selw + 19);
 
-		int c = editorReadKey();
+		int c = readKey();
 		switch (c) {
 		case '\r':
 			goto COMPLETE_WORD_DONE;
@@ -422,7 +425,7 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 			selw = stringWidth((uint8_t *)candidates[sel]);
 			break;
 		case CTRL('g'):
-			editorSetStatusMessage("Canceled");
+			setStatusMessage("Canceled");
 			goto COMPLETE_WORD_CLEANUP;
 			break;
 		}
@@ -450,11 +453,11 @@ COMPLETE_WORD_DONE:;
 	strcat((char *)new->data, &candidates[sel][bufr->cx - wordStart]);
 	bufr->undo = new;
 
-	editorRowInsertString(bufr, row, bufr->cx,
+	rowInsertString(bufr, row, bufr->cx,
 			      &candidates[sel][bufr->cx - wordStart],
 			      completelen);
 
-	editorSetStatusMessage("Expanded %.30s to %.30s", word,
+	setStatusMessage("Expanded %.30s to %.30s", word,
 			       candidates[sel]);
 	bufr->cx += completelen;
 

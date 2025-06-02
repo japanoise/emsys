@@ -140,7 +140,7 @@ int calculateRowsToScroll(struct editorBuffer *buf, struct editorWindow *win,
 	return rows_to_scroll;
 }
 
-void editorSetScxScy(struct editorWindow *win) {
+void setScxScy(struct editorWindow *win) {
 	struct editorBuffer *buf = win->buf;
 	erow *row = (buf->cy >= buf->numrows) ? NULL : &buf->row[buf->cy];
 
@@ -195,7 +195,7 @@ void editorSetScxScy(struct editorWindow *win) {
 		win->scx = E.screencols - 1;
 }
 
-void editorScroll(void) {
+void scroll(void) {
 	struct editorWindow *win = E.windows[windowFocusedIdx(&E)];
 	struct editorBuffer *buf = win->buf;
 
@@ -294,7 +294,7 @@ void editorScroll(void) {
 		win->coloff = 0;
 	}
 
-	editorSetScxScy(win);
+	setScxScy(win);
 }
 
 static void renderLineWithHighlighting(erow *row, struct abuf *ab,
@@ -371,7 +371,7 @@ static void renderLineWithHighlighting(erow *row, struct abuf *ab,
 	}
 }
 
-void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
+void drawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 		    int screencols) {
 	struct editorBuffer *buf = win->buf;
 	int y;
@@ -424,7 +424,7 @@ void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 	}
 }
 
-void editorDrawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
+void drawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
 	/* XXX: It's actually possible for the status bar to end up
 	 * outside where it should be, so set it explicitly. */
 	char buf[32];
@@ -528,7 +528,7 @@ void editorDrawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
 	abAppend(ab, "\x1b[m" CRLF, 5);
 }
 
-void editorDrawMinibuffer(struct abuf *ab) {
+void drawMinibuffer(struct abuf *ab) {
 	abAppend(ab, "\x1b[K", 3);
 
 	// Show prefix first if active
@@ -549,7 +549,7 @@ void editorDrawMinibuffer(struct abuf *ab) {
 	}
 }
 
-void editorRefreshScreen(void) {
+void refreshScreen(void) {
 	struct abuf ab = ABUF_INIT;
 	abAppend(&ab, "\x1b[?25l", 6);
 	write(STDOUT_FILENO, ab.b, ab.len);
@@ -571,13 +571,13 @@ void editorRefreshScreen(void) {
 			win->height += remaining_height;
 
 		if (win->focused)
-			editorScroll();
-		editorDrawRows(win, &ab, win->height, E.screencols);
+			scroll();
+		drawRows(win, &ab, win->height, E.screencols);
 		cumulative_height += win->height + statusbar_height;
-		editorDrawStatusBar(win, &ab, cumulative_height);
+		drawStatusBar(win, &ab, cumulative_height);
 	}
 
-	editorDrawMinibuffer(&ab);
+	drawMinibuffer(&ab);
 
 	struct editorWindow *focusedWin = E.windows[focusedIdx];
 	char buf[32];
@@ -605,13 +605,13 @@ void editorRefreshScreen(void) {
 	abFree(&ab);
 }
 
-void editorCursorBottomLine(int curs) {
+void cursorBottomLine(int curs) {
 	char cbuf[32];
 	snprintf(cbuf, sizeof(cbuf), CSI "%d;%dH", E.screenrows, curs);
 	write(STDOUT_FILENO, cbuf, strlen(cbuf));
 }
 
-void editorCursorBottomLineLong(long curs) {
+void cursorBottomLineLong(long curs) {
 	char cbuf[32];
 	snprintf(cbuf, sizeof(cbuf), CSI "%d;%ldH", E.screenrows, curs);
 	write(STDOUT_FILENO, cbuf, strlen(cbuf));
@@ -620,10 +620,10 @@ void editorCursorBottomLineLong(long curs) {
 void editorResizeScreen(int UNUSED(sig)) {
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1)
 		die("getWindowSize");
-	editorRefreshScreen();
+	refreshScreen();
 }
 
-void editorRecenter(struct editorWindow *win) {
+void recenter(struct editorWindow *win) {
 	win->rowoff = win->buf->cy - (win->height / 2);
 	if (win->rowoff < 0) {
 		win->rowoff = 0;

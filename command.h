@@ -3,9 +3,9 @@
 #include "emsys.h"
 void editorToggleTruncateLines(struct editorConfig *ed,
 			       struct editorBuffer *buf);
-void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf);
-void editorHelpForHelp(struct editorConfig *ed, struct editorBuffer *buf);
-void editorViewManPage(struct editorConfig *ed, struct editorBuffer *buf);
+void editorQueryReplace(void);
+void editorHelpForHelp(void);
+void editorViewManPage(void);
 void setupCommands(struct editorConfig *);
 void runCommand(char *, struct editorConfig *, struct editorBuffer *);
 #endif

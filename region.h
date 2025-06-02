@@ -8,31 +8,30 @@ int markInvalid(struct editorBuffer *buf);
 
 int markInvalidSilent(struct editorBuffer *buf);
 
-void editorSetMark(struct editorBuffer *buf);
+void setMark(struct editorBuffer *buf);
 
-void editorClearMark(struct editorBuffer *buf);
+void clearMark(struct editorBuffer *buf);
 
-void editorMarkRectangle(struct editorBuffer *buf);
+void markRectangle(struct editorBuffer *buf);
 
-void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf);
+void killRegion(void);
 
-void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf);
+void copyRegion(void);
 
-void editorYank(struct editorConfig *ed, struct editorBuffer *buf);
+void yank(void);
 
-void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
-			   uint8_t *(*transformer)(uint8_t *));
+void transformRegion(uint8_t *(*transformer)(uint8_t *));
 
-void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf);
+void replaceRegex(void);
 
-void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf);
+void stringRectangle(void);
 
-void editorCopyRectangle(struct editorConfig *ed, struct editorBuffer *buf);
+void copyRectangle(void);
 
-void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf);
+void killRectangle(void);
 
-void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf);
+void yankRectangle(void);
 
-void editorMarkWholeBuffer(struct editorBuffer *buf);
+void markWholeBuffer(struct editorBuffer *buf);
 
 #endif

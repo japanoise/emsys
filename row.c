@@ -5,7 +5,9 @@
 #include "row.h"
 #include "unicode.h"
 
-void editorInsertRow(struct editorBuffer *bufr, int at, char *s, size_t len) {
+extern struct editorConfig E;
+
+void insertRow(struct editorBuffer *bufr, int at, char *s, size_t len) {
 	if (at < 0 || at > bufr->numrows)
 		return;
 
@@ -25,14 +27,14 @@ void editorInsertRow(struct editorBuffer *bufr, int at, char *s, size_t len) {
 	invalidateScreenCache(bufr);
 }
 
-void editorFreeRow(erow *row) {
+void freeRow(erow *row) {
 	free(row->chars);
 }
 
-void editorDelRow(struct editorBuffer *bufr, int at) {
+void delRow(struct editorBuffer *bufr, int at) {
 	if (at < 0 || at >= bufr->numrows)
 		return;
-	editorFreeRow(&bufr->row[at]);
+	freeRow(&bufr->row[at]);
 	memmove(&bufr->row[at], &bufr->row[at + 1],
 		sizeof(erow) * (bufr->numrows - at - 1));
 	bufr->numrows--;
@@ -40,7 +42,7 @@ void editorDelRow(struct editorBuffer *bufr, int at) {
 	invalidateScreenCache(bufr);
 }
 
-void editorRowInsertChar(struct editorBuffer *bufr, erow *row, int at, int c) {
+void rowInsertChar(struct editorBuffer *bufr, erow *row, int at, int c) {
 	if (at < 0 || at > row->size)
 		at = row->size;
 	row->chars = xrealloc(row->chars, row->size + 2);
@@ -52,21 +54,20 @@ void editorRowInsertChar(struct editorBuffer *bufr, erow *row, int at, int c) {
 	invalidateScreenCache(bufr);
 }
 
-void editorRowInsertUnicode(struct editorConfig *ed, struct editorBuffer *bufr,
-			    erow *row, int at) {
+void rowInsertUnicode(erow *row, int at) {
 	if (at < 0 || at > row->size)
 		at = row->size;
-	row->chars = xrealloc(row->chars, row->size + 1 + ed->nunicode);
-	memmove(&row->chars[at + ed->nunicode], &row->chars[at],
+	row->chars = xrealloc(row->chars, row->size + 1 + E.nunicode);
+	memmove(&row->chars[at + E.nunicode], &row->chars[at],
 		row->size - at + 1);
-	row->size += ed->nunicode;
-	memcpy(&row->chars[at], ed->unicode, ed->nunicode);
+	row->size += E.nunicode;
+	memcpy(&row->chars[at], E.unicode, E.nunicode);
 	row->width_valid = 0;
-	bufr->dirty = 1;
-	invalidateScreenCache(bufr);
+	E.focusBuf->dirty = 1;
+	invalidateScreenCache(E.focusBuf);
 }
 
-void editorRowDelChar(struct editorBuffer *bufr, erow *row, int at) {
+void rowDelChar(struct editorBuffer *bufr, erow *row, int at) {
 	if (at < 0 || at >= row->size)
 		return;
 	int size = utf8_nBytes(row->chars[at]);
@@ -78,7 +79,7 @@ void editorRowDelChar(struct editorBuffer *bufr, erow *row, int at) {
 	invalidateScreenCache(bufr);
 }
 
-void editorRowInsertString(struct editorBuffer *bufr, erow *row, int at,
+void rowInsertString(struct editorBuffer *bufr, erow *row, int at,
 			   char *s, size_t len) {
 	if (at < 0 || at > row->size)
 		at = row->size;
@@ -91,7 +92,7 @@ void editorRowInsertString(struct editorBuffer *bufr, erow *row, int at,
 	invalidateScreenCache(bufr);
 }
 
-void editorRowDeleteRange(struct editorBuffer *bufr, erow *row, int start,
+void rowDeleteRange(struct editorBuffer *bufr, erow *row, int start,
 			  int end) {
 	if (start < 0 || end > row->size || start >= end)
 		return;
@@ -103,7 +104,7 @@ void editorRowDeleteRange(struct editorBuffer *bufr, erow *row, int start,
 	invalidateScreenCache(bufr);
 }
 
-void editorRowReplaceRange(struct editorBuffer *bufr, erow *row, int start,
+void rowReplaceRange(struct editorBuffer *bufr, erow *row, int start,
 			   int end, char *s, size_t len) {
 	if (start < 0 || end > row->size || start > end)
 		return;

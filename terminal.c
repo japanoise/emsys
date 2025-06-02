@@ -42,7 +42,7 @@ void enableRawMode(void) {
 		die("enableRawMode tcsetattr");
 }
 
-void editorDeserializeUnicode(void) {
+void deserializeUnicode(void) {
 	E.unicode[0] = E.macro.keys[E.playback++];
 	E.nunicode = utf8_nBytes(E.unicode[0]);
 	for (int i = 1; i < E.nunicode; i++) {
@@ -51,11 +51,11 @@ void editorDeserializeUnicode(void) {
 }
 
 /* Raw reading a keypress */
-int editorReadKey(void) {
+int readKey(void) {
 	if (E.playback) {
 		int ret = E.macro.keys[E.playback++];
 		if (ret == UNICODE) {
-			editorDeserializeUnicode();
+			deserializeUnicode();
 		}
 		return ret;
 	}
@@ -192,7 +192,7 @@ ESC_UNKNOWN:;
 			}
 			strncat(seqR, buf, sizeof(seqR) - strlen(seqR) - 1);
 		}
-		editorSetStatusMessage("Unknown command M-%s", seqR);
+		setStatusMessage("Unknown command M-%s", seqR);
 		return 033;
 	} else if (c == CTRL('x')) {
 		/* Welcome to Emacs! */

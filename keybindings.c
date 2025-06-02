@@ -18,76 +18,70 @@
 #include "transform.h"
 
 extern const int page_overlap;
-extern void editorMoveCursor(struct editorBuffer *buf, int key);
-extern void editorInsertChar(struct editorBuffer *buf, int c);
-extern void editorInsertNewline(struct editorBuffer *buf);
-extern void editorBackSpace(struct editorBuffer *buf);
-extern void editorDelChar(struct editorBuffer *buf);
-extern void editorSave(struct editorBuffer *buf);
-extern void editorKillLine(struct editorBuffer *buf);
-extern void editorOpenLine(struct editorBuffer *buf);
-extern void editorRecenter(struct editorWindow *win);
-extern void editorForwardWord(struct editorBuffer *buf);
-extern void editorBackWord(struct editorBuffer *buf);
-extern void editorForwardPara(struct editorBuffer *buf);
-extern void editorBackPara(struct editorBuffer *buf);
-extern void editorDeleteWord(struct editorBuffer *buf);
-extern void editorBackspaceWord(struct editorBuffer *buf);
-extern void editorUpcaseWord(struct editorConfig *ed, struct editorBuffer *buf,
+extern void bufferMoveCursor(struct editorBuffer *buf, int key);
+extern void bufferInsertChar(struct editorBuffer *buf, int c);
+extern void insertNewline(struct editorBuffer *buf);
+extern void backSpace(struct editorBuffer *buf);
+extern void delChar(struct editorBuffer *buf);
+extern void save(struct editorBuffer *buf);
+extern void killLine(struct editorBuffer *buf);
+extern void openLine(struct editorBuffer *buf);
+extern void recenter(struct editorWindow *win);
+extern void forwardWord(struct editorBuffer *buf);
+extern void backWord(struct editorBuffer *buf);
+extern void forwardPara(struct editorBuffer *buf);
+extern void backPara(struct editorBuffer *buf);
+extern void deleteWord(struct editorBuffer *buf);
+extern void backspaceWord(struct editorBuffer *buf);
+extern void upcaseWord(struct editorConfig *ed, struct editorBuffer *buf,
 			     int times);
-extern void editorDowncaseWord(struct editorConfig *ed,
+extern void downcaseWord(struct editorConfig *ed,
 			       struct editorBuffer *buf, int times);
-extern void editorCapitalCaseWord(struct editorConfig *ed,
+extern void capitalCaseWord(struct editorConfig *ed,
 				  struct editorBuffer *buf, int times);
-extern void editorTransposeChars(struct editorConfig *ed,
+extern void transposeChars(struct editorConfig *ed,
 				 struct editorBuffer *buf);
-extern void editorTransposeWords(struct editorBuffer *buf);
-extern void editorGotoLine(struct editorBuffer *buf);
-extern void editorQueryReplace(struct editorConfig *ed,
+extern void transposeWords(struct editorBuffer *buf);
+extern void gotoLine(struct editorBuffer *buf);
+extern void queryReplace(struct editorConfig *ed,
 			       struct editorBuffer *buf);
-extern void editorKillLineBackwards(struct editorBuffer *buf);
-extern void editorToggleTruncateLines(struct editorConfig *ed,
+extern void killLineBackwards(struct editorBuffer *buf);
+extern void toggleTruncateLines(struct editorConfig *ed,
 				      struct editorBuffer *buf);
-extern void editorPipeCmd(struct editorConfig *ed, struct editorBuffer *buf);
+extern void pipeCmd(struct editorConfig *ed, struct editorBuffer *buf);
 extern void runCommand(char *cmd, struct editorConfig *ed,
 		       struct editorBuffer *buf);
-extern void editorCompleteWord(struct editorConfig *ed,
-			       struct editorBuffer *buf);
-extern void editorUndoAppendChar(struct editorBuffer *buf, uint8_t c);
-extern void editorUndoAppendUnicode(struct editorConfig *ed,
-				    struct editorBuffer *buf);
-extern void editorInsertUnicode(struct editorBuffer *buf);
-extern void editorExecMacro(struct editorMacro *macro);
+extern void completeWord(void);
+extern void undoAppendChar(struct editorBuffer *buf, uint8_t c);
+extern void undoAppendUnicode(void);
+extern void insertUnicode(struct editorBuffer *buf);
+extern void execMacro(struct editorMacro *macro);
 extern int windowFocusedIdx(struct editorConfig *ed);
-extern void editorSetStatusMessage(const char *fmt, ...);
-extern void editorRefreshScreen();
-extern int editorReadKey(void);
-extern void editorRecordKey(int c);
-extern void editorOpen(struct editorBuffer *buf, char *filename);
+extern void setStatusMessage(const char *fmt, ...);
+extern void refreshScreen();
+extern int readKey(void);
+extern void recordKey(int c);
+extern void editorOpenFile(struct editorBuffer *buf, char *filename);
 extern struct editorBuffer *newBuffer();
-extern void editorStringRectangle(struct editorConfig *ed,
-				  struct editorBuffer *buf);
+extern void stringRectangle(void);
 extern int calculateRowsToScroll(struct editorBuffer *buf,
 				 struct editorWindow *win, int direction);
-extern void editorCopyRectangle(struct editorConfig *ed,
-				struct editorBuffer *buf);
-extern void editorKillRectangle(struct editorConfig *ed,
-				struct editorBuffer *buf);
-extern void editorYankRectangle(struct editorConfig *ed,
-				struct editorBuffer *buf);
-extern void editorSwitchToNamedBuffer(struct editorConfig *ed,
+extern void copyRectangle(void);
+extern void killRectangle(void);
+extern void yankRectangle(void);
+extern void switchToNamedBuffer(struct editorConfig *ed,
 				      struct editorBuffer *buf);
-extern void editorSwitchWindow(struct editorConfig *ed);
+extern void switchWindow(struct editorConfig *ed);
 extern uint8_t *
-editorPrompt(struct editorBuffer *buf, uint8_t *prompt, enum promptType t,
+promptUser(struct editorBuffer *buf, uint8_t *prompt, enum promptType t,
 	     void (*callback)(struct editorBuffer *, uint8_t *, int));
 extern void destroyBuffer(struct editorBuffer *buf);
-extern void editorWhatCursor(struct editorBuffer *buf);
-extern void editorDescribeKey(struct editorConfig *ed,
+extern void whatCursor(struct editorBuffer *buf);
+extern void describeKey(struct editorConfig *ed,
 			      struct editorBuffer *buf);
-extern void editorViewManPage(struct editorConfig *ed,
+extern void viewManPage(struct editorConfig *ed,
 			      struct editorBuffer *buf);
-extern void editorHelpForHelp(struct editorConfig *ed,
+extern void helpForHelp(struct editorConfig *ed,
 			      struct editorBuffer *buf);
 
 extern struct editorConfig E;
@@ -103,15 +97,15 @@ static int is_recording = 0;
 static void handle_newline(struct editorConfig *ed, struct editorBuffer *buf,
 			   int rept) {
 	for (int i = 0; i < rept; i++) {
-		editorUndoAppendChar(buf, '\n');
-		insertNewline();
+		undoAppendChar(buf, '\n');
+		insertNewline(E.focusBuf);
 	}
 }
 
 static void handle_open_line(struct editorConfig *ed, struct editorBuffer *buf,
 			     int rept) {
 	for (int i = 0; i < rept; i++) {
-		openLine();
+		openLine(E.focusBuf);
 	}
 }
 
@@ -129,114 +123,114 @@ static void handle_end_of_line(struct editorConfig *ed,
 static void handle_forward_char(struct editorConfig *ed,
 				struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		moveCursor(ARROW_RIGHT);
+		bufferMoveCursor(buf, ARROW_RIGHT);
 }
 
 static void handle_backward_char(struct editorConfig *ed,
 				 struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		moveCursor(ARROW_LEFT);
+		bufferMoveCursor(buf, ARROW_LEFT);
 }
 
 static void handle_next_line(struct editorConfig *ed, struct editorBuffer *buf,
 			     int rept) {
 	for (int i = 0; i < rept; i++)
-		moveCursor(ARROW_DOWN);
+		bufferMoveCursor(buf, ARROW_DOWN);
 }
 
 static void handle_previous_line(struct editorConfig *ed,
 				 struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		moveCursor(ARROW_UP);
+		bufferMoveCursor(buf, ARROW_UP);
 }
 
 static void handle_kill_line(struct editorConfig *ed, struct editorBuffer *buf,
 			     int rept) {
 	for (int i = 0; i < rept; i++)
-		killLine();
+		killLine(E.focusBuf);
 }
 
 static void handle_kill_region(struct editorConfig *ed,
 			       struct editorBuffer *buf, int rept) {
-	editorKillRegion(ed, buf);
-	clearMark();
+	killRegion();
+	clearMark(E.focusBuf);
 }
 
 static void handle_yank(struct editorConfig *ed, struct editorBuffer *buf,
 			int rept) {
 	for (int i = 0; i < rept; i++)
-		editorYank(ed, buf);
+		yank();
 }
 
 static void handle_undo(struct editorConfig *ed, struct editorBuffer *buf,
 			int rept) {
 	for (int i = 0; i < rept; i++)
-		doUndo();
+		doUndo(E.focusBuf);
 }
 
 static void handle_set_mark(struct editorConfig *ed, struct editorBuffer *buf,
 			    int rept) {
-	setMark();
+	setMark(E.focusBuf);
 }
 
 static void handle_mark_rectangle(struct editorConfig *ed,
 				  struct editorBuffer *buf, int rept) {
-	editorMarkRectangle(buf);
+	markRectangle(buf);
 }
 
 static void handle_isearch_forward(struct editorConfig *ed,
 				   struct editorBuffer *buf, int rept) {
-	find();
+	find(E.focusBuf);
 }
 
 static void handle_isearch_forward_regexp(struct editorConfig *ed,
 					  struct editorBuffer *buf, int rept) {
-	editorRegexFind(buf);
+	regexFind(buf);
 }
 
 static void handle_keyboard_quit(struct editorConfig *ed,
 				 struct editorBuffer *buf, int rept) {
-	clearMark();
-	editorSetStatusMessage("Quit");
+	clearMark(E.focusBuf);
+	setStatusMessage("Quit");
 }
 
 static void handle_recenter(struct editorConfig *ed, struct editorBuffer *buf,
 			    int rept) {
 	int winIdx = windowFocusedIdx(ed);
-	editorRecenter(ed->windows[winIdx]);
+	recenter(ed->windows[winIdx]);
 }
 
 static void handle_transpose_chars(struct editorConfig *ed,
 				   struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		editorTransposeChars(ed, buf);
+		transposeChars(ed, buf);
 }
 
 static void handle_upcase_word(struct editorConfig *ed,
 			       struct editorBuffer *buf, int rept) {
-	editorUpcaseWord(ed, buf, rept);
+	upcaseWord(ed, buf, rept);
 }
 
 static void handle_downcase_word(struct editorConfig *ed,
 				 struct editorBuffer *buf, int rept) {
-	editorDowncaseWord(ed, buf, rept);
+	downcaseWord(ed, buf, rept);
 }
 
 static void handle_capitalize_word(struct editorConfig *ed,
 				   struct editorBuffer *buf, int rept) {
-	editorCapitalCaseWord(ed, buf, rept);
+	capitalCaseWord(ed, buf, rept);
 }
 
 static void handle_backward_delete_char(struct editorConfig *ed,
 					struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		backSpace();
+		backSpace(E.focusBuf);
 }
 
 static void handle_delete_char(struct editorConfig *ed,
 			       struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		delChar();
+		delChar(E.focusBuf);
 }
 
 static void handle_quoted_insert(struct editorConfig *ed,
@@ -247,8 +241,8 @@ static void handle_quoted_insert(struct editorConfig *ed,
 			die("read");
 	}
 	for (int i = 0; i < rept; i++) {
-		editorUndoAppendChar(buf, c);
-		insertChar(c);
+		undoAppendChar(buf, c);
+		bufferInsertChar(buf, c);
 	}
 }
 
@@ -258,13 +252,13 @@ static void handle_tab(struct editorConfig *ed, struct editorBuffer *buf,
 		if (buf->indent > 0) {
 			int origx = buf->cx;
 			for (int j = 0; j < buf->indent; j++) {
-				editorUndoAppendChar(buf, ' ');
-				insertChar(' ');
+				undoAppendChar(buf, ' ');
+				bufferInsertChar(buf, ' ');
 			}
 			buf->cx = origx + buf->indent;
 		} else {
-			editorUndoAppendChar(buf, '\t');
-			insertChar('\t');
+			undoAppendChar(buf, '\t');
+			bufferInsertChar(buf, '\t');
 		}
 	}
 }
@@ -272,7 +266,7 @@ static void handle_tab(struct editorConfig *ed, struct editorBuffer *buf,
 static void handle_kill_line_backwards(struct editorConfig *ed,
 				       struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		editorKillLineBackwards(buf);
+		killLineBackwards(buf);
 }
 
 static void handle_suspend(struct editorConfig *ed, struct editorBuffer *buf,
@@ -369,12 +363,12 @@ static void handle_quit(struct editorConfig *ed, struct editorBuffer *buf,
 	struct editorBuffer *b = ed->firstBuf;
 	while (b) {
 		if (b->dirty && b->filename && !b->special_buffer) {
-			editorSetStatusMessage(
+			setStatusMessage(
 				"There are unsaved changes. Really quit? (y or n)");
-			editorRefreshScreen();
-			if (editorReadKey() == 'y')
+			refreshScreen();
+			if (readKey() == 'y')
 				exit(0);
-			editorSetStatusMessage("");
+			setStatusMessage("");
 			return;
 		}
 		b = b->next;
@@ -385,14 +379,14 @@ static void handle_quit(struct editorConfig *ed, struct editorBuffer *buf,
 static void handle_unicode(struct editorConfig *ed, struct editorBuffer *buf,
 			   int rept) {
 	for (int i = 0; i < rept; i++) {
-		editorUndoAppendUnicode(ed, buf);
-		editorInsertUnicode(buf);
+		undoAppendUnicode();
+		insertUnicode(buf);
 	}
 }
 
 static void handle_unicode_error(struct editorConfig *ed,
 				 struct editorBuffer *buf, int rept) {
-	editorSetStatusMessage("Bad UTF-8 sequence");
+	setStatusMessage("Bad UTF-8 sequence");
 }
 
 static void handle_beginning_of_buffer(struct editorConfig *ed,
@@ -427,73 +421,73 @@ static void handle_end_of_buffer(struct editorConfig *ed,
 static void handle_forward_word(struct editorConfig *ed,
 				struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		editorForwardWord(buf);
+		forwardWord(buf);
 }
 
 static void handle_backward_word(struct editorConfig *ed,
 				 struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		editorBackWord(buf);
+		backWord(buf);
 }
 
 static void handle_forward_para(struct editorConfig *ed,
 				struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		editorForwardPara(buf);
+		forwardPara(buf);
 }
 
 static void handle_backward_para(struct editorConfig *ed,
 				 struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		editorBackPara(buf);
+		backPara(buf);
 }
 
 static void handle_delete_word(struct editorConfig *ed,
 			       struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		editorDeleteWord(buf);
+		deleteWord(buf);
 }
 
 static void handle_backspace_word(struct editorConfig *ed,
 				  struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		editorBackspaceWord(buf);
+		backspaceWord(buf);
 }
 
 static void handle_upcase_region(struct editorConfig *ed,
 				 struct editorBuffer *buf, int rept) {
-	editorTransformRegion(ed, buf, transformerUpcase);
+	transformRegion( transformerUpcase);
 }
 
 static void handle_downcase_region(struct editorConfig *ed,
 				   struct editorBuffer *buf, int rept) {
-	editorTransformRegion(ed, buf, transformerDowncase);
+	transformRegion( transformerDowncase);
 }
 
 static void handle_transpose_words(struct editorConfig *ed,
 				   struct editorBuffer *buf, int rept) {
 	for (int i = 0; i < rept; i++)
-		editorTransposeWords(buf);
+		transposeWords(buf);
 }
 
 static void handle_goto_line(struct editorConfig *ed, struct editorBuffer *buf,
 			     int rept) {
-	editorGotoLine(buf);
+	gotoLine(buf);
 }
 
 static void handle_backtab(struct editorConfig *ed, struct editorBuffer *buf,
 			   int rept) {
-	editorCompleteWord(ed, buf);
+	completeWord();
 }
 
 static void handle_what_cursor(struct editorConfig *ed,
 			       struct editorBuffer *buf, int rept) {
-	editorSetStatusMessage("What cursor position not implemented");
+	setStatusMessage("What cursor position not implemented");
 }
 
 static void handle_expand(struct editorConfig *ed, struct editorBuffer *buf,
 			  int rept) {
-	editorCompleteWord(ed, buf);
+	completeWord();
 }
 
 static void handle_redo(struct editorConfig *ed, struct editorBuffer *buf,
@@ -503,13 +497,13 @@ static void handle_redo(struct editorConfig *ed, struct editorBuffer *buf,
 
 static void handle_save_buffer(struct editorConfig *ed,
 			       struct editorBuffer *buf, int rept) {
-	editorSave(buf);
+	save(buf);
 }
 
 static void handle_copy_region(struct editorConfig *ed,
 			       struct editorBuffer *buf, int rept) {
-	editorCopyRegion(ed, buf);
-	clearMark();
+	copyRegion();
+	clearMark(E.focusBuf);
 }
 
 static void handle_swap_mark(struct editorConfig *ed, struct editorBuffer *buf,
@@ -526,7 +520,7 @@ static void handle_swap_mark(struct editorConfig *ed, struct editorBuffer *buf,
 static void handle_find_file(struct editorConfig *ed, struct editorBuffer *buf,
 			     int rept) {
 	uint8_t *prompt =
-		editorPrompt(ed->focusBuf, "Find File: %s", PROMPT_FILES, NULL);
+		promptUser(ed->focusBuf, "Find File: %s", PROMPT_FILES, NULL);
 	if (!prompt)
 		return;
 
@@ -538,7 +532,7 @@ static void handle_find_file(struct editorConfig *ed, struct editorBuffer *buf,
 			int ret = snprintf(expanded, sizeof(expanded), "%s/%s",
 					   home, prompt + 2);
 			if (ret >= (int)sizeof(expanded)) {
-				editorSetStatusMessage("Path too long");
+				setStatusMessage("Path too long");
 				free(prompt);
 				return;
 			}
@@ -558,7 +552,7 @@ static void handle_find_file(struct editorConfig *ed, struct editorBuffer *buf,
 	}
 
 	struct editorBuffer *newBuf = newBuffer();
-	editorOpen(newBuf, filename);
+	editorOpenFile(newBuf, filename);
 	newBuf->next = ed->focusBuf->next;
 	ed->focusBuf->next = newBuf;
 	ed->focusBuf = newBuf;
@@ -568,17 +562,17 @@ static void handle_find_file(struct editorConfig *ed, struct editorBuffer *buf,
 
 static void handle_other_window(struct editorConfig *ed,
 				struct editorBuffer *buf, int rept) {
-	editorSwitchWindow(ed);
+	switchWindow(ed);
 }
 
 static void handle_macro_start(struct editorConfig *ed,
 			       struct editorBuffer *buf, int rept) {
 	if (ed->recording) {
-		editorSetStatusMessage("Already recording.");
+		setStatusMessage("Already recording.");
 	} else {
 		ed->macro.nkeys = 0;
 		ed->recording = 1;
-		editorSetStatusMessage("Recording...");
+		setStatusMessage("Recording...");
 	}
 }
 
@@ -586,61 +580,61 @@ static void handle_macro_end(struct editorConfig *ed, struct editorBuffer *buf,
 			     int rept) {
 	if (ed->recording) {
 		ed->recording = 0;
-		editorSetStatusMessage("Recorded %d keys.", ed->macro.nkeys);
+		setStatusMessage("Recorded %d keys.", ed->macro.nkeys);
 	} else {
-		editorSetStatusMessage("Not recording.");
+		setStatusMessage("Not recording.");
 	}
 }
 
 static void handle_macro_exec(struct editorConfig *ed, struct editorBuffer *buf,
 			      int rept) {
 	for (int i = 0; i < rept; i++)
-		editorExecMacro(&ed->macro);
+		execMacro(&ed->macro);
 }
 
 static void handle_toggle_truncate_lines(struct editorConfig *ed,
 					 struct editorBuffer *buf, int rept) {
-	editorToggleTruncateLines(ed, buf);
+	toggleTruncateLines(ed, buf);
 }
 
 static void handle_query_replace(struct editorConfig *ed,
 				 struct editorBuffer *buf, int rept) {
-	editorQueryReplace(ed, buf);
+	queryReplace(ed, buf);
 }
 
 static void handle_pipe_cmd(struct editorConfig *ed, struct editorBuffer *buf,
 			    int rept) {
-	editorPipeCmd(ed, buf);
+	pipeCmd(ed, buf);
 }
 
 static void handle_switch_buffer(struct editorConfig *ed,
 				 struct editorBuffer *buf, int rept) {
-	editorSwitchToNamedBuffer(ed, buf);
+	switchToNamedBuffer(ed, buf);
 }
 
 static void handle_string_rectangle(struct editorConfig *ed,
 				    struct editorBuffer *buf, int rept) {
-	editorStringRectangle(ed, buf);
+	stringRectangle();
 }
 
 static void handle_copy_rectangle(struct editorConfig *ed,
 				  struct editorBuffer *buf, int rept) {
-	editorCopyRectangle(ed, buf);
+	copyRectangle();
 }
 
 static void handle_kill_rectangle(struct editorConfig *ed,
 				  struct editorBuffer *buf, int rept) {
-	editorKillRectangle(ed, buf);
+	killRectangle();
 }
 
 static void handle_yank_rectangle(struct editorConfig *ed,
 				  struct editorBuffer *buf, int rept) {
-	editorYankRectangle(ed, buf);
+	yankRectangle();
 }
 
 static void handle_mark_whole_buffer(struct editorConfig *ed,
 				     struct editorBuffer *buf, int rept) {
-	editorMarkWholeBuffer(buf);
+	markWholeBuffer(buf);
 }
 
 static void handle_custom_info(struct editorConfig *ed,
@@ -653,7 +647,7 @@ static void handle_custom_info(struct editorConfig *ed,
 		windowFocusedIdx(ed) + 1, ed->nwindows,
 		buf->filename ? buf->filename : "*scratch*", buf->cy, buf->cx,
 		win->rowoff, win->coloff, win->height, buf->truncate_lines);
-	editorSetStatusMessage(msg);
+	setStatusMessage(msg);
 }
 
 static void showCommandsOnEmpty(struct editorBuffer *buf, uint8_t *input,
@@ -679,14 +673,14 @@ static void showCommandsOnEmpty(struct editorBuffer *buf, uint8_t *input,
 			first = 0;
 		}
 
-		editorSetStatusMessage("%s", msg);
+		setStatusMessage("%s", msg);
 	}
 }
 
 static void handle_execute_extended_command(struct editorConfig *ed,
 					    struct editorBuffer *buf,
 					    int rept) {
-	uint8_t *cmd = editorPrompt(buf, "M-x %s", PROMPT_COMMANDS,
+	uint8_t *cmd = promptUser(buf, "M-x %s", PROMPT_COMMANDS,
 				    showCommandsOnEmpty);
 	if (cmd == NULL)
 		return;
@@ -712,7 +706,7 @@ static void handle_create_window(struct editorConfig *ed,
 static void handle_destroy_window(struct editorConfig *ed,
 				  struct editorBuffer *buf, int rept) {
 	if (ed->nwindows == 1) {
-		editorSetStatusMessage("Can't delete the only window");
+		setStatusMessage("Can't delete the only window");
 		return;
 	}
 
@@ -755,15 +749,15 @@ static void handle_kill_buffer(struct editorConfig *ed,
 	struct editorBuffer *target = buf;
 
 	if (target->dirty && target->filename && !target->special_buffer) {
-		editorSetStatusMessage(
+		setStatusMessage(
 			"Buffer has unsaved changes. Kill anyway? (y or n)");
-		editorRefreshScreen();
-		int c = editorReadKey();
+		refreshScreen();
+		int c = readKey();
 		if (c != 'y' && c != 'Y') {
-			editorSetStatusMessage("");
+			setStatusMessage("");
 			return;
 		}
-		editorSetStatusMessage("");
+		setStatusMessage("");
 	}
 
 	int bufferCount = 0;
@@ -1002,27 +996,27 @@ int handleUniversalArgument(int key, struct editorBuffer *buf) {
 			buf->uarg = 0;
 		}
 		buf->uarg = buf->uarg * 10 + (key - ALT_0);
-		editorSetStatusMessage("uarg: %i", buf->uarg);
+		setStatusMessage("uarg: %i", buf->uarg);
 		return 1;
 	}
 #ifdef EMSYS_CU_UARG
 	if (key == UNIVERSAL_ARGUMENT) {
 		buf->uarg_active = 1;
 		buf->uarg = 4;
-		editorSetStatusMessage("C-u");
+		setStatusMessage("C-u");
 		return 1;
 	}
 	if (buf->uarg_active && key >= '0' && key <= '9') {
 		buf->uarg = (buf->uarg == 4) ? key - '0' :
 					       buf->uarg * 10 + (key - '0');
-		editorSetStatusMessage("C-u %d", buf->uarg);
+		setStatusMessage("C-u %d", buf->uarg);
 		return 1;
 	}
 #endif
 	return 0;
 }
 
-static void describeKey(int key) {
+static void describeKeyInternal(int key) {
 	// Build key description
 	char keydesc[64];
 	if (ISCTRL(key) && key < 32) {
@@ -1063,7 +1057,7 @@ static void describeKey(int key) {
 		}
 	}
 
-	editorSetStatusMessage("%s %s", keydesc, command);
+	setStatusMessage("%s %s", keydesc, command);
 }
 
 void processKeySequence(int key) {
@@ -1072,13 +1066,13 @@ void processKeySequence(int key) {
 	// Handle describe-key mode
 	if (E.describe_key_mode) {
 		E.describe_key_mode = 0;
-		describeKey(key);
+		describeKeyInternal(key);
 		return;
 	}
 
 	if (E.micro == REDO) {
 		if (key == CTRL('_')) {
-			editorDoRedo(buf);
+			doRedo(buf);
 			return;
 		}
 		E.micro = 0;
@@ -1089,7 +1083,7 @@ void processKeySequence(int key) {
 	}
 
 	if (key == PIPE_CMD) {
-		editorPipeCmd(&E, buf);
+		pipeCmd(&E, buf);
 		buf->uarg_active = 0;
 		return;
 	}
@@ -1097,7 +1091,7 @@ void processKeySequence(int key) {
 	int rept = getRepeatCount(buf);
 
 	if (E.recording && key != CTRL('x')) {
-		editorRecordKey(key);
+		recordKey(key);
 	}
 
 #ifdef EMSYS_CUA
@@ -1106,7 +1100,7 @@ void processKeySequence(int key) {
 		if (buf->markx >= 0 && buf->marky >= 0) {
 			handle_copy_region(&E, buf, rept);
 		} else {
-			editorSetStatusMessage("No region selected");
+			setStatusMessage("No region selected");
 		}
 		return;
 	}
@@ -1138,19 +1132,19 @@ void processKeySequence(int key) {
 
 	// Handle C-h prefix commands
 	if (key == CTRL('h') && prefix_state == PREFIX_NONE) {
-		int help_key = editorReadKey();
+		int help_key = readKey();
 		switch (help_key) {
 		case 'k':
-			editorDescribeKey(&E, E.focusBuf);
+			describeKey(&E, E.focusBuf);
 			break;
 		case 'b':
 		case 'i':
 		case 'm':
-			editorViewManPage(&E, E.focusBuf);
+			viewManPage(&E, E.focusBuf);
 			break;
 		case '?':
 		default:
-			editorHelpForHelp(&E, E.focusBuf);
+			helpForHelp(&E, E.focusBuf);
 			break;
 		}
 		return;
@@ -1172,11 +1166,11 @@ void processKeySequence(int key) {
 	if (!binding) {
 		if (!ISCTRL(key) && key < 256 && prefix_state == PREFIX_NONE) {
 			for (int i = 0; i < rept; i++) {
-				editorUndoAppendChar(buf, key);
-				insertChar(key);
+				undoAppendChar(buf, key);
+				bufferInsertChar(buf, key);
 			}
 		} else {
-			editorSetStatusMessage("Unknown key sequence");
+			setStatusMessage("Unknown key sequence");
 		}
 		prefix_state = PREFIX_NONE;
 		E.prefix_display[0] = '\0';

@@ -10,11 +10,18 @@
 #include "emsys.h"
 #include "region.h"
 #include "pipe.h"
-#include "subprocess.h"
 
+extern struct editorConfig E;
+#ifndef EMSYS_DISABLE_PIPE
+#include "subprocess.h"
+#endif
+
+#ifndef EMSYS_DISABLE_PIPE
 static uint8_t *cmd;
 static char *buf;
+#endif
 
+#ifndef EMSYS_DISABLE_PIPE
 static uint8_t *transformerPipeCmd(uint8_t *input) {
 	int bsiz = BUFSIZ + 1;
 	/* Using sh -c lets us use pipes and stuff and takes care of quoting.
@@ -52,48 +59,49 @@ static uint8_t *transformerPipeCmd(uint8_t *input) {
 		}
 		c = fgetc(p_stdout);
 	}
-	editorSetStatusMessage("Read %d bytes", i);
+	setStatusMessage("Read %d bytes", i);
 
 	/* Cleanup & return */
 	subprocess_destroy(&subprocess);
 	return (uint8_t *)buf;
 }
-
-uint8_t *editorPipe(struct editorConfig *ed, struct editorBuffer *bf) {
-#ifdef EMSYS_DISABLE_PIPE
-	editorSetStatusMessage("Shell pipe command disabled for platform compatibility");
-	return NULL;
 #endif
+
+uint8_t *editorPipe(void) {
+	struct editorBuffer *bf = E.focusBuf;
+#ifdef EMSYS_DISABLE_PIPE
+	setStatusMessage("Shell pipe command disabled for platform compatibility");
+	return NULL;
+#else
 	buf = xcalloc(1, BUFSIZ + 1);
 	cmd = NULL;
-	cmd = editorPrompt(
+	cmd = promptUser(
 		bf,
 		(uint8_t *)"Shell command on region (WARNING: executed via sh -c): %s",
 		PROMPT_BASIC, NULL);
 
 	if (cmd == NULL) {
-		editorSetStatusMessage("Canceled shell command.");
+		setStatusMessage("Canceled shell command.");
 	} else {
 		if (bf->uarg_active) {
 			bf->uarg_active = 0;
 			bf->uarg = 0;
-			editorTransformRegion(ed, bf, transformerPipeCmd);
+			transformRegion(transformerPipeCmd);
 			bf->markx = -1;
 			bf->marky = -1;
 			free(cmd);
 			return NULL;
 		} else {
 			if (markInvalid(bf)) {
-				editorSetStatusMessage("Mark invalid.");
+				setStatusMessage("Mark invalid.");
 				free(cmd);
 				free(buf);
 				return NULL;
 			}
 
-			editorCopyRegion(
-				ed, bf); // ed->kill now holds the selected text
+			copyRegion(); // E.kill now holds the selected text
 
-			uint8_t *result = transformerPipeCmd(ed->kill);
+			uint8_t *result = transformerPipeCmd(E.kill);
 
 			free(cmd);
 			return result;
@@ -103,4 +111,5 @@ uint8_t *editorPipe(struct editorConfig *ed, struct editorBuffer *bf) {
 	free(cmd);
 	free(buf);
 	return NULL;
+#endif
 }

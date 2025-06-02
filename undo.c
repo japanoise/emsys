@@ -7,9 +7,11 @@
 #include "undo.h"
 #include "unicode.h"
 
-void editorDoUndo(struct editorBuffer *buf) {
+extern struct editorConfig E;
+
+void doUndo(struct editorBuffer *buf) {
 	if (buf->undo == NULL) {
-		editorSetStatusMessage("No further undo information.");
+		setStatusMessage("No further undo information.");
 		return;
 	}
 	int paired = buf->undo->paired;
@@ -19,9 +21,9 @@ void editorDoUndo(struct editorBuffer *buf) {
 		buf->cy = buf->undo->starty;
 		for (int i = buf->undo->datalen - 1; i >= 0; i--) {
 			if (buf->undo->data[i] == '\n') {
-				editorInsertNewline(buf);
+				insertNewline(buf);
 			} else {
-				editorInsertChar(buf, buf->undo->data[i]);
+				bufferInsertChar(buf, buf->undo->data[i]);
 			}
 		}
 		buf->cx = buf->undo->endx;
@@ -29,20 +31,20 @@ void editorDoUndo(struct editorBuffer *buf) {
 	} else {
 		struct erow *row = &buf->row[buf->undo->starty];
 		if (buf->undo->starty == buf->undo->endy) {
-			editorRowDeleteRange(buf, row, buf->undo->startx,
+			rowDeleteRange(buf, row, buf->undo->startx,
 					     buf->undo->endx);
 		} else {
 			for (int i = buf->undo->starty + 1; i < buf->undo->endy;
 			     i++) {
-				editorDelRow(buf, buf->undo->starty + 1);
+				delRow(buf, buf->undo->starty + 1);
 			}
 			struct erow *last = &buf->row[buf->undo->starty + 1];
-			editorRowDeleteRange(buf, row, buf->undo->startx,
+			rowDeleteRange(buf, row, buf->undo->startx,
 					     row->size);
-			editorRowInsertString(buf, row, row->size,
+			rowInsertString(buf, row, row->size,
 					      &last->chars[buf->undo->endx],
 					      last->size - buf->undo->endx);
-			editorDelRow(buf, buf->undo->starty + 1);
+			delRow(buf, buf->undo->starty + 1);
 		}
 		buf->cx = buf->undo->startx;
 		buf->cy = buf->undo->starty;
@@ -54,33 +56,33 @@ void editorDoUndo(struct editorBuffer *buf) {
 	buf->redo->prev = orig;
 
 	if (paired) {
-		editorDoUndo(buf);
+		doUndo(buf);
 	}
 }
 
-void editorDoRedo(struct editorBuffer *buf) {
+void doRedo(struct editorBuffer *buf) {
 	if (buf->redo == NULL) {
-		editorSetStatusMessage("No further redo information.");
+		setStatusMessage("No further redo information.");
 		return;
 	}
 
 	if (buf->redo->delete) {
 		struct erow *row = &buf->row[buf->redo->starty];
 		if (buf->redo->starty == buf->redo->endy) {
-			editorRowDeleteRange(buf, row, buf->redo->startx,
+			rowDeleteRange(buf, row, buf->redo->startx,
 					     buf->redo->endx);
 		} else {
 			for (int i = buf->redo->starty + 1; i < buf->redo->endy;
 			     i++) {
-				editorDelRow(buf, buf->redo->starty + 1);
+				delRow(buf, buf->redo->starty + 1);
 			}
 			struct erow *last = &buf->row[buf->redo->starty + 1];
-			editorRowDeleteRange(buf, row, buf->redo->startx,
+			rowDeleteRange(buf, row, buf->redo->startx,
 					     row->size);
-			editorRowInsertString(buf, row, row->size,
+			rowInsertString(buf, row, row->size,
 					      &last->chars[buf->redo->endx],
 					      last->size - buf->redo->endx);
-			editorDelRow(buf, buf->redo->starty + 1);
+			delRow(buf, buf->redo->starty + 1);
 		}
 		buf->cx = buf->redo->startx;
 		buf->cy = buf->redo->starty;
@@ -89,9 +91,9 @@ void editorDoRedo(struct editorBuffer *buf) {
 		buf->cy = buf->redo->starty;
 		for (int i = 0; i < buf->redo->datalen; i++) {
 			if (buf->redo->data[i] == '\n') {
-				editorInsertNewline(buf);
+				insertNewline(buf);
 			} else {
-				editorInsertChar(buf, buf->redo->data[i]);
+				bufferInsertChar(buf, buf->redo->data[i]);
 			}
 		}
 		buf->cx = buf->redo->endx;
@@ -104,7 +106,7 @@ void editorDoRedo(struct editorBuffer *buf) {
 	buf->undo->prev = orig;
 
 	if (buf->redo != NULL && buf->redo->paired) {
-		editorDoRedo(buf);
+		doRedo(buf);
 	}
 }
 
@@ -150,7 +152,7 @@ void clearUndosAndRedos(struct editorBuffer *buf) {
 
 #define ALIGNED(x1, y1, x2, y2) ((x1 == x2) && (y1 == y2))
 
-void editorUndoAppendChar(struct editorBuffer *buf, uint8_t c) {
+void undoAppendChar(struct editorBuffer *buf, uint8_t c) {
 	clearRedos(buf);
 	if (buf->undo == NULL || !(buf->undo->append) || buf->undo->delete ||
 	    !ALIGNED(buf->undo->endx, buf->undo->endy, buf->cx, buf->cy)) {
@@ -175,11 +177,11 @@ void editorUndoAppendChar(struct editorBuffer *buf, uint8_t c) {
 	}
 }
 
-void editorUndoAppendUnicode(struct editorConfig *ed,
-			     struct editorBuffer *buf) {
+void undoAppendUnicode(void) {
+	struct editorBuffer *buf = E.focusBuf;
 	clearRedos(buf);
 	if (buf->undo == NULL || !(buf->undo->append) ||
-	    (buf->undo->datalen + ed->nunicode >= buf->undo->datasize) ||
+	    (buf->undo->datalen + E.nunicode >= buf->undo->datasize) ||
 	    buf->undo->delete ||
 	    !ALIGNED(buf->undo->endx, buf->undo->endy, buf->cx, buf->cy)) {
 		if (buf->undo != NULL)
@@ -192,15 +194,15 @@ void editorUndoAppendUnicode(struct editorConfig *ed,
 		new->endy = buf->cy;
 		buf->undo = new;
 	}
-	for (int i = 0; i < ed->nunicode; i++) {
-		buf->undo->data[buf->undo->datalen++] = ed->unicode[i];
+	for (int i = 0; i < E.nunicode; i++) {
+		buf->undo->data[buf->undo->datalen++] = E.unicode[i];
 	}
 	buf->undo->data[buf->undo->datalen] = 0;
 	buf->undo->append = !(buf->undo->datalen >= buf->undo->datasize - 2);
-	buf->undo->endx += ed->nunicode;
+	buf->undo->endx += E.nunicode;
 }
 
-void editorUndoBackSpace(struct editorBuffer *buf, uint8_t c) {
+void undoBackSpace(struct editorBuffer *buf, uint8_t c) {
 	clearRedos(buf);
 	if (buf->undo == NULL || !(buf->undo->append) || !(buf->undo->delete) ||
 	    !((c == '\n' && buf->undo->startx == 0 &&
@@ -234,7 +236,7 @@ void editorUndoBackSpace(struct editorBuffer *buf, uint8_t c) {
 	}
 }
 
-void editorUndoDelChar(struct editorBuffer *buf, erow *row) {
+void undoDelChar(struct editorBuffer *buf, erow *row) {
 	clearRedos(buf);
 	if (buf->undo == NULL || !(buf->undo->append) || !(buf->undo->delete) ||
 	    !(buf->undo->startx == buf->cx && buf->undo->starty == buf->cy)) {

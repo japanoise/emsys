@@ -14,9 +14,11 @@
 #include "unicode.h"
 #include "unused.h"
 
-static void editorRegexFindCommand(struct editorConfig *UNUSED(ed),
+extern struct editorConfig E;
+
+static void regexFindCommand(struct editorConfig *UNUSED(ed),
 				   struct editorBuffer *buf) {
-	editorRegexFind(buf);
+	regexFind(buf);
 }
 
 // https://stackoverflow.com/a/779960
@@ -78,22 +80,22 @@ char *str_replace(char *orig, char *rep, char *with) {
 	return result;
 }
 
-void editorVersion(struct editorConfig *UNUSED(ed),
+void version(struct editorConfig *UNUSED(ed),
 		   struct editorBuffer *UNUSED(buf)) {
-	editorSetStatusMessage("emsys version " EMSYS_VERSION
+	setStatusMessage("emsys version " EMSYS_VERSION
 			       ", built " EMSYS_BUILD_DATE);
 }
 
-void editorIndentTabs(struct editorConfig *UNUSED(ed),
+void indentTabs(struct editorConfig *UNUSED(ed),
 		      struct editorBuffer *buf) {
 	buf->indent = 0;
-	editorSetStatusMessage("Indentation set to tabs");
+	setStatusMessage("Indentation set to tabs");
 }
 
-void editorIndentSpaces(struct editorConfig *UNUSED(ed),
+void indentSpaces(struct editorConfig *UNUSED(ed),
 			struct editorBuffer *buf) {
 	uint8_t *indentS =
-		editorPrompt(buf, "Set indentation to: %s", PROMPT_BASIC, NULL);
+		promptUser(buf, "Set indentation to: %s", PROMPT_BASIC, NULL);
 	if (indentS == NULL) {
 		goto cancel;
 	}
@@ -101,22 +103,23 @@ void editorIndentSpaces(struct editorConfig *UNUSED(ed),
 	free(indentS);
 	if (indent <= 0) {
 cancel:
-		editorSetStatusMessage("Canceled.");
+		setStatusMessage("Canceled.");
 		return;
 	}
 	buf->indent = indent;
-	editorSetStatusMessage("Indentation set to %i spaces", indent);
+	setStatusMessage("Indentation set to %i spaces", indent);
 }
 
-void editorRevert(struct editorConfig *ed, struct editorBuffer *buf) {
+void revert(void) {
+	struct editorBuffer *buf = E.focusBuf;
 	struct editorBuffer *new = newBuffer();
-	editorOpen(new, buf->filename);
+	editorOpenFile(new, buf->filename);
 	new->next = buf->next;
-	ed->focusBuf = new;
-	if (ed->firstBuf == buf) {
-		ed->firstBuf = new;
+	E.focusBuf = new;
+	if (E.firstBuf == buf) {
+		E.firstBuf = new;
 	}
-	struct editorBuffer *cur = ed->firstBuf;
+	struct editorBuffer *cur = E.firstBuf;
 	while (cur != NULL) {
 		if (cur->next == buf) {
 			cur->next = new;
@@ -124,9 +127,9 @@ void editorRevert(struct editorConfig *ed, struct editorBuffer *buf) {
 		}
 		cur = cur->next;
 	}
-	for (int i = 0; i < ed->nwindows; i++) {
-		if (ed->windows[i]->buf == buf) {
-			ed->windows[i]->buf = new;
+	for (int i = 0; i < E.nwindows; i++) {
+		if (E.windows[i]->buf == buf) {
+			E.windows[i]->buf = new;
 		}
 	}
 	new->indent = buf->indent;
@@ -148,27 +151,28 @@ uint8_t *transformerReplaceString(uint8_t *input) {
 	return str_replace(input, orig, repl);
 }
 
-void editorReplaceString(struct editorConfig *ed, struct editorBuffer *buf) {
+void replaceString(void) {
+	struct editorBuffer *buf = E.focusBuf;
 	orig = NULL;
 	repl = NULL;
-	orig = editorPrompt(buf, "Replace: %s", PROMPT_BASIC, NULL);
+	orig = promptUser(buf, "Replace: %s", PROMPT_BASIC, NULL);
 	if (orig == NULL) {
-		editorSetStatusMessage("Canceled replace-string.");
+		setStatusMessage("Canceled replace-string.");
 		return;
 	}
 
 	size_t prompt_size = strlen(orig) + 20;
 	uint8_t *prompt = xmalloc(prompt_size);
 	snprintf(prompt, prompt_size, "Replace %s with: %%s", orig);
-	repl = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
+	repl = promptUser(buf, prompt, PROMPT_BASIC, NULL);
 	free(prompt);
 	if (repl == NULL) {
 		free(orig);
-		editorSetStatusMessage("Canceled replace-string.");
+		setStatusMessage("Canceled replace-string.");
 		return;
 	}
 
-	editorTransformRegion(ed, buf, transformerReplaceString);
+	transformRegion( transformerReplaceString);
 
 	free(orig);
 	free(repl);
@@ -199,23 +203,24 @@ static int nextOccur(struct editorBuffer *buf, uint8_t *needle, int ocheck) {
 	return 0;
 }
 
-void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
+void queryReplace(void) {
+	struct editorBuffer *buf = E.focusBuf;
 	orig = NULL;
 	repl = NULL;
-	orig = editorPrompt(buf, "Query replace: %s", PROMPT_BASIC, NULL);
+	orig = promptUser(buf, "Query replace: %s", PROMPT_BASIC, NULL);
 	if (orig == NULL) {
-		editorSetStatusMessage("Canceled query-replace.");
+		setStatusMessage("Canceled query-replace.");
 		return;
 	}
 
 	size_t prompt_size = strlen(orig) + 25;
 	uint8_t *prompt = xmalloc(prompt_size);
 	snprintf(prompt, prompt_size, "Query replace %s with: ", orig);
-	repl = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
+	repl = promptUser(buf, prompt, PROMPT_BASIC, NULL);
 	free(prompt);
 	if (repl == NULL) {
 		free(orig);
-		editorSetStatusMessage("Canceled query-replace.");
+		setStatusMessage("Canceled query-replace.");
 		return;
 	}
 
@@ -229,8 +234,8 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 	struct editorUndo *first = buf->undo;
 	uint8_t *newStr = NULL;
 	buf->query = orig;
-	int currentIdx = windowFocusedIdx(ed);
-	struct editorWindow *currentWindow = ed->windows[currentIdx];
+	int currentIdx = windowFocusedIdx(&E);
+	struct editorWindow *currentWindow = E.windows[currentIdx];
 
 #define NEXT_OCCUR(ocheck)                 \
 	if (!nextOccur(buf, orig, ocheck)) \
@@ -239,16 +244,16 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 	NEXT_OCCUR(false);
 
 	for (;;) {
-		editorSetStatusMessage("%s", prompt);
-		editorRefreshScreen();
-		editorCursorBottomLine(bufwidth + 2);
+		setStatusMessage("%s", prompt);
+		refreshScreen();
+		cursorBottomLine(bufwidth + 2);
 
-		int c = editorReadKey();
-		editorRecordKey(c);
+		int c = readKey();
+		recordKey(c);
 		switch (c) {
 		case ' ':
 		case 'y':
-			editorTransformRegion(ed, buf,
+			transformRegion(
 					      transformerReplaceString);
 			NEXT_OCCUR(true);
 			break;
@@ -266,7 +271,7 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 			goto QR_CLEANUP;
 			break;
 		case '.':
-			editorTransformRegion(ed, buf,
+			transformRegion(
 					      transformerReplaceString);
 			goto QR_CLEANUP;
 			break;
@@ -274,19 +279,19 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 		case 'Y':
 			buf->marky = buf->numrows - 1;
 			buf->markx = buf->row[buf->marky].size;
-			editorTransformRegion(ed, buf,
+			transformRegion(
 					      transformerReplaceString);
 			goto QR_CLEANUP;
 			break;
 		case 'u':
-			editorDoUndo(buf);
+			doUndo(buf);
 			buf->markx = buf->cx;
 			buf->marky = buf->cy;
 			buf->cx -= strlen(orig);
 			break;
 		case 'U':
 			while (buf->undo != first)
-				editorDoUndo(buf);
+				doUndo(buf);
 			buf->markx = buf->cx;
 			buf->marky = buf->cy;
 			buf->cx -= strlen(orig);
@@ -296,14 +301,14 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 			prompt = xmalloc(prompt_size);
 			snprintf(prompt, prompt_size,
 				 "Replace this %.60s with: ", orig);
-			newStr = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
+			newStr = promptUser(buf, prompt, PROMPT_BASIC, NULL);
 			free(prompt);
 			if (newStr == NULL) {
 				goto RESET_PROMPT;
 			}
 			uint8_t *tmp = repl;
 			repl = newStr;
-			editorTransformRegion(ed, buf,
+			transformRegion(
 					      transformerReplaceString);
 			free(newStr);
 			repl = tmp;
@@ -316,14 +321,14 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 			prompt = xmalloc(prompt_size);
 			snprintf(prompt, prompt_size,
 				 "Query replace %.60s with: ", orig);
-			newStr = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
+			newStr = promptUser(buf, prompt, PROMPT_BASIC, NULL);
 			free(prompt);
 			if (newStr == NULL) {
 				goto RESET_PROMPT;
 			}
 			free(repl);
 			repl = newStr;
-			editorTransformRegion(ed, buf,
+			transformRegion(
 					      transformerReplaceString);
 			NEXT_OCCUR(true);
 RESET_PROMPT:
@@ -334,13 +339,13 @@ RESET_PROMPT:
 			bufwidth = stringWidth(prompt);
 			break;
 		case CTRL('l'):
-			editorRecenter(currentWindow);
+			recenter(currentWindow);
 			break;
 		}
 	}
 
 QR_CLEANUP:
-	editorSetStatusMessage("");
+	setStatusMessage("");
 	buf->query = NULL;
 	buf->markx = savedMx;
 	buf->marky = savedMy;
@@ -349,11 +354,11 @@ QR_CLEANUP:
 	free(prompt);
 }
 
-void editorCapitalizeRegion(struct editorConfig *ed, struct editorBuffer *buf) {
-	editorTransformRegion(ed, buf, transformerCapitalCase);
+void capitalizeRegion(void) {
+	transformRegion( transformerCapitalCase);
 }
 
-void editorWhitespaceCleanup(struct editorConfig *UNUSED(ed),
+void whitespaceCleanup(struct editorConfig *UNUSED(ed),
 			     struct editorBuffer *buf) {
 	unsigned int trailing = 0;
 	for (int i = 0; i < buf->numrows; i++) {
@@ -374,38 +379,38 @@ void editorWhitespaceCleanup(struct editorConfig *UNUSED(ed),
 
 	if (trailing > 0) {
 		clearUndosAndRedos(buf);
-		editorSetStatusMessage("%d trailing characters removed",
+		setStatusMessage("%d trailing characters removed",
 				       trailing);
 	} else {
-		editorSetStatusMessage("No change.");
+		setStatusMessage("No change.");
 	}
 }
 
-void editorToggleTruncateLines(struct editorConfig *UNUSED(ed),
+void toggleTruncateLines(struct editorConfig *UNUSED(ed),
 			       struct editorBuffer *buf) {
 	buf->truncate_lines = !buf->truncate_lines;
-	editorSetStatusMessage(buf->truncate_lines ?
+	setStatusMessage(buf->truncate_lines ?
 				       "Truncate long lines enabled" :
 				       "Truncate long lines disabled");
 }
 
-void editorDescribeKey(struct editorConfig *ed,
+void describeKey(struct editorConfig *ed,
 		       struct editorBuffer *UNUSED(buf)) {
-	editorSetStatusMessage("Describe key: ");
-	ed->describe_key_mode = 1;
+	setStatusMessage("Describe key: ");
+	E.describe_key_mode = 1;
 }
 
-void editorViewManPage(struct editorConfig *ed, struct editorBuffer *buf) {
+void viewManPage(void) {
 	FILE *fp = popen("man -w emsys 2>/dev/null", "r");
 	if (!fp) {
-		editorSetStatusMessage("Cannot check for man page");
+		setStatusMessage("Cannot check for man page");
 		return;
 	}
 
 	char path[256];
 	if (!fgets(path, sizeof(path), fp) || strlen(path) < 2) {
 		pclose(fp);
-		editorSetStatusMessage("No man page found for emsys");
+		setStatusMessage("No man page found for emsys");
 		return;
 	}
 	pclose(fp);
@@ -417,7 +422,7 @@ void editorViewManPage(struct editorConfig *ed, struct editorBuffer *buf) {
 	fp = popen("man emsys 2>/dev/null | col -b", "r");
 	if (!fp) {
 		destroyBuffer(manpage);
-		editorSetStatusMessage("Cannot run man command");
+		setStatusMessage("Cannot run man command");
 		return;
 	}
 
@@ -428,27 +433,60 @@ void editorViewManPage(struct editorConfig *ed, struct editorBuffer *buf) {
 			line[len - 1] = '\0';
 			len--;
 		}
-		editorInsertRow(manpage, manpage->numrows, line, len);
+		insertRow(manpage, manpage->numrows, line, len);
 	}
 	pclose(fp);
 
 	if (manpage->numrows == 0) {
 		destroyBuffer(manpage);
-		editorSetStatusMessage("Man page is empty");
+		setStatusMessage("Man page is empty");
 		return;
 	}
 
-	ed->focusBuf = manpage;
-	for (int i = 0; i < ed->nwindows; i++) {
-		if (ed->windows[i]->focused) {
-			ed->windows[i]->buf = manpage;
+	E.focusBuf = manpage;
+	for (int i = 0; i < E.nwindows; i++) {
+		if (E.windows[i]->focused) {
+			E.windows[i]->buf = manpage;
 		}
 	}
 }
 
-void editorHelpForHelp(struct editorConfig *ed, struct editorBuffer *buf) {
-	editorSetStatusMessage(
+void helpForHelp(void) {
+	setStatusMessage(
 		"C-h k: describe key, C-h m: view man page, M-x TAB: list commands");
+}
+
+/* Wrapper functions for command table compatibility */
+void helpForHelpWrapper(struct editorConfig *UNUSED(ed), struct editorBuffer *UNUSED(buf)) {
+	helpForHelp();
+}
+
+void viewManPageWrapper(struct editorConfig *UNUSED(ed), struct editorBuffer *UNUSED(buf)) {
+	viewManPage();
+}
+
+void capitalizeRegionWrapper(struct editorConfig *UNUSED(ed), struct editorBuffer *UNUSED(buf)) {
+	capitalizeRegion();
+}
+
+void replaceStringWrapper(struct editorConfig *UNUSED(ed), struct editorBuffer *UNUSED(buf)) {
+	replaceString();
+}
+
+void queryReplaceWrapper(struct editorConfig *UNUSED(ed), struct editorBuffer *UNUSED(buf)) {
+	queryReplace();
+}
+
+void revertWrapper(struct editorConfig *UNUSED(ed), struct editorBuffer *UNUSED(buf)) {
+	revert();
+}
+
+void replaceRegexWrapper(struct editorConfig *UNUSED(ed), struct editorBuffer *UNUSED(buf)) {
+	replaceRegex();
+}
+
+void viewRegisterWrapper(struct editorConfig *UNUSED(ed), struct editorBuffer *UNUSED(buf)) {
+	viewRegister();
 }
 
 #define ADDCMD(name, func)               \
@@ -469,7 +507,7 @@ void debugUnpair(struct editorConfig *UNUSED(ed), struct editorBuffer *buf) {
 		i->paired = 0;
 		redos++;
 	}
-	editorSetStatusMessage("Unpaired %d undos, %d redos.", undos, redos);
+	setStatusMessage("Unpaired %d undos, %d redos.", undos, redos);
 }
 #endif
 
@@ -481,25 +519,25 @@ static int compare_commands(const void *a, const void *b) {
 
 void setupCommands(struct editorConfig *ed) {
 	static struct editorCommand commands[] = {
-		{ "capitalize-region", editorCapitalizeRegion },
-		{ "describe-key", editorDescribeKey },
-		{ "help", editorViewManPage },
-		{ "help-for-help", editorHelpForHelp },
-		{ "indent-spaces", editorIndentSpaces },
-		{ "indent-tabs", editorIndentTabs },
-		{ "isearch-forward-regexp", editorRegexFindCommand },
-		{ "kanaya", editorCapitalizeRegion },
-		{ "man", editorViewManPage },
-		{ "query-replace", editorQueryReplace },
-		{ "recenter", editorRecenterCommand },
-		{ "replace-regexp", editorReplaceRegex },
-		{ "replace-string", editorReplaceString },
-		{ "revert", editorRevert },
-		{ "toggle-truncate-lines", editorToggleTruncateLines },
-		{ "version", editorVersion },
-		{ "view-man-page", editorViewManPage },
-		{ "view-register", editorViewRegister },
-		{ "whitespace-cleanup", editorWhitespaceCleanup },
+		{ "capitalize-region", capitalizeRegionWrapper },
+		{ "describe-key", describeKey },
+		{ "help", viewManPageWrapper },
+		{ "help-for-help", helpForHelpWrapper },
+		{ "indent-spaces", indentSpaces },
+		{ "indent-tabs", indentTabs },
+		{ "isearch-forward-regexp", regexFindCommand },
+		{ "kanaya", capitalizeRegionWrapper },
+		{ "man", viewManPageWrapper },
+		{ "query-replace", queryReplaceWrapper },
+		{ "recenter", recenterCommand },
+		{ "replace-regexp", replaceRegexWrapper },
+		{ "replace-string", replaceStringWrapper },
+		{ "revert", revertWrapper },
+		{ "toggle-truncate-lines", toggleTruncateLines },
+		{ "version", version },
+		{ "view-man-page", viewManPageWrapper },
+		{ "view-register", viewRegisterWrapper },
+		{ "whitespace-cleanup", whitespaceCleanup },
 #ifdef EMSYS_DEBUG_UNDO
 		{ "debug-unpair", debugUnpair },
 #endif
@@ -532,6 +570,6 @@ void runCommand(char *cmd, struct editorConfig *ed, struct editorBuffer *buf) {
 	if (found) {
 		found->cmd(ed, buf);
 	} else {
-		editorSetStatusMessage("No command found");
+		setStatusMessage("No command found");
 	}
 }

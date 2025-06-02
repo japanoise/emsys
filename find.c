@@ -30,7 +30,7 @@ static uint8_t *regexSearch(uint8_t *text, uint8_t *pattern) {
 	return NULL;
 }
 
-void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
+void findCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 	static int last_match = -1;
 	static int direction = 1;
 	bufr->query = query;
@@ -65,7 +65,7 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 			last_match = current;
 			bufr->cy = current;
 			bufr->cx = match - row->chars;
-			editorScroll();
+			scroll();
 			bufr->match = 1;
 			return;
 		}
@@ -88,21 +88,21 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 			last_match = current;
 			bufr->cy = current;
 			bufr->cx = match - row->chars;
-			editorScroll();
+			scroll();
 			bufr->match = 1;
 			break;
 		}
 	}
 }
 
-void editorFind(struct editorBuffer *bufr) {
+void find(struct editorBuffer *bufr) {
 	regex_mode = 0; /* Start in normal mode */
 	int saved_cx = bufr->cx;
 	int saved_cy = bufr->cy;
 	//	int saved_rowoff = bufr->rowoff;
 
-	uint8_t *query = editorPrompt(bufr, "Search (C-g to cancel): %s",
-				      PROMPT_BASIC, editorFindCallback);
+	uint8_t *query = promptUser(bufr, "Search (C-g to cancel): %s",
+				      PROMPT_BASIC, findCallback);
 
 	bufr->query = NULL;
 	if (query) {
@@ -114,13 +114,13 @@ void editorFind(struct editorBuffer *bufr) {
 	}
 }
 
-void editorRegexFind(struct editorBuffer *bufr) {
+void regexFind(struct editorBuffer *bufr) {
 	regex_mode = 1; /* Start in regex mode */
 	int saved_cx = bufr->cx;
 	int saved_cy = bufr->cy;
 
-	uint8_t *query = editorPrompt(bufr, "Regex search (C-g to cancel): %s",
-				      PROMPT_BASIC, editorFindCallback);
+	uint8_t *query = promptUser(bufr, "Regex search (C-g to cancel): %s",
+				      PROMPT_BASIC, findCallback);
 
 	bufr->query = NULL;
 	regex_mode = 0; /* Reset after search */

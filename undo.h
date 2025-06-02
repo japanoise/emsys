@@ -3,12 +3,12 @@
 
 #include "emsys.h"
 
-void editorDoUndo(struct editorBuffer *buf);
-void editorDoRedo(struct editorBuffer *buf);
-void editorUndoAppendChar(struct editorBuffer *buf, uint8_t c);
-void editorUndoAppendUnicode(struct editorConfig *ed, struct editorBuffer *buf);
-void editorUndoBackSpace(struct editorBuffer *buf, uint8_t c);
-void editorUndoDelChar(struct editorBuffer *buf, erow *row);
+void doUndo(struct editorBuffer *buf);
+void doRedo(struct editorBuffer *buf);
+void undoAppendChar(struct editorBuffer *buf, uint8_t c);
+void undoAppendUnicode(void);
+void undoBackSpace(struct editorBuffer *buf, uint8_t c);
+void undoDelChar(struct editorBuffer *buf, erow *row);
 struct editorUndo *newUndo();
 void clearRedos(struct editorBuffer *buf);
 void clearUndosAndRedos(struct editorBuffer *buf);
