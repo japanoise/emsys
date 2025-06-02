@@ -77,7 +77,7 @@ static uint8_t *transformerPipeCmd(uint8_t *input) {
 		buf[i] = 0;
 		if (i >= bsiz - 10) {
 			bsiz <<= 1;
-			buf = realloc(buf, bsiz);
+			buf = xrealloc(buf, bsiz);
 		}
 		c = fgetc(output_file);
 	}

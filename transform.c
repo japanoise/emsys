@@ -7,7 +7,7 @@
 
 #define MKOUTPUT(in, l, o)  \
 	int l = strlen(in); \
-	uint8_t *o = malloc(l + 1)
+	uint8_t *o = xmalloc(l + 1)
 
 uint8_t *transformerUpcase(uint8_t *input) {
 	MKOUTPUT(input, len, output);

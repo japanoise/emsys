@@ -283,7 +283,7 @@ UNINDENT_PERFORM:
 	bufr->undo = new;
 	if (new->datasize < trunc - 1) {
 		new->datasize = trunc + 1;
-		new->data = realloc(new->data, new->datasize);
+		new->data = xrealloc(new->data, new->datasize);
 	}
 	memset(new->data, indCh, trunc);
 	new->data[trunc] = 0;
@@ -355,7 +355,7 @@ void editorKillLine(struct editorBuffer *buf) {
 	} else {
 		int kill_len = row->size - buf->cx;
 		free(E.kill);
-		E.kill = malloc(kill_len + 1);
+		E.kill = xmalloc(kill_len + 1);
 		memcpy(E.kill, &row->chars[buf->cx], kill_len);
 		E.kill[kill_len] = '\0';
 
@@ -372,7 +372,7 @@ void editorKillLine(struct editorBuffer *buf) {
 		new->datalen = kill_len;
 		if (new->datasize < new->datalen + 1) {
 			new->datasize = new->datalen + 1;
-			new->data = realloc(new->data, new->datasize);
+			new->data = xrealloc(new->data, new->datasize);
 		}
 		for (int i = 0; i < kill_len; i++) {
 			new->data[i] = E.kill[kill_len - i - 1];
@@ -393,7 +393,7 @@ void editorKillLineBackwards(struct editorBuffer *buf) {
 	erow *row = &buf->row[buf->cy];
 
 	free(E.kill);
-	E.kill = malloc(buf->cx + 1);
+	E.kill = xmalloc(buf->cx + 1);
 	memcpy(E.kill, row->chars, buf->cx);
 	E.kill[buf->cx] = '\0';
 
@@ -410,7 +410,7 @@ void editorKillLineBackwards(struct editorBuffer *buf) {
 	new->datalen = buf->cx;
 	if (new->datasize < new->datalen + 1) {
 		new->datasize = new->datalen + 1;
-		new->data = realloc(new->data, new->datasize);
+		new->data = xrealloc(new->data, new->datasize);
 	}
 	for (int i = 0; i < buf->cx; i++) {
 		new->data[i] = E.kill[buf->cx - i - 1];
@@ -465,7 +465,7 @@ void editorRecordKey(int c) {
 		E.macro.keys[E.macro.nkeys++] = c;
 		if (E.macro.nkeys >= E.macro.skeys) {
 			E.macro.skeys *= 2;
-			E.macro.keys = realloc(E.macro.keys,
+			E.macro.keys = xrealloc(E.macro.keys,
 					       E.macro.skeys * sizeof(int));
 		}
 		if (c == UNICODE) {
@@ -473,7 +473,7 @@ void editorRecordKey(int c) {
 				E.macro.keys[E.macro.nkeys++] = E.unicode[i];
 				if (E.macro.nkeys >= E.macro.skeys) {
 					E.macro.skeys *= 2;
-					E.macro.keys = realloc(
+					E.macro.keys = xrealloc(
 						E.macro.keys,
 						E.macro.skeys * sizeof(int));
 				}
@@ -492,7 +492,7 @@ char *editorRowsToString(struct editorBuffer *bufr, int *buflen) {
 	}
 	*buflen = totlen;
 
-	char *buf = malloc(totlen);
+	char *buf = xmalloc(totlen);
 	char *p = buf;
 	for (j = 0; j < bufr->numrows; j++) {
 		memcpy(p, bufr->row[j].chars, bufr->row[j].size);
@@ -598,7 +598,7 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 		      enum promptType t,
 		      void (*callback)(struct editorBuffer *, uint8_t *, int)) {
 	size_t bufsize = 128;
-	uint8_t *buf = malloc(bufsize);
+	uint8_t *buf = xmalloc(bufsize);
 
 	int promptlen = stringWidth(prompt) - 2;
 
@@ -745,7 +745,7 @@ PROMPT_BACKSPACE:
 			buflen += E.nunicode;
 			if (buflen >= (bufsize - 5)) {
 				bufsize *= 2;
-				char *newbuf = realloc(buf, bufsize);
+				char *newbuf = xrealloc(buf, bufsize);
 				if (newbuf == NULL) {
 					free(buf);
 					return NULL;
@@ -773,7 +773,7 @@ PROMPT_BACKSPACE:
 			if (!ISCTRL(c) && c < 256) {
 				if (buflen >= bufsize - 5) {
 					bufsize *= 2;
-					char *newbuf = realloc(buf, bufsize);
+					char *newbuf = xrealloc(buf, bufsize);
 					if (newbuf == NULL) {
 						free(buf);
 						return NULL;
@@ -1223,7 +1223,7 @@ void editorTransposeWords(struct editorBuffer *bufr) {
 	if (startcy == endcy) {
 		struct erow *row = &bufr->row[startcy];
 		int len = endcx - startcx;
-		regionText = malloc(len + 1);
+		regionText = xmalloc(len + 1);
 		if (regionText) {
 			memcpy(regionText, &row->chars[startcx], len);
 			regionText[len] = '\0';
@@ -1426,7 +1426,7 @@ void setupHandlers() {
 }
 
 struct editorBuffer *newBuffer() {
-	struct editorBuffer *ret = malloc(sizeof(struct editorBuffer));
+	struct editorBuffer *ret = xmalloc(sizeof(struct editorBuffer));
 	ret->indent = 0;
 	ret->markx = -1;
 	ret->marky = -1;
@@ -1506,8 +1506,8 @@ void initEditor() {
 	E.describe_key_mode = 0;
 	E.kill = NULL;
 	E.rectKill = NULL;
-	E.windows = malloc(sizeof(struct editorWindow *) * 1);
-	E.windows[0] = malloc(sizeof(struct editorWindow));
+	E.windows = xmalloc(sizeof(struct editorWindow *) * 1);
+	E.windows[0] = xmalloc(sizeof(struct editorWindow));
 	E.windows[0]->focused = 1;
 	E.windows[0]->cx = 0;
 	E.windows[0]->cy = 0;
@@ -1601,7 +1601,7 @@ int main(int argc, char *argv[]) {
 				E.macro.skeys = 0x10;
 				free(E.macro.keys);
 				E.macro.keys =
-					malloc(E.macro.skeys * sizeof(int));
+					xmalloc(E.macro.skeys * sizeof(int));
 			}
 		} else if (c == MACRO_END) {
 			if (E.recording) {
