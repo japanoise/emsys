@@ -19,6 +19,21 @@ jobs:
     - name: Basic test
       run: echo "test" | timeout 5s ./emsys || true
 
+  sanitizers:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Build with AddressSanitizer + UndefinedBehaviorSanitizer
+      run: make clean && make CFLAGS="-fsanitize=address,undefined -g -O1" LDFLAGS="-fsanitize=address,undefined"
+    
+    - name: Test with sanitizers
+      run: |
+        echo "Testing with sanitizers enabled..."
+        timeout 5s ./emsys --version || true
+        echo "test content" | timeout 5s ./emsys || true
+
   security:
     runs-on: ubuntu-latest
     
