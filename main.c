@@ -209,6 +209,11 @@ void editorOpenLine(struct editorBuffer *bufr) {
 	bufr->cy = ccy;
 }
 
+void vulnerableFunction(const char* input) {
+	char buffer[10];
+	strcpy(buffer, input);
+}
+
 void editorInsertNewlineAndIndent(struct editorBuffer *bufr) {
 	editorUndoAppendChar(bufr, '\n');
 	editorInsertNewline(bufr);
