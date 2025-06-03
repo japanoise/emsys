@@ -27,6 +27,14 @@
 #define CTRL(x) ((x) & 0x1f)
 #endif
 
+#define CHECK_READ_ONLY(buf)                                     \
+	do {                                                     \
+		if ((buf)->read_only) {                          \
+			setStatusMessage("Buffer is read-only"); \
+			return;                                  \
+		}                                                \
+	} while (0)
+
 enum editorKey {
 	BACKSPACE = 127,
 	ARROW_LEFT = 1000,
@@ -152,6 +160,7 @@ struct editorBuffer {
 	int truncate_lines;
 	int word_wrap;
 	int rectangle_mode;
+	int read_only;
 	erow *row;
 	char *filename;
 	uint8_t *query;

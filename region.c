@@ -163,6 +163,7 @@ static void normalizeRegion(struct editorBuffer *buf) {
 
 void killRegion(void) {
 	struct editorBuffer *buf = E.focusBuf;
+	CHECK_READ_ONLY(buf);
 	if (markInvalid(buf))
 		return;
 	copyRegion();

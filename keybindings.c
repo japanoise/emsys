@@ -46,6 +46,7 @@ extern void queryReplace(struct editorConfig *ed, struct editorBuffer *buf);
 extern void killLineBackwards(struct editorBuffer *buf);
 extern void toggleTruncateLines(struct editorConfig *ed,
 				struct editorBuffer *buf);
+extern void editorToggleReadOnly(void);
 extern void pipeCmd(struct editorConfig *ed, struct editorBuffer *buf);
 extern void runCommand(char *cmd, struct editorConfig *ed,
 		       struct editorBuffer *buf);
@@ -520,8 +521,9 @@ static void handle_swap_mark(struct editorConfig *ed, struct editorBuffer *buf,
 	}
 }
 
-static void handle_find_file(struct editorConfig *ed, struct editorBuffer *buf,
-			     int rept) {
+static void handle_find_file_impl(struct editorConfig *ed,
+				  struct editorBuffer *buf, int rept,
+				  int read_only) {
 	uint8_t *prompt =
 		promptUser(ed->focusBuf, "Find File: %s", PROMPT_FILES, NULL);
 	if (!prompt)
@@ -556,11 +558,24 @@ static void handle_find_file(struct editorConfig *ed, struct editorBuffer *buf,
 
 	struct editorBuffer *newBuf = newBuffer();
 	editorOpenFile(newBuf, filename);
+	if (read_only) {
+		newBuf->read_only = 1;
+	}
 	newBuf->next = ed->focusBuf->next;
 	ed->focusBuf->next = newBuf;
 	ed->focusBuf = newBuf;
 	ed->windows[windowFocusedIdx(ed)]->buf = newBuf;
 	free(prompt);
+}
+
+static void handle_find_file(struct editorConfig *ed, struct editorBuffer *buf,
+			     int rept) {
+	handle_find_file_impl(ed, buf, rept, 0);
+}
+
+static void handle_find_file_read_only(struct editorConfig *ed,
+				       struct editorBuffer *buf, int rept) {
+	handle_find_file_impl(ed, buf, rept, 1);
 }
 
 static void handle_other_window(struct editorConfig *ed,
@@ -598,6 +613,11 @@ static void handle_macro_exec(struct editorConfig *ed, struct editorBuffer *buf,
 static void handle_toggle_truncate_lines(struct editorConfig *ed,
 					 struct editorBuffer *buf, int rept) {
 	toggleTruncateLines(ed, buf);
+}
+
+static void handle_toggle_read_only(struct editorConfig *ed,
+				    struct editorBuffer *buf, int rept) {
+	editorToggleReadOnly();
 }
 
 static void handle_query_replace(struct editorConfig *ed,
@@ -921,6 +941,8 @@ static KeyBinding ctrl_x_bindings[] = {
 	{ CTRL('c'), handle_quit, "save-buffers-kill-emacs" },
 	{ CTRL('s'), handle_save_buffer, "save-buffer" },
 	{ CTRL('f'), handle_find_file, "find-file" },
+	{ CTRL('r'), handle_find_file_read_only, "find-file-read-only" },
+	{ CTRL('q'), handle_toggle_read_only, "toggle-read-only" },
 	{ CTRL('x'), handle_swap_mark, "exchange-point-and-mark" },
 	{ 'b', handle_switch_buffer, "switch-to-buffer" },
 	{ 'k', handle_kill_buffer, "kill-buffer" },

@@ -445,16 +445,18 @@ void drawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
 	int len = 0;
 	if (win->focused) {
 		len = snprintf(status, sizeof(status),
-			       "-- %.20s %c%c %2d:%2d --",
+			       "-- %.20s %c%c%c %2d:%2d --",
 			       bufr->filename ? bufr->filename : "*scratch*",
 			       bufr->dirty ? '*' : '-', bufr->dirty ? '*' : '-',
-			       bufr->cy + 1, bufr->cx);
+			       bufr->read_only ? '%' : ' ', bufr->cy + 1,
+			       bufr->cx);
 	} else {
 		len = snprintf(status, sizeof(status),
-			       "   %.20s %c%c %2d:%2d   ",
+			       "   %.20s %c%c%c %2d:%2d   ",
 			       bufr->filename ? bufr->filename : "*scratch*",
 			       bufr->dirty ? '*' : '-', bufr->dirty ? '*' : '-',
-			       win->cy + 1, win->cx);
+			       bufr->read_only ? '%' : ' ', win->cy + 1,
+			       win->cx);
 	}
 #ifdef EMSYS_DEBUG_UNDO
 #ifdef EMSYS_DEBUG_REDO

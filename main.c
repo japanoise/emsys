@@ -155,6 +155,7 @@ void editorInsertChar(int c) {
 }
 
 void bufferInsertChar(struct editorBuffer *bufr, int c) {
+	CHECK_READ_ONLY(bufr);
 	if (bufr->cy == bufr->numrows) {
 		insertRow(bufr, bufr->numrows, "", 0);
 	}
@@ -171,6 +172,7 @@ void insertUnicode(struct editorBuffer *bufr) {
 }
 
 void insertNewline(struct editorBuffer *bufr) {
+	CHECK_READ_ONLY(bufr);
 	if (bufr->cx == 0) {
 		insertRow(bufr, bufr->cy, "", 0);
 	} else {
@@ -185,6 +187,7 @@ void insertNewline(struct editorBuffer *bufr) {
 }
 
 void openLine(struct editorBuffer *bufr) {
+	CHECK_READ_ONLY(bufr);
 	int ccx = bufr->cx;
 	int ccy = bufr->cy;
 	insertNewline(bufr);
@@ -193,6 +196,7 @@ void openLine(struct editorBuffer *bufr) {
 }
 
 void insertNewlineAndIndent(struct editorBuffer *bufr) {
+	CHECK_READ_ONLY(bufr);
 	undoAppendChar(bufr, '\n');
 	insertNewline(bufr);
 	int i = 0;
@@ -279,6 +283,7 @@ UNINDENT_PERFORM:
 }
 
 void delChar(struct editorBuffer *bufr) {
+	CHECK_READ_ONLY(bufr);
 	if (bufr->cy == bufr->numrows)
 		return;
 	if (bufr->cy == bufr->numrows - 1 &&
@@ -299,6 +304,7 @@ void delChar(struct editorBuffer *bufr) {
 }
 
 void backSpace(struct editorBuffer *bufr) {
+	CHECK_READ_ONLY(bufr);
 	if (!bufr->numrows)
 		return;
 	if (bufr->cy == bufr->numrows) {
@@ -327,6 +333,7 @@ void backSpace(struct editorBuffer *bufr) {
 }
 
 void killLine(struct editorBuffer *buf) {
+	CHECK_READ_ONLY(buf);
 	if (buf->numrows <= 0) {
 		return;
 	}
@@ -369,6 +376,7 @@ void killLine(struct editorBuffer *buf) {
 }
 
 void killLineBackwards(struct editorBuffer *buf) {
+	CHECK_READ_ONLY(buf);
 	if (buf->cx == 0) {
 		return;
 	}
@@ -1397,6 +1405,7 @@ struct editorBuffer *newBuffer() {
 	ret->uarg_active = 0;
 	ret->truncate_lines = 0;
 	ret->rectangle_mode = 0;
+	ret->read_only = 0;
 	ret->screen_line_start = NULL;
 	ret->screen_line_cache_size = 0;
 	ret->screen_line_cache_valid = 0;

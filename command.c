@@ -394,6 +394,13 @@ void toggleTruncateLines(struct editorConfig *UNUSED(ed),
 					       "Truncate long lines disabled");
 }
 
+void editorToggleReadOnly(void) {
+	struct editorBuffer *buf = E.focusBuf;
+	buf->read_only = !buf->read_only;
+	setStatusMessage(buf->read_only ? "Read-only mode enabled" :
+					  "Read-only mode disabled");
+}
+
 void describeKey(struct editorConfig *ed, struct editorBuffer *UNUSED(buf)) {
 	setStatusMessage("Describe key: ");
 	E.describe_key_mode = 1;
@@ -417,6 +424,7 @@ void viewManPage(void) {
 	struct editorBuffer *manpage = newBuffer();
 	manpage->filename = stringdup("*man emsys*");
 	manpage->special_buffer = 1;
+	manpage->read_only = 1;
 
 	fp = popen("man emsys 2>/dev/null | col -b", "r");
 	if (!fp) {

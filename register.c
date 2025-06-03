@@ -223,6 +223,7 @@ void incrementRegister(void) {
 }
 
 void insertRegister(void) {
+	CHECK_READ_ONLY(E.focusBuf);
 	GET_REGISTER(reg, "Insert register");
 	uint8_t *tmp = E.kill;
 	switch (E.registers[reg].rtype) {

@@ -3,6 +3,7 @@
 #include "emsys.h"
 void editorToggleTruncateLines(struct editorConfig *ed,
 			       struct editorBuffer *buf);
+void editorToggleReadOnly(void);
 void editorQueryReplace(void);
 void editorHelpForHelp(void);
 void editorViewManPage(void);
