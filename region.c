@@ -342,7 +342,7 @@ void replaceRegex(void) {
 	uint8_t *regex =
 		promptUser(buf, "Regex replace: %s", PROMPT_BASIC, NULL);
 	if (regex == NULL) {
-		setStatusMessage(cancel);
+		setStatusMessage("%s", cancel);
 		return;
 	}
 
@@ -366,7 +366,7 @@ void replaceRegex(void) {
 		promptUser(buf, (uint8_t *)prompt, PROMPT_BASIC, NULL);
 	if (repl == NULL) {
 		free(regex);
-		setStatusMessage(cancel);
+		setStatusMessage("%s", cancel);
 		return;
 	}
 	int replen = strlen((char *)repl);

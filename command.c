@@ -310,7 +310,6 @@ void queryReplace(void) {
 			repl = newStr;
 			transformRegion(
 					      transformerReplaceString);
-			free(newStr);
 			repl = tmp;
 			NEXT_OCCUR(true);
 			goto RESET_PROMPT;
@@ -349,9 +348,18 @@ QR_CLEANUP:
 	buf->query = NULL;
 	buf->markx = savedMx;
 	buf->marky = savedMy;
-	free(orig);
-	free(repl);
-	free(prompt);
+	if (orig) {
+		free(orig);
+		orig = NULL;
+	}
+	if (repl) {
+		free(repl);
+		repl = NULL;
+	}
+	if (prompt) {
+		free(prompt);
+		prompt = NULL;
+	}
 }
 
 void capitalizeRegion(void) {

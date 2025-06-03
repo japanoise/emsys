@@ -647,7 +647,7 @@ static void handle_custom_info(struct editorConfig *ed,
 		windowFocusedIdx(ed) + 1, ed->nwindows,
 		buf->filename ? buf->filename : "*scratch*", buf->cy, buf->cx,
 		win->rowoff, win->coloff, win->height, buf->truncate_lines);
-	setStatusMessage(msg);
+		setStatusMessage("%s", msg);
 }
 
 static void showCommandsOnEmpty(struct editorBuffer *buf, uint8_t *input,

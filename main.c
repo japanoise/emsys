@@ -572,7 +572,7 @@ uint8_t *promptUser(struct editorBuffer *bufr, uint8_t *prompt,
 	buf[0] = 0;
 
 	for (;;) {
-		setStatusMessage(prompt, buf);
+			setStatusMessage("%s%s", prompt, buf);
 		refreshScreen();
 #ifdef EMSYS_DEBUG_PROMPT
 		char dbg[32];
