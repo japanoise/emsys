@@ -151,11 +151,18 @@ void setScxScy(struct editorWindow *win) {
 		if (buf->cy >= buf->numrows) {
 			// For virtual line, calculate position as if there's a line at buf->numrows
 			if (buf->numrows > 0) {
-				int virtual_screen_line = getScreenLineForRow(buf, buf->numrows - 1);
+				int virtual_screen_line = getScreenLineForRow(
+					buf, buf->numrows - 1);
 				// Add one line for the virtual line position
-				virtual_screen_line += ((calculateLineWidth(&buf->row[buf->numrows - 1]) / E.screencols) + 1);
-				int rowoff_screen_line = getScreenLineForRow(buf, win->rowoff);
-				win->scy = virtual_screen_line - rowoff_screen_line;
+				virtual_screen_line +=
+					((calculateLineWidth(
+						  &buf->row[buf->numrows - 1]) /
+					  E.screencols) +
+					 1);
+				int rowoff_screen_line =
+					getScreenLineForRow(buf, win->rowoff);
+				win->scy = virtual_screen_line -
+					   rowoff_screen_line;
 			} else {
 				// Empty buffer case - virtual line is at position 0
 				win->scy = 0 - win->rowoff;
@@ -372,7 +379,7 @@ static void renderLineWithHighlighting(erow *row, struct abuf *ab,
 }
 
 void drawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
-		    int screencols) {
+	      int screencols) {
 	struct editorBuffer *buf = win->buf;
 	int y;
 	int filerow = win->rowoff;

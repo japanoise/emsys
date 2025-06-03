@@ -59,8 +59,7 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 
 	int cur = 0;
 	for (;;) {
-		setStatusMessage("Multiple options: %s",
-				       completions[cur]);
+		setStatusMessage("Multiple options: %s", completions[cur]);
 		refreshScreen();
 		cursorBottomLine(strlen(completions[cur]) + 19);
 
@@ -101,9 +100,9 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 
 		size_t home_len = strlen(home_dir);
 		size_t prompt_len = strlen((char *)prompt);
-		char *new_prompt =
-			xmalloc(home_len + prompt_len - 1 +
-			       1); // -1 for removed '~', +1 for null terminator
+		char *new_prompt = xmalloc(
+			home_len + prompt_len - 1 +
+			1); // -1 for removed '~', +1 for null terminator
 		if (!new_prompt) {
 			return prompt;
 		}
@@ -160,7 +159,7 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 
 	for (;;) {
 		setStatusMessage("Multiple options: %s",
-				       globlist.gl_pathv[cur]);
+				 globlist.gl_pathv[cur]);
 		refreshScreen();
 		cursorBottomLine(curw + 19);
 
@@ -244,8 +243,7 @@ uint8_t *tabCompleteCommands(struct editorConfig *ed, uint8_t *input) {
 
 	int cur = 0;
 	for (;;) {
-		setStatusMessage("Multiple options: %s",
-				       completions[cur]);
+		setStatusMessage("Multiple options: %s", completions[cur]);
 		refreshScreen();
 		cursorBottomLine(strlen(completions[cur]) + 19);
 
@@ -339,16 +337,17 @@ void completeWord(void) {
 					(matches[0].rm_eo - matches[0].rm_so) :
 					0;
 			if (match_idx >= 0) {
-				candidates[ncand] = xcalloc(match_length + 1, 1);
+				candidates[ncand] =
+					xcalloc(match_length + 1, 1);
 				strncpy(candidates[ncand],
 					(char *)&row->chars[match_idx],
 					match_length);
 				ncand++;
 				if (ncand >= scand) {
 					scand <<= 1;
-					candidates =
-						xrealloc(candidates,
-							sizeof(char *) * scand);
+					candidates = xrealloc(candidates,
+							      sizeof(char *) *
+								      scand);
 				}
 			}
 		}
@@ -454,11 +453,9 @@ COMPLETE_WORD_DONE:;
 	bufr->undo = new;
 
 	rowInsertString(bufr, row, bufr->cx,
-			      &candidates[sel][bufr->cx - wordStart],
-			      completelen);
+			&candidates[sel][bufr->cx - wordStart], completelen);
 
-	setStatusMessage("Expanded %.30s to %.30s", word,
-			       candidates[sel]);
+	setStatusMessage("Expanded %.30s to %.30s", word, candidates[sel]);
 	bufr->cx += completelen;
 
 COMPLETE_WORD_CLEANUP:

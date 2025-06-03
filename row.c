@@ -79,8 +79,8 @@ void rowDelChar(struct editorBuffer *bufr, erow *row, int at) {
 	invalidateScreenCache(bufr);
 }
 
-void rowInsertString(struct editorBuffer *bufr, erow *row, int at,
-			   char *s, size_t len) {
+void rowInsertString(struct editorBuffer *bufr, erow *row, int at, char *s,
+		     size_t len) {
 	if (at < 0 || at > row->size)
 		at = row->size;
 	row->chars = xrealloc(row->chars, row->size + len + 1);
@@ -92,8 +92,7 @@ void rowInsertString(struct editorBuffer *bufr, erow *row, int at,
 	invalidateScreenCache(bufr);
 }
 
-void rowDeleteRange(struct editorBuffer *bufr, erow *row, int start,
-			  int end) {
+void rowDeleteRange(struct editorBuffer *bufr, erow *row, int start, int end) {
 	if (start < 0 || end > row->size || start >= end)
 		return;
 	memmove(&row->chars[start], &row->chars[end], row->size - end);
@@ -104,8 +103,8 @@ void rowDeleteRange(struct editorBuffer *bufr, erow *row, int start,
 	invalidateScreenCache(bufr);
 }
 
-void rowReplaceRange(struct editorBuffer *bufr, erow *row, int start,
-			   int end, char *s, size_t len) {
+void rowReplaceRange(struct editorBuffer *bufr, erow *row, int start, int end,
+		     char *s, size_t len) {
 	if (start < 0 || end > row->size || start > end)
 		return;
 	int delete_len = end - start;

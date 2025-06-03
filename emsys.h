@@ -256,8 +256,8 @@ void setupHandlers();
 void setStatusMessage(const char *fmt, ...);
 void refreshScreen();
 uint8_t *promptUser(struct editorBuffer *bufr, uint8_t *prompt,
-		      enum promptType t,
-		      void (*callback)(struct editorBuffer *, uint8_t *, int));
+		    enum promptType t,
+		    void (*callback)(struct editorBuffer *, uint8_t *, int));
 void cursorBottomLine(int);
 void cursorBottomLineLong(long);
 void insertNewline(struct editorBuffer *bufr);
@@ -276,9 +276,6 @@ void *xrealloc(void *ptr, size_t size);
 void *xcalloc(size_t nmemb, size_t size);
 
 /* Cursor validation functions */
-void validateCursorY(struct editorBuffer *buf);
-void validateCursorX(struct editorBuffer *buf);
-void validateCursorPosition(struct editorBuffer *buf);
 erow *safeGetRow(struct editorBuffer *buf, int row_index);
 int nextScreenX(char *chars, int *i, int current_screen_x);
 
@@ -295,6 +292,5 @@ void execMacro(struct editorMacro *macro);
 char *stringdup(const char *s);
 int windowFocusedIdx(struct editorConfig *ed);
 void scroll();
-
 
 #endif

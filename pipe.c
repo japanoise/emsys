@@ -70,7 +70,8 @@ static uint8_t *transformerPipeCmd(uint8_t *input) {
 uint8_t *editorPipe(void) {
 	struct editorBuffer *bf = E.focusBuf;
 #ifdef EMSYS_DISABLE_PIPE
-	setStatusMessage("Shell pipe command disabled for platform compatibility");
+	setStatusMessage(
+		"Shell pipe command disabled for platform compatibility");
 	return NULL;
 #else
 	buf = xcalloc(1, BUFSIZ + 1);

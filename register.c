@@ -23,11 +23,11 @@ static int getRegisterName(char *prompt) {
 	return key;
 }
 
-#define GET_REGISTER(vname, prompt)             \
-	int vname = getRegisterName(prompt);    \
-	if (vname == 0x07) {                    \
-		setStatusMessage("Quit"); \
-		return;                         \
+#define GET_REGISTER(vname, prompt)          \
+	int vname = getRegisterName(prompt); \
+	if (vname == 0x07) {                 \
+		setStatusMessage("Quit");    \
+		return;                      \
 	}
 
 static void registerMessage(char *msg, char reg) {
@@ -97,7 +97,13 @@ void jumpToRegister(struct editorConfig *ed) {
 		struct editorBuffer *buf = ed->focusBuf;
 		buf->cx = ed->registers[reg].rdata.point->cx;
 		buf->cy = ed->registers[reg].rdata.point->cy;
-		validateCursorPosition(buf);
+		if (buf->cy >= buf->numrows) {
+			buf->cy = buf->numrows > 0 ? buf->numrows - 1 : 0;
+		}
+		if (buf->cy < buf->numrows &&
+		    buf->cx > buf->row[buf->cy].size) {
+			buf->cx = buf->row[buf->cy].size;
+		}
 		break;
 	case REGISTER_MACRO:
 		registerMessage("Executing macro in register %s...", reg);
@@ -195,8 +201,7 @@ void incrementRegister(void) {
 			  strlen((char *)E.registers[reg].rdata.region) + 1;
 		E.registers[reg].rdata.region =
 			xrealloc(E.registers[reg].rdata.region, len);
-		strcat((char *)E.registers[reg].rdata.region,
-		       (char *)E.kill);
+		strcat((char *)E.registers[reg].rdata.region, (char *)E.kill);
 		E.kill = tmp;
 		registerMessage("Added region to register %s", reg);
 		break;
@@ -276,27 +281,26 @@ void viewRegister(void) {
 		break;
 	case REGISTER_REGION:
 		setStatusMessage("%s (region): %.60s", str,
-				       E.registers[reg].rdata.region);
+				 E.registers[reg].rdata.region);
 		break;
 	case REGISTER_NUMBER:
 		setStatusMessage("%s (number): %ld", str,
-				       (long)E.registers[reg].rdata.number);
+				 (long)E.registers[reg].rdata.number);
 		break;
 	case REGISTER_POINT:;
 		struct editorPoint *pt = E.registers[reg].rdata.point;
 		setStatusMessage("%s (point): %.20s %d:%d", str,
-				       pt->buf->filename, pt->cy + 1, pt->cx);
+				 pt->buf->filename, pt->cy + 1, pt->cx);
 		break;
 	case REGISTER_MACRO:
-		setStatusMessage(
-			"Register %s contains a macro of length %d", str,
-			E.registers[reg].rdata.macro->nkeys);
+		setStatusMessage("Register %s contains a macro of length %d",
+				 str, E.registers[reg].rdata.macro->nkeys);
 		break;
 	case REGISTER_RECTANGLE:
 		setStatusMessage("%s (rect): w: %d h: %d \"%.50s\"", str,
-				       E.registers[reg].rdata.rect->rx,
-				       E.registers[reg].rdata.rect->ry,
-				       E.registers[reg].rdata.rect->rect);
+				 E.registers[reg].rdata.rect->rx,
+				 E.registers[reg].rdata.rect->ry,
+				 E.registers[reg].rdata.rect->rect);
 		break;
 	}
 }

@@ -102,7 +102,7 @@ void find(struct editorBuffer *bufr) {
 	//	int saved_rowoff = bufr->rowoff;
 
 	uint8_t *query = promptUser(bufr, "Search (C-g to cancel): %s",
-				      PROMPT_BASIC, findCallback);
+				    PROMPT_BASIC, findCallback);
 
 	bufr->query = NULL;
 	if (query) {
@@ -120,7 +120,7 @@ void regexFind(struct editorBuffer *bufr) {
 	int saved_cy = bufr->cy;
 
 	uint8_t *query = promptUser(bufr, "Regex search (C-g to cancel): %s",
-				      PROMPT_BASIC, findCallback);
+				    PROMPT_BASIC, findCallback);
 
 	bufr->query = NULL;
 	regex_mode = 0; /* Reset after search */

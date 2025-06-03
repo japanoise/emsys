@@ -18,7 +18,7 @@ int calculateRowsToScroll(struct editorBuffer *buf, struct editorWindow *win,
 void setScxScy(struct editorWindow *win);
 void scroll(void);
 void drawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
-		    int screencols);
+	      int screencols);
 void drawStatusBar(struct editorWindow *win, struct abuf *ab, int line);
 void drawMinibuffer(struct abuf *ab);
 void refreshScreen(void);

@@ -32,18 +32,17 @@ void doUndo(struct editorBuffer *buf) {
 		struct erow *row = &buf->row[buf->undo->starty];
 		if (buf->undo->starty == buf->undo->endy) {
 			rowDeleteRange(buf, row, buf->undo->startx,
-					     buf->undo->endx);
+				       buf->undo->endx);
 		} else {
 			for (int i = buf->undo->starty + 1; i < buf->undo->endy;
 			     i++) {
 				delRow(buf, buf->undo->starty + 1);
 			}
 			struct erow *last = &buf->row[buf->undo->starty + 1];
-			rowDeleteRange(buf, row, buf->undo->startx,
-					     row->size);
+			rowDeleteRange(buf, row, buf->undo->startx, row->size);
 			rowInsertString(buf, row, row->size,
-					      &last->chars[buf->undo->endx],
-					      last->size - buf->undo->endx);
+					&last->chars[buf->undo->endx],
+					last->size - buf->undo->endx);
 			delRow(buf, buf->undo->starty + 1);
 		}
 		buf->cx = buf->undo->startx;
@@ -70,18 +69,17 @@ void doRedo(struct editorBuffer *buf) {
 		struct erow *row = &buf->row[buf->redo->starty];
 		if (buf->redo->starty == buf->redo->endy) {
 			rowDeleteRange(buf, row, buf->redo->startx,
-					     buf->redo->endx);
+				       buf->redo->endx);
 		} else {
 			for (int i = buf->redo->starty + 1; i < buf->redo->endy;
 			     i++) {
 				delRow(buf, buf->redo->starty + 1);
 			}
 			struct erow *last = &buf->row[buf->redo->starty + 1];
-			rowDeleteRange(buf, row, buf->redo->startx,
-					     row->size);
+			rowDeleteRange(buf, row, buf->redo->startx, row->size);
 			rowInsertString(buf, row, row->size,
-					      &last->chars[buf->redo->endx],
-					      last->size - buf->redo->endx);
+					&last->chars[buf->redo->endx],
+					last->size - buf->redo->endx);
 			delRow(buf, buf->redo->starty + 1);
 		}
 		buf->cx = buf->redo->startx;
@@ -226,7 +224,8 @@ void undoBackSpace(struct editorBuffer *buf, uint8_t c) {
 	buf->undo->data[buf->undo->datalen] = 0;
 	if (buf->undo->datalen >= buf->undo->datasize - 2) {
 		buf->undo->datasize *= 2;
-		buf->undo->data = xrealloc(buf->undo->data, buf->undo->datasize);
+		buf->undo->data =
+			xrealloc(buf->undo->data, buf->undo->datasize);
 	}
 	if (c == '\n') {
 		buf->undo->starty--;

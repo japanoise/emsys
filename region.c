@@ -362,8 +362,7 @@ void replaceRegex(void) {
 	char prompt[64];
 	snprintf(prompt, sizeof(prompt), "Regex replace %.35s with: %%s",
 		 regex);
-	uint8_t *repl =
-		promptUser(buf, (uint8_t *)prompt, PROMPT_BASIC, NULL);
+	uint8_t *repl = promptUser(buf, (uint8_t *)prompt, PROMPT_BASIC, NULL);
 	if (repl == NULL) {
 		free(regex);
 		setStatusMessage("%s", cancel);
@@ -528,7 +527,7 @@ void stringRectangle(void) {
 		return;
 
 	uint8_t *string = promptUser(buf, (uint8_t *)"String rectangle: %s",
-				       PROMPT_BASIC, NULL);
+				     PROMPT_BASIC, NULL);
 	if (string == NULL) {
 		setStatusMessage("Canceled.");
 		return;
@@ -701,8 +700,7 @@ void copyRectangle(void) {
 
 	E.rectKill = xcalloc((E.rx * E.ry) + 1, 1);
 
-	extractRectangleData(buf, topx, topy, botx, boty, E.rx, E.ry,
-			     NULL, 0);
+	extractRectangleData(buf, topx, topy, botx, boty, E.rx, E.ry, NULL, 0);
 }
 
 void killRectangle(void) {
@@ -778,8 +776,7 @@ void killRectangle(void) {
 	new->paired = 1;
 	buf->undo = new;
 
-	extractRectangleData(buf, topx, topy, botx, boty, E.rx, E.ry,
-			     new, 1);
+	extractRectangleData(buf, topx, topy, botx, boty, E.rx, E.ry, new, 1);
 	new->datalen = strlen((char *)new->data);
 
 	buf->dirty = 1;

@@ -87,23 +87,6 @@ int windowFocusedIdx(struct editorConfig *ed) {
 	return 0;
 }
 
-void validateCursorY(struct editorBuffer *buf) {
-	if (buf->cy >= buf->numrows) {
-		buf->cy = buf->numrows > 0 ? buf->numrows - 1 : 0;
-	}
-}
-
-void validateCursorX(struct editorBuffer *buf) {
-	if (buf->cy < buf->numrows && buf->cx > buf->row[buf->cy].size) {
-		buf->cx = buf->row[buf->cy].size;
-	}
-}
-
-void validateCursorPosition(struct editorBuffer *buf) {
-	validateCursorY(buf);
-	validateCursorX(buf);
-}
-
 erow *safeGetRow(struct editorBuffer *buf, int row_index) {
 	return (row_index >= buf->numrows) ? NULL : &buf->row[row_index];
 }
@@ -193,7 +176,7 @@ void insertNewline(struct editorBuffer *bufr) {
 	} else {
 		erow *row = &bufr->row[bufr->cy];
 		insertRow(bufr, bufr->cy + 1, &row->chars[bufr->cx],
-				row->size - bufr->cx);
+			  row->size - bufr->cx);
 		row = &bufr->row[bufr->cy];
 		rowDeleteRange(bufr, row, bufr->cx, row->size);
 	}
@@ -307,8 +290,8 @@ void delChar(struct editorBuffer *bufr) {
 	if (bufr->cx == row->size) {
 		row = &bufr->row[bufr->cy + 1];
 		rowInsertString(bufr, &bufr->row[bufr->cy],
-				      bufr->row[bufr->cy].size, row->chars,
-				      row->size);
+				bufr->row[bufr->cy].size, row->chars,
+				row->size);
 		delRow(bufr, bufr->cy + 1);
 	} else {
 		rowDelChar(bufr, row, bufr->cx);
@@ -336,8 +319,8 @@ void backSpace(struct editorBuffer *bufr) {
 		undoBackSpace(bufr, '\n');
 		bufr->cx = bufr->row[bufr->cy - 1].size;
 		rowInsertString(bufr, &bufr->row[bufr->cy - 1],
-				      bufr->row[bufr->cy - 1].size, row->chars,
-				      row->size);
+				bufr->row[bufr->cy - 1].size, row->chars,
+				row->size);
 		delRow(bufr, bufr->cy);
 		bufr->cy--;
 	}
@@ -422,14 +405,13 @@ void killLineBackwards(struct editorBuffer *buf) {
 	buf->dirty = 1;
 }
 
-
 void recordKey(int c) {
 	if (E.recording) {
 		E.macro.keys[E.macro.nkeys++] = c;
 		if (E.macro.nkeys >= E.macro.skeys) {
 			E.macro.skeys *= 2;
 			E.macro.keys = xrealloc(E.macro.keys,
-					       E.macro.skeys * sizeof(int));
+						E.macro.skeys * sizeof(int));
 		}
 		if (c == UNICODE) {
 			for (int i = 0; i < E.nunicode; i++) {
@@ -496,8 +478,8 @@ void editorOpenFile(struct editorBuffer *bufr, char *filename) {
 
 void save(struct editorBuffer *bufr) {
 	if (bufr->filename == NULL) {
-		bufr->filename = (char *)
-			promptUser(bufr, (uint8_t *)"Save as: %s", PROMPT_FILES, NULL);
+		bufr->filename = (char *)promptUser(
+			bufr, (uint8_t *)"Save as: %s", PROMPT_FILES, NULL);
 		if (bufr->filename == NULL) {
 			setStatusMessage("Save aborted.");
 			return;
@@ -514,8 +496,8 @@ void save(struct editorBuffer *bufr) {
 				close(fd);
 				free(buf);
 				bufr->dirty = 0;
-				setStatusMessage("Wrote %d bytes to %s",
-						       len, bufr->filename);
+				setStatusMessage("Wrote %d bytes to %s", len,
+						 bufr->filename);
 				return;
 			}
 		}
@@ -538,7 +520,7 @@ void setStatusMessage(const char *fmt, ...) {
 }
 
 void recenterCommand(struct editorConfig *ed,
-			   struct editorBuffer *UNUSED(buf)) {
+		     struct editorBuffer *UNUSED(buf)) {
 	int winIdx = windowFocusedIdx(ed);
 	recenter(ed->windows[winIdx]);
 }
@@ -558,8 +540,8 @@ void resume(int sig) {
 /*** input ***/
 
 uint8_t *promptUser(struct editorBuffer *bufr, uint8_t *prompt,
-		      enum promptType t,
-		      void (*callback)(struct editorBuffer *, uint8_t *, int)) {
+		    enum promptType t,
+		    void (*callback)(struct editorBuffer *, uint8_t *, int)) {
 	size_t bufsize = 128;
 	uint8_t *buf = xmalloc(bufsize);
 
@@ -572,7 +554,7 @@ uint8_t *promptUser(struct editorBuffer *bufr, uint8_t *prompt,
 	buf[0] = 0;
 
 	for (;;) {
-			setStatusMessage("%s%s", prompt, buf);
+		setStatusMessage("%s%s", prompt, buf);
 		refreshScreen();
 #ifdef EMSYS_DEBUG_PROMPT
 		char dbg[32];
@@ -963,18 +945,17 @@ void wordTransform(struct editorConfig *ed, struct editorBuffer *bufr,
 	transformRegion(transformer);
 }
 
-void upcaseWord(struct editorConfig *ed, struct editorBuffer *bufr,
-		      int times) {
+void upcaseWord(struct editorConfig *ed, struct editorBuffer *bufr, int times) {
 	wordTransform(ed, bufr, times, transformerUpcase);
 }
 
 void downcaseWord(struct editorConfig *ed, struct editorBuffer *bufr,
-			int times) {
+		  int times) {
 	wordTransform(ed, bufr, times, transformerDowncase);
 }
 
 void capitalCaseWord(struct editorConfig *ed, struct editorBuffer *bufr,
-			   int times) {
+		     int times) {
 	wordTransform(ed, bufr, times, transformerCapitalCase);
 }
 
@@ -1066,10 +1047,9 @@ void pipeCmd(struct editorConfig *ed, struct editorBuffer *bufr) {
 			for (size_t i = 0; i < outputLen; i++) {
 				if (pipeOutput[i] == '\n' ||
 				    i == outputLen - 1) {
-					insertRow(
-						newBuf, newBuf->numrows,
-						(char *)&pipeOutput[rowStart],
-						rowLen);
+					insertRow(newBuf, newBuf->numrows,
+						  (char *)&pipeOutput[rowStart],
+						  rowLen);
 					rowStart = i + 1;
 					rowLen = 0;
 				} else {
@@ -1101,7 +1081,8 @@ void gotoLine(struct editorBuffer *bufr) {
 	int nl;
 
 	for (;;) {
-		nls = promptUser(bufr, (uint8_t *)"Goto line: %s", PROMPT_BASIC, NULL);
+		nls = promptUser(bufr, (uint8_t *)"Goto line: %s", PROMPT_BASIC,
+				 NULL);
 		if (!nls) {
 			return;
 		}
@@ -1191,8 +1172,7 @@ void transposeWords(struct editorBuffer *bufr) {
 			regionText[len] = '\0';
 		}
 	} else {
-		setStatusMessage(
-			"Multi-line word transpose not supported");
+		setStatusMessage("Multi-line word transpose not supported");
 		return;
 	}
 
@@ -1251,7 +1231,7 @@ void transposeChars(struct editorConfig *ed, struct editorBuffer *bufr) {
 }
 
 void switchToNamedBuffer(struct editorConfig *ed,
-			       struct editorBuffer *current) {
+			 struct editorBuffer *current) {
 	char promptMsg[512];
 	const char *defaultBufferName = NULL;
 
@@ -1326,8 +1306,7 @@ void switchToNamedBuffer(struct editorConfig *ed,
 		}
 
 		if (!targetBuffer) {
-			setStatusMessage("No buffer named '%s'",
-					       buffer_name);
+			setStatusMessage("No buffer named '%s'", buffer_name);
 			free(buffer_name);
 			return;
 		}
@@ -1340,8 +1319,7 @@ void switchToNamedBuffer(struct editorConfig *ed,
 		const char *switchedBufferName =
 			ed->focusBuf->filename ? ed->focusBuf->filename :
 						 "*scratch*";
-		setStatusMessage("Switched to buffer %s",
-				       switchedBufferName);
+		setStatusMessage("Switched to buffer %s", switchedBufferName);
 
 		for (int i = 0; i < ed->nwindows; i++) {
 			if (ed->windows[i]->focused) {
@@ -1568,8 +1546,7 @@ int main(int argc, char *argv[]) {
 				setStatusMessage(
 					"Already defining keyboard macro");
 			} else {
-				setStatusMessage(
-					"Defining keyboard macro...");
+				setStatusMessage("Defining keyboard macro...");
 				E.recording = 1;
 				E.macro.nkeys = 0;
 				E.macro.skeys = 0x10;
@@ -1579,18 +1556,15 @@ int main(int argc, char *argv[]) {
 			}
 		} else if (c == MACRO_END) {
 			if (E.recording) {
-				setStatusMessage(
-					"Keyboard macro defined");
+				setStatusMessage("Keyboard macro defined");
 				E.recording = 0;
 			} else {
-				setStatusMessage(
-					"Not defining keyboard macro");
+				setStatusMessage("Not defining keyboard macro");
 			}
 		} else if (c == MACRO_EXEC ||
 			   (E.micro == MACRO_EXEC && (c == 'e' || c == 'E'))) {
 			if (E.recording) {
-				setStatusMessage(
-					"Keyboard macro defined");
+				setStatusMessage("Keyboard macro defined");
 				E.recording = 0;
 			}
 			execMacro(&E.macro);

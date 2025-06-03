@@ -17,7 +17,7 @@
 extern struct editorConfig E;
 
 static void regexFindCommand(struct editorConfig *UNUSED(ed),
-				   struct editorBuffer *buf) {
+			     struct editorBuffer *buf) {
 	regexFind(buf);
 }
 
@@ -50,7 +50,7 @@ char *str_replace(char *orig, char *rep, char *with) {
 
 	size_t base_len = strlen(orig);
 	size_t diff = (len_with > len_rep) ? (len_with - len_rep) : 0;
-	
+
 	// Check for overflow
 	if (count > 0 && diff > 0 && count > SIZE_MAX / diff) {
 		return NULL;
@@ -58,7 +58,7 @@ char *str_replace(char *orig, char *rep, char *with) {
 	if (base_len > SIZE_MAX - (diff * count) - 1) {
 		return NULL;
 	}
-	
+
 	tmp = result = xmalloc(base_len + (diff * count) + 1);
 
 	if (!result)
@@ -81,19 +81,17 @@ char *str_replace(char *orig, char *rep, char *with) {
 }
 
 void version(struct editorConfig *UNUSED(ed),
-		   struct editorBuffer *UNUSED(buf)) {
+	     struct editorBuffer *UNUSED(buf)) {
 	setStatusMessage("emsys version " EMSYS_VERSION
-			       ", built " EMSYS_BUILD_DATE);
+			 ", built " EMSYS_BUILD_DATE);
 }
 
-void indentTabs(struct editorConfig *UNUSED(ed),
-		      struct editorBuffer *buf) {
+void indentTabs(struct editorConfig *UNUSED(ed), struct editorBuffer *buf) {
 	buf->indent = 0;
 	setStatusMessage("Indentation set to tabs");
 }
 
-void indentSpaces(struct editorConfig *UNUSED(ed),
-			struct editorBuffer *buf) {
+void indentSpaces(struct editorConfig *UNUSED(ed), struct editorBuffer *buf) {
 	uint8_t *indentS =
 		promptUser(buf, "Set indentation to: %s", PROMPT_BASIC, NULL);
 	if (indentS == NULL) {
@@ -172,7 +170,7 @@ void replaceString(void) {
 		return;
 	}
 
-	transformRegion( transformerReplaceString);
+	transformRegion(transformerReplaceString);
 
 	free(orig);
 	free(repl);
@@ -253,8 +251,7 @@ void queryReplace(void) {
 		switch (c) {
 		case ' ':
 		case 'y':
-			transformRegion(
-					      transformerReplaceString);
+			transformRegion(transformerReplaceString);
 			NEXT_OCCUR(true);
 			break;
 		case CTRL('h'):
@@ -271,16 +268,14 @@ void queryReplace(void) {
 			goto QR_CLEANUP;
 			break;
 		case '.':
-			transformRegion(
-					      transformerReplaceString);
+			transformRegion(transformerReplaceString);
 			goto QR_CLEANUP;
 			break;
 		case '!':
 		case 'Y':
 			buf->marky = buf->numrows - 1;
 			buf->markx = buf->row[buf->marky].size;
-			transformRegion(
-					      transformerReplaceString);
+			transformRegion(transformerReplaceString);
 			goto QR_CLEANUP;
 			break;
 		case 'u':
@@ -308,8 +303,7 @@ void queryReplace(void) {
 			}
 			uint8_t *tmp = repl;
 			repl = newStr;
-			transformRegion(
-					      transformerReplaceString);
+			transformRegion(transformerReplaceString);
 			repl = tmp;
 			NEXT_OCCUR(true);
 			goto RESET_PROMPT;
@@ -327,14 +321,14 @@ void queryReplace(void) {
 			}
 			free(repl);
 			repl = newStr;
-			transformRegion(
-					      transformerReplaceString);
+			transformRegion(transformerReplaceString);
 			NEXT_OCCUR(true);
 RESET_PROMPT:
 			prompt_size = strlen(orig) + strlen(repl) + 32;
 			prompt = xmalloc(prompt_size);
 			snprintf(prompt, prompt_size,
-				 "Query replacing %.60s with %.60s:", orig, repl);
+				 "Query replacing %.60s with %.60s:", orig,
+				 repl);
 			bufwidth = stringWidth(prompt);
 			break;
 		case CTRL('l'):
@@ -363,11 +357,11 @@ QR_CLEANUP:
 }
 
 void capitalizeRegion(void) {
-	transformRegion( transformerCapitalCase);
+	transformRegion(transformerCapitalCase);
 }
 
 void whitespaceCleanup(struct editorConfig *UNUSED(ed),
-			     struct editorBuffer *buf) {
+		       struct editorBuffer *buf) {
 	unsigned int trailing = 0;
 	for (int i = 0; i < buf->numrows; i++) {
 		erow *row = &buf->row[i];
@@ -387,23 +381,20 @@ void whitespaceCleanup(struct editorConfig *UNUSED(ed),
 
 	if (trailing > 0) {
 		clearUndosAndRedos(buf);
-		setStatusMessage("%d trailing characters removed",
-				       trailing);
+		setStatusMessage("%d trailing characters removed", trailing);
 	} else {
 		setStatusMessage("No change.");
 	}
 }
 
 void toggleTruncateLines(struct editorConfig *UNUSED(ed),
-			       struct editorBuffer *buf) {
+			 struct editorBuffer *buf) {
 	buf->truncate_lines = !buf->truncate_lines;
-	setStatusMessage(buf->truncate_lines ?
-				       "Truncate long lines enabled" :
-				       "Truncate long lines disabled");
+	setStatusMessage(buf->truncate_lines ? "Truncate long lines enabled" :
+					       "Truncate long lines disabled");
 }
 
-void describeKey(struct editorConfig *ed,
-		       struct editorBuffer *UNUSED(buf)) {
+void describeKey(struct editorConfig *ed, struct editorBuffer *UNUSED(buf)) {
 	setStatusMessage("Describe key: ");
 	E.describe_key_mode = 1;
 }
@@ -465,42 +456,50 @@ void helpForHelp(void) {
 }
 
 /* Wrapper functions for command table compatibility */
-void helpForHelpWrapper(struct editorConfig *UNUSED(ed), struct editorBuffer *UNUSED(buf)) {
+void helpForHelpWrapper(struct editorConfig *UNUSED(ed),
+			struct editorBuffer *UNUSED(buf)) {
 	helpForHelp();
 }
 
-void viewManPageWrapper(struct editorConfig *UNUSED(ed), struct editorBuffer *UNUSED(buf)) {
+void viewManPageWrapper(struct editorConfig *UNUSED(ed),
+			struct editorBuffer *UNUSED(buf)) {
 	viewManPage();
 }
 
-void capitalizeRegionWrapper(struct editorConfig *UNUSED(ed), struct editorBuffer *UNUSED(buf)) {
+void capitalizeRegionWrapper(struct editorConfig *UNUSED(ed),
+			     struct editorBuffer *UNUSED(buf)) {
 	capitalizeRegion();
 }
 
-void replaceStringWrapper(struct editorConfig *UNUSED(ed), struct editorBuffer *UNUSED(buf)) {
+void replaceStringWrapper(struct editorConfig *UNUSED(ed),
+			  struct editorBuffer *UNUSED(buf)) {
 	replaceString();
 }
 
-void queryReplaceWrapper(struct editorConfig *UNUSED(ed), struct editorBuffer *UNUSED(buf)) {
+void queryReplaceWrapper(struct editorConfig *UNUSED(ed),
+			 struct editorBuffer *UNUSED(buf)) {
 	queryReplace();
 }
 
-void revertWrapper(struct editorConfig *UNUSED(ed), struct editorBuffer *UNUSED(buf)) {
+void revertWrapper(struct editorConfig *UNUSED(ed),
+		   struct editorBuffer *UNUSED(buf)) {
 	revert();
 }
 
-void replaceRegexWrapper(struct editorConfig *UNUSED(ed), struct editorBuffer *UNUSED(buf)) {
+void replaceRegexWrapper(struct editorConfig *UNUSED(ed),
+			 struct editorBuffer *UNUSED(buf)) {
 	replaceRegex();
 }
 
-void viewRegisterWrapper(struct editorConfig *UNUSED(ed), struct editorBuffer *UNUSED(buf)) {
+void viewRegisterWrapper(struct editorConfig *UNUSED(ed),
+			 struct editorBuffer *UNUSED(buf)) {
 	viewRegister();
 }
 
-#define ADDCMD(name, func)               \
+#define ADDCMD(name, func)                \
 	newCmd = xmalloc(sizeof *newCmd); \
-	newCmdName = name;               \
-	newCmd->cmd = func;              \
+	newCmdName = name;                \
+	newCmd->cmd = func;               \
 	HASH_ADD_KEYPTR(hh, ed->cmd, newCmdName, strlen(newCmdName), newCmd)
 
 #ifdef EMSYS_DEBUG_UNDO
