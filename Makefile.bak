@@ -134,5 +134,5 @@ clean:
 	rm -rf unicodetest
 
 .PHONY: all debug optimized test-platforms clean install format
-test-file-io: tests/test_file_io.c tests/test_stubs.c $(UNITY_SRC)
+test-file-io: tests/test_file_io.c $(UNITY_SRC)
 	$(CC) $(CFLAGS) $(TEST_INC) -o test_file_io $^

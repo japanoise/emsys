@@ -14,7 +14,6 @@
 #endif
 #elif defined(__APPLE__)
 #define _DARWIN_C_SOURCE
-#define __DARWIN_C_LEVEL 200112L
 #elif defined(__MSYS__) || defined(__MINGW32__) || defined(__MINGW64__) || \
 	defined(__CYGWIN__)
 #define _GNU_SOURCE

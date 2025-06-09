@@ -4,6 +4,7 @@
 #include "platform.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
 
 #if !HAVE_GETLINE
 ssize_t portable_getline(char **lineptr, size_t *n, FILE *stream);

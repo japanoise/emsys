@@ -4,7 +4,12 @@
 #include <stdint.h>
 #include <termios.h>
 #include <time.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include "config.h"
+#include "terminal.h"
 
 /*** util ***/
 
@@ -34,6 +39,43 @@
 			return;                                  \
 		}                                                \
 	} while (0)
+
+static inline void die(const char *s) {
+	write(STDOUT_FILENO, CSI "2J", 4);
+	write(STDOUT_FILENO, CSI "H", 3);
+	perror(s);
+	exit(1);
+}
+
+static inline void *xmalloc(size_t size) {
+	void *ptr = malloc(size);
+	if (!ptr && size > 0) {
+		die("xmalloc: out of memory");
+	}
+	return ptr;
+}
+
+static inline void *xrealloc(void *ptr, size_t size) {
+	void *new_ptr = realloc(ptr, size);
+	if (!new_ptr && size > 0) {
+		die("xrealloc: out of memory");
+	}
+	return new_ptr;
+}
+
+static inline void *xcalloc(size_t nmemb, size_t size) {
+	void *ptr = calloc(nmemb, size);
+	if (!ptr && nmemb > 0 && size > 0) {
+		die("xcalloc: out of memory");
+	}
+	return ptr;
+}
+
+static inline char *stringdup(const char *s) {
+	size_t len = strlen(s) + 1;
+	char *new_str = xmalloc(len);
+	return memcpy(new_str, s, len);
+}
 
 enum editorKey {
 	BACKSPACE = 127,

@@ -1499,6 +1499,4 @@ int main(int argc, char *argv[]) {
 		refreshScreen();
 	}
 	return 0;
-#ifndef TESTING
 }
-#endif
