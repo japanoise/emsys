@@ -11,6 +11,12 @@
 #include "pipe.h"
 #include "subprocess.h"
 #include "display.h"
+#include "prompt.h"
+#include "buffer.h"
+#include "unicode.h"
+#include "util.h"
+
+extern struct editorConfig E;
 
 static uint8_t *cmd;
 static char *buf;
@@ -66,9 +72,8 @@ uint8_t *editorPipe(struct editorConfig *ed, struct editorBuffer *bf) {
 	if (cmd == NULL) {
 		editorSetStatusMessage("Canceled shell command.");
 	} else {
-		if (bf->uarg_active) {
-			bf->uarg_active = 0;
-			bf->uarg = 0;
+		if (E.uarg) {
+			E.uarg = 0;
 			editorTransformRegion(ed, bf, transformerPipeCmd);
 			// unmark region
 			bf->markx = -1;
@@ -77,7 +82,7 @@ uint8_t *editorPipe(struct editorConfig *ed, struct editorBuffer *bf) {
 			return NULL;
 		} else {
 			// 1. Extract the selected region
-			if (markInvalid(bf)) {
+			if (markInvalid()) {
 				editorSetStatusMessage("Mark invalid.");
 				free(cmd);
 				free(buf);
@@ -98,4 +103,55 @@ uint8_t *editorPipe(struct editorConfig *ed, struct editorBuffer *bf) {
 	free(cmd);
 	free(buf);
 	return NULL;
+}
+
+void editorPipeCmd(struct editorConfig *ed, struct editorBuffer *bufr) {
+	uint8_t *pipeOutput = editorPipe(ed, bufr);
+	if (pipeOutput != NULL) {
+		size_t outputLen = strlen((char *)pipeOutput);
+		if (outputLen < sizeof(ed->statusmsg) - 1) {
+			editorSetStatusMessage("%s", pipeOutput);
+		} else {
+			struct editorBuffer *newBuf = newBuffer();
+			newBuf->filename = stringdup("*Shell Output*");
+			newBuf->special_buffer = 1;
+
+			// Use a temporary buffer to build each row
+			size_t rowStart = 0;
+			size_t rowLen = 0;
+			for (size_t i = 0; i < outputLen; i++) {
+				if (pipeOutput[i] == '\n' ||
+				    i == outputLen - 1) {
+					// Found a newline or end of output, insert the row
+					editorInsertRow(
+						newBuf, newBuf->numrows,
+						(char *)&pipeOutput[rowStart],
+						rowLen);
+					rowStart =
+						i + 1; // Start of the next row
+					rowLen = 0;    // Reset row length
+				} else {
+					rowLen++;
+				}
+			}
+
+			// Link the new buffer and update focus
+			if (ed->firstBuf == NULL) {
+				ed->firstBuf = newBuf;
+			} else {
+				struct editorBuffer *temp = ed->firstBuf;
+				while (temp->next != NULL) {
+					temp = temp->next;
+				}
+				temp->next = newBuf;
+			}
+			ed->buf = newBuf;
+
+			// Update the focused window
+			int idx = windowFocusedIdx();
+			ed->windows[idx]->buf = ed->buf;
+			editorRefreshScreen();
+		}
+		free(pipeOutput);
+	}
 }

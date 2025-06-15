@@ -4,17 +4,19 @@
 #include <stdint.h>
 #include "emsys.h"
 
-int markInvalid(struct editorBuffer *buf);
+int markInvalid(void);
 
-void editorSetMark(struct editorBuffer *buf);
+void editorSetMark(void);
 
-void editorClearMark(struct editorBuffer *buf);
+void editorClearMark(void);
+
+void editorMarkBuffer(void);
 
 void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf);
 
 void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf);
 
-void editorYank(struct editorConfig *ed, struct editorBuffer *buf);
+void editorYank(struct editorConfig *ed, struct editorBuffer *buf, int count);
 
 void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
 			   uint8_t *(*transformer)(uint8_t *));

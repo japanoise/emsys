@@ -59,11 +59,10 @@ struct editorBuffer {
 	int numrows;
 	int end;
 	int dirty;
-	int uarg;
-	int uarg_active;
 	int special_buffer;
 	int truncate_lines; // 0 for wrapped, 1 for unwrapped
 	int word_wrap;
+	int single_line;
 	erow *row;
 	char *filename;
 	uint8_t *query;
@@ -139,11 +138,16 @@ struct editorConfig {
 	int screencols;
 	uint8_t unicode[4];
 	int nunicode;
-	char minibuffer[80];
+	char statusmsg[256];
+
+	/* Buffer management for minibuffer */
+	struct editorBuffer *edbuf;   /* Saved editor context */
+	struct editorBuffer *minibuf; /* Minibuffer object */
+
 	time_t statusmsg_time;
 	struct termios orig_termios;
 	struct editorBuffer *firstBuf;
-	struct editorBuffer *focusBuf;
+	struct editorBuffer *buf; /* Current active buffer */
 	int nwindows;
 	struct editorWindow **windows;
 	int recording;
@@ -154,6 +158,7 @@ struct editorConfig {
 	int cmd_count;
 	struct editorRegister registers[127];
 	struct editorBuffer *lastVisitedBuffer;
+	int uarg; /* Universal argument: 0 = off, non-zero = active with that value */
 };
 
 /*** prototypes ***/
@@ -162,8 +167,8 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 		      enum promptType t,
 		      void (*callback)(struct editorBuffer *, uint8_t *, int));
 void editorUpdateBuffer(struct editorBuffer *buf);
-void editorInsertNewline(struct editorBuffer *bufr);
-void editorInsertChar(struct editorBuffer *bufr, int c);
+void editorInsertNewline(struct editorBuffer *bufr, int count);
+void editorInsertChar(struct editorBuffer *bufr, int c, int count);
 void editorOpen(struct editorBuffer *bufr, char *filename);
 void die(const char *s);
 struct editorBuffer *newBuffer();
@@ -171,6 +176,5 @@ void destroyBuffer(struct editorBuffer *);
 int editorReadKey();
 void editorRecordKey(int c);
 void editorExecMacro(struct editorMacro *macro);
-char *stringdup(const char *s);
 
 #endif

@@ -4,6 +4,9 @@
 /* Key constants */
 #define CTRL(x) ((x) & 0x1f)
 
+/* Prefix state for key sequences */
+enum PrefixState { PREFIX_NONE, PREFIX_CTRL_X, PREFIX_CTRL_X_R, PREFIX_META };
+
 enum editorKey {
 	BACKSPACE = 127,
 	ARROW_LEFT = 1000,
@@ -92,11 +95,12 @@ struct editorMacro;
 struct editorConfig;
 
 /* Function declarations */
-int editorReadKey(void);
 void editorRecordKey(int c);
 void editorProcessKeypress(int c);
 void editorExecMacro(struct editorMacro *macro);
 void setupCommands(struct editorConfig *ed);
 void runCommand(char *cmd, struct editorConfig *ed, struct editorBuffer *buf);
+void executeCommand(int key);
+void showPrefix(const char *prefix);
 
 #endif /* KEYMAP_H */

@@ -29,22 +29,12 @@
 #include "terminal.h"
 #include "display.h"
 #include "keymap.h"
+#include "util.h"
 
 const int page_overlap = 2;
 
-// POSIX 2001 compliant alternative to strdup
-char *stringdup(const char *s) {
-	size_t len = strlen(s) + 1; // +1 for the null terminator
-	char *new_str = malloc(len);
-	if (new_str == NULL) {
-		return NULL; // malloc failed
-	}
-	return memcpy(new_str, s, len);
-}
-
 struct editorConfig E;
 void setupHandlers();
-
 
 /*** output ***/
 
@@ -72,9 +62,8 @@ void setupHandlers() {
 	signal(SIGTSTP, editorSuspend);
 }
 
-
 void initEditor() {
-	E.minibuffer[0] = 0;
+	E.statusmsg[0] = 0;
 	E.kill = NULL;
 	E.rectKill = NULL;
 	E.windows = malloc(sizeof(struct editorWindow *) * 1);
@@ -96,10 +85,16 @@ void initEditor() {
 }
 
 int main(int argc, char *argv[]) {
+	// Check for --version flag before entering raw mode
+	if (argc >= 2 && strcmp(argv[1], "--version") == 0) {
+		printf("emsys %s\n", EMSYS_VERSION);
+		return 0;
+	}
+
 	enableRawMode();
 	initEditor();
 	E.firstBuf = newBuffer();
-	E.focusBuf = E.firstBuf;
+	E.buf = E.firstBuf;
 	if (argc >= 2) {
 		int i = 1;
 		int linum = -1;
@@ -110,7 +105,7 @@ int main(int argc, char *argv[]) {
 		for (; i < argc; i++) {
 			E.firstBuf = newBuffer();
 			editorOpen(E.firstBuf, argv[i]);
-			E.firstBuf->next = E.focusBuf;
+			E.firstBuf->next = E.buf;
 			if (linum > 0) {
 				E.firstBuf->cy = linum - 1;
 				linum = -1;
@@ -118,10 +113,17 @@ int main(int argc, char *argv[]) {
 					E.firstBuf->cy = E.firstBuf->numrows;
 				}
 			}
-			E.focusBuf = E.firstBuf;
+			E.buf = E.firstBuf;
 		}
 	}
-	E.windows[0]->buf = E.focusBuf;
+	E.windows[0]->buf = E.buf;
+
+	/* Initialize minibuffer */
+	E.minibuf = newBuffer();
+	E.minibuf->single_line = 1;
+	E.minibuf->truncate_lines = 1;
+	E.minibuf->filename = stringdup("*minibuffer*");
+	E.edbuf = E.buf;
 
 	editorSetStatusMessage("emsys " EMSYS_VERSION " - C-x C-c to quit");
 	setupHandlers();
@@ -163,7 +165,7 @@ int main(int argc, char *argv[]) {
 			E.micro = MACRO_EXEC;
 		} else {
 			editorRecordKey(c);
-			editorProcessKeypress(c);
+			executeCommand(c);
 		}
 	}
 	return 0;

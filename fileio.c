@@ -13,6 +13,8 @@
 #include <string.h>
 #include <unistd.h>
 #include "display.h"
+#include "prompt.h"
+#include "util.h"
 
 /* Access global editor state */
 extern struct editorConfig E;
@@ -74,7 +76,7 @@ void editorRevert(struct editorConfig *ed, struct editorBuffer *buf) {
 	struct editorBuffer *new = newBuffer();
 	editorOpen(new, buf->filename);
 	new->next = buf->next;
-	ed->focusBuf = new;
+	ed->buf = new;
 	if (ed->firstBuf == buf) {
 		ed->firstBuf = new;
 	}
@@ -105,8 +107,8 @@ void editorRevert(struct editorConfig *ed, struct editorBuffer *buf) {
 
 void editorSave(struct editorBuffer *bufr) {
 	if (bufr->filename == NULL) {
-		bufr->filename = (char *)
-			editorPrompt(bufr, (uint8_t *)"Save as: %s", PROMPT_FILES, NULL);
+		bufr->filename = (char *)editorPrompt(
+			bufr, (uint8_t *)"Save as: %s", PROMPT_FILES, NULL);
 		if (bufr->filename == NULL) {
 			editorSetStatusMessage("Save aborted.");
 			return;
@@ -133,4 +135,50 @@ void editorSave(struct editorBuffer *bufr) {
 
 	free(buf);
 	editorSetStatusMessage("Save failed: %s", strerror(errno));
+}
+
+void findFile(void) {
+	struct editorConfig *E_ptr = &E;
+	uint8_t *prompt =
+		editorPrompt(E_ptr->buf, "Find File: %s", PROMPT_FILES, NULL);
+
+	if (prompt == NULL) {
+		editorSetStatusMessage("Canceled.");
+		return;
+	}
+
+	if (prompt[strlen(prompt) - 1] == '/') {
+		editorSetStatusMessage("Directory editing not supported.");
+		free(prompt);
+		return;
+	}
+
+	// Check if a buffer with the same filename already exists
+	struct editorBuffer *buf = E_ptr->firstBuf;
+	while (buf != NULL) {
+		if (buf->filename != NULL &&
+		    strcmp(buf->filename, (char *)prompt) == 0) {
+			editorSetStatusMessage(
+				"File '%s' already open in a buffer.", prompt);
+			free(prompt);
+			E_ptr->buf = buf; // Switch to the existing buffer
+
+			// Update the focused window to display the found buffer
+			int idx = windowFocusedIdx();
+			E_ptr->windows[idx]->buf = E_ptr->buf;
+
+			editorRefreshScreen(); // Refresh to reflect the change
+			return;
+		}
+		buf = buf->next;
+	}
+
+	// Create new buffer for the file
+	E_ptr->firstBuf = newBuffer();
+	editorOpen(E_ptr->firstBuf, (char *)prompt);
+	free(prompt);
+	E_ptr->firstBuf->next = E_ptr->buf;
+	E_ptr->buf = E_ptr->firstBuf;
+	int idx = windowFocusedIdx();
+	E_ptr->windows[idx]->buf = E_ptr->buf;
 }

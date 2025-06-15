@@ -82,18 +82,18 @@ void editorJumpToRegister(struct editorConfig *ed) {
 		registerMessage("Cannot jump to number in register %s", reg);
 		break;
 	case REGISTER_POINT:
-		if (ed->focusBuf == ed->registers[reg].rdata.point->buf) {
-			editorSetMark(ed->focusBuf);
+		if (ed->buf == ed->registers[reg].rdata.point->buf) {
+			editorSetMark();
 		} else {
-			ed->focusBuf = ed->registers[reg].rdata.point->buf;
+			ed->buf = ed->registers[reg].rdata.point->buf;
 			for (int i = 0; i < ed->nwindows; i++) {
 				if (ed->windows[i]->focused) {
-					ed->windows[i]->buf = ed->focusBuf;
+					ed->windows[i]->buf = ed->buf;
 				}
 			}
 			registerMessage("Jumped to point in register %s", reg);
 		}
-		struct editorBuffer *buf = ed->focusBuf;
+		struct editorBuffer *buf = ed->buf;
 		buf->cx = ed->registers[reg].rdata.point->cx;
 		buf->cy = ed->registers[reg].rdata.point->cy;
 		if (buf->cy >= buf->numrows)
@@ -134,9 +134,9 @@ void editorPointToRegister(struct editorConfig *ed) {
 	clearRegister(ed, reg);
 	ed->registers[reg].rtype = REGISTER_POINT;
 	ed->registers[reg].rdata.point = malloc(sizeof(struct editorPoint));
-	ed->registers[reg].rdata.point->buf = ed->focusBuf;
-	ed->registers[reg].rdata.point->cx = ed->focusBuf->cx;
-	ed->registers[reg].rdata.point->cy = ed->focusBuf->cy;
+	ed->registers[reg].rdata.point->buf = ed->buf;
+	ed->registers[reg].rdata.point->cx = ed->buf->cx;
+	ed->registers[reg].rdata.point->cy = ed->buf->cy;
 	registerMessage("Saved point to register %s", reg);
 }
 
@@ -150,7 +150,7 @@ void editorNumberToRegister(struct editorConfig *ed, int rept) {
 
 void editorRegionToRegister(struct editorConfig *ed,
 			    struct editorBuffer *bufr) {
-	if (markInvalid(bufr))
+	if (markInvalid())
 		return;
 	GET_REGISTER(reg, "Region to register");
 	clearRegister(ed, reg);
@@ -164,7 +164,7 @@ void editorRegionToRegister(struct editorConfig *ed,
 }
 
 void editorRectRegister(struct editorConfig *ed, struct editorBuffer *bufr) {
-	if (markInvalid(bufr))
+	if (markInvalid())
 		return;
 	GET_REGISTER(reg, "Rectangle to register");
 	clearRegister(ed, reg);
@@ -230,7 +230,7 @@ void editorInsertRegister(struct editorConfig *ed, struct editorBuffer *bufr) {
 		break;
 	case REGISTER_REGION:
 		ed->kill = ed->registers[reg].rdata.region;
-		editorYank(ed, bufr);
+		editorYank(ed, bufr, 1);
 		ed->kill = tmp;
 		registerMessage("Inserted string register %s", reg);
 		break;
@@ -238,7 +238,7 @@ void editorInsertRegister(struct editorConfig *ed, struct editorBuffer *bufr) {
 		char str[32];
 		sprintf(str, "%ld", ed->registers[reg].rdata.number);
 		ed->kill = (uint8_t *)str;
-		editorYank(ed, bufr);
+		editorYank(ed, bufr, 1);
 		ed->kill = tmp;
 		registerMessage("Inserted number register %s", reg);
 		break;

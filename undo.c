@@ -9,7 +9,9 @@
 #include "display.h"
 #include "unused.h"
 
-void editorDoUndo(struct editorBuffer *buf) {
+void editorDoUndo(struct editorBuffer *buf, int count) {
+	int times = count ? count : 1;
+	for (int j = 0; j < times; j++) {
 	if (buf->undo == NULL) {
 		editorSetStatusMessage("No further undo information.");
 		return;
@@ -21,14 +23,17 @@ void editorDoUndo(struct editorBuffer *buf) {
 		buf->cy = buf->undo->starty;
 		for (int i = buf->undo->datalen - 1; i >= 0; i--) {
 			if (buf->undo->data[i] == '\n') {
-				editorInsertNewline(buf);
+				editorInsertNewline(buf, 1);
 			} else {
-				editorInsertChar(buf, buf->undo->data[i]);
+				editorInsertChar(buf, buf->undo->data[i], 1);
 			}
 		}
 		buf->cx = buf->undo->endx;
 		buf->cy = buf->undo->endy;
 	} else {
+		if (buf->numrows == 0 || buf->undo->starty >= buf->numrows) {
+			return;
+		}
 		struct erow *row = &buf->row[buf->undo->starty];
 		if (buf->undo->starty == buf->undo->endy) {
 			memmove(&row->chars[buf->undo->startx],
@@ -40,6 +45,9 @@ void editorDoUndo(struct editorBuffer *buf) {
 			for (int i = buf->undo->starty + 1; i < buf->undo->endy;
 			     i++) {
 				editorDelRow(buf, buf->undo->starty + 1);
+			}
+			if (buf->undo->starty + 1 >= buf->numrows) {
+				return;
 			}
 			struct erow *last = &buf->row[buf->undo->starty + 1];
 			row->size = buf->undo->startx;
@@ -62,7 +70,8 @@ void editorDoUndo(struct editorBuffer *buf) {
 	buf->redo->prev = orig;
 
 	if (paired) {
-		editorDoUndo(buf);
+		editorDoUndo(buf, 1);
+	}
 	}
 }
 
@@ -82,7 +91,9 @@ void debugUnpair(struct editorConfig *UNUSED(ed), struct editorBuffer *buf) {
 }
 #endif
 
-void editorDoRedo(struct editorBuffer *buf) {
+void editorDoRedo(struct editorBuffer *buf, int count) {
+	int times = count ? count : 1;
+	for (int j = 0; j < times; j++) {
 	if (buf->redo == NULL) {
 		editorSetStatusMessage("No further redo information.");
 		return;
@@ -117,9 +128,9 @@ void editorDoRedo(struct editorBuffer *buf) {
 		buf->cy = buf->redo->starty;
 		for (int i = 0; i < buf->redo->datalen; i++) {
 			if (buf->redo->data[i] == '\n') {
-				editorInsertNewline(buf);
+				editorInsertNewline(buf, 1);
 			} else {
-				editorInsertChar(buf, buf->redo->data[i]);
+				editorInsertChar(buf, buf->redo->data[i], 1);
 			}
 		}
 		buf->cx = buf->redo->endx;
@@ -134,7 +145,8 @@ void editorDoRedo(struct editorBuffer *buf) {
 	buf->undo->prev = orig;
 
 	if (buf->redo != NULL && buf->redo->paired) {
-		editorDoRedo(buf);
+		editorDoRedo(buf, 1);
+	}
 	}
 }
 
@@ -196,6 +208,10 @@ void editorUndoAppendChar(struct editorBuffer *buf, uint8_t c) {
 	}
 	buf->undo->data[buf->undo->datalen++] = c;
 	buf->undo->data[buf->undo->datalen] = 0;
+	if (buf->undo->datalen >= buf->undo->datasize - 2) {
+		buf->undo->datasize *= 2;
+		buf->undo->data = realloc(buf->undo->data, buf->undo->datasize);
+	}
 	buf->undo->append = !(buf->undo->datalen >= buf->undo->datasize - 2);
 	if (c == '\n') {
 		buf->undo->endx = 0;

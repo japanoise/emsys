@@ -11,6 +11,9 @@
 #include "undo.h"
 #include "unicode.h"
 #include "region.h"
+#include "prompt.h"
+
+extern struct editorConfig E;
 
 // https://stackoverflow.com/a/779960
 // You must free the result if result is non-NULL.
@@ -218,7 +221,7 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 	struct editorUndo *first = buf->undo;
 	uint8_t *newStr = NULL;
 	buf->query = orig;
-	int currentIdx = windowFocusedIdx(ed);
+	int currentIdx = windowFocusedIdx();
 	struct editorWindow *currentWindow = ed->windows[currentIdx];
 
 #define NEXT_OCCUR(ocheck)                 \
@@ -268,14 +271,14 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 			goto QR_CLEANUP;
 			break;
 		case 'u':
-			editorDoUndo(buf);
+			editorDoUndo(buf, 1);
 			buf->markx = buf->cx;
 			buf->marky = buf->cy;
 			buf->cx -= strlen(orig);
 			break;
 		case 'U':
 			while (buf->undo != first)
-				editorDoUndo(buf);
+				editorDoUndo(buf, 1);
 			buf->markx = buf->cx;
 			buf->marky = buf->cy;
 			buf->cx -= strlen(orig);
