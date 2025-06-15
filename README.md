@@ -1,4 +1,4 @@
-# emsys - ersatz-emacs text editor
+# emsys - ersatz-emacs text editor 
 
 An ersatz-emacs text editor for unix-like systems (and msys, hence the name!)
 with no dependencies. It's not much, but it punches above its weight class!

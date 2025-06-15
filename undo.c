@@ -3,9 +3,11 @@
 #include <string.h>
 #include "emsys.h"
 #include "region.h"
-#include "row.h"
+#include "buffer.h"
 #include "undo.h"
 #include "unicode.h"
+#include "display.h"
+#include "unused.h"
 
 void editorDoUndo(struct editorBuffer *buf) {
 	if (buf->undo == NULL) {
@@ -63,6 +65,22 @@ void editorDoUndo(struct editorBuffer *buf) {
 		editorDoUndo(buf);
 	}
 }
+
+#ifdef EMSYS_DEBUG_UNDO
+void debugUnpair(struct editorConfig *UNUSED(ed), struct editorBuffer *buf) {
+	int undos = 0;
+	int redos = 0;
+	for (struct editorUndo *i = buf->undo; i; i = i->prev) {
+		i->paired = 0;
+		undos++;
+	}
+	for (struct editorUndo *i = buf->redo; i; i = i->prev) {
+		i->paired = 0;
+		redos++;
+	}
+	editorSetStatusMessage("Unpaired %d undos, %d redos.", undos, redos);
+}
+#endif
 
 void editorDoRedo(struct editorBuffer *buf) {
 	if (buf->redo == NULL) {

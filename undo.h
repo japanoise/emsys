@@ -12,4 +12,7 @@ void editorUndoDelChar(struct editorBuffer *buf, erow *row);
 struct editorUndo *newUndo();
 void clearRedos(struct editorBuffer *buf);
 void clearUndosAndRedos(struct editorBuffer *buf);
+#ifdef EMSYS_DEBUG_UNDO
+void debugUnpair(struct editorConfig *ed, struct editorBuffer *buf);
+#endif
 #endif

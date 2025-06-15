@@ -2,8 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "emsys.h"
-#include "row.h"
+#include "buffer.h"
 #include "unicode.h"
+#include "undo.h"
 
 void editorUpdateRow(erow *row) {
 	int tabs = 0;
@@ -151,4 +152,38 @@ void editorRowDelChar(struct editorBuffer *bufr, erow *row, int at) {
 	row->size -= size;
 	editorUpdateRow(row);
 	bufr->dirty = 1;
+}
+
+struct editorBuffer *newBuffer() {
+	struct editorBuffer *ret = malloc(sizeof(struct editorBuffer));
+	ret->indent = 0;
+	ret->markx = -1;
+	ret->marky = -1;
+	ret->cx = 0;
+	ret->cy = 0;
+	ret->numrows = 0;
+	ret->row = NULL;
+	ret->filename = NULL;
+	ret->query = NULL;
+	ret->dirty = 0;
+	ret->special_buffer = 0;
+	ret->undo = NULL;
+	ret->redo = NULL;
+	ret->next = NULL;
+	ret->uarg = 0;
+	ret->uarg_active = 0;
+	ret->truncate_lines = 0;
+	return ret;
+}
+
+void destroyBuffer(struct editorBuffer *buf) {
+	clearUndosAndRedos(buf);
+	free(buf->filename);
+	free(buf);
+}
+
+void editorUpdateBuffer(struct editorBuffer *buf) {
+	for (int i = 0; i < buf->numrows; i++) {
+		editorUpdateRow(&buf->row[i]);
+	}
 }

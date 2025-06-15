@@ -7,6 +7,7 @@
 #include "register.h"
 #include "unicode.h"
 #include "unused.h"
+#include "display.h"
 
 static int getRegisterName(char *prompt) {
 	int key;
