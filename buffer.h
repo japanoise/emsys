@@ -14,4 +14,9 @@ void editorRowDelChar(struct editorBuffer *bufr, erow *row, int at);
 struct editorBuffer *newBuffer();
 void destroyBuffer(struct editorBuffer *buf);
 void editorUpdateBuffer(struct editorBuffer *buf);
+void editorSwitchToNamedBuffer(struct editorConfig *ed,
+			       struct editorBuffer *current);
+void editorNextBuffer(void);
+void editorPreviousBuffer(void);
+void editorKillBuffer(void);
 #endif

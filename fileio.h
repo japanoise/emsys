@@ -9,5 +9,6 @@ char *editorRowsToString(struct editorBuffer *bufr, int *buflen);
 void editorOpen(struct editorBuffer *bufr, char *filename);
 void editorSave(struct editorBuffer *bufr);
 void editorRevert(struct editorConfig *ed, struct editorBuffer *buf);
+void findFile(void);
 
 #endif /* FILEIO_H */

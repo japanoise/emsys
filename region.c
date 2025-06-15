@@ -8,28 +8,41 @@
 #include "buffer.h"
 #include "undo.h"
 #include "display.h"
+#include "prompt.h"
 
-void editorSetMark(struct editorBuffer *buf) {
-	buf->markx = buf->cx;
-	buf->marky = buf->cy;
+extern struct editorConfig E;
+
+void editorSetMark(void) {
+	E.buf->markx = E.buf->cx;
+	E.buf->marky = E.buf->cy;
 	editorSetStatusMessage("Mark set.");
-	if (buf->marky >= buf->numrows) {
-		buf->marky = buf->numrows - 1;
-		buf->markx = buf->row[buf->marky].size;
+	if (E.buf->marky >= E.buf->numrows) {
+		E.buf->marky = E.buf->numrows - 1;
+		E.buf->markx = E.buf->row[E.buf->marky].size;
 	}
 }
 
-void editorClearMark(struct editorBuffer *buf) {
-	buf->markx = -1;
-	buf->marky = -1;
+void editorClearMark(void) {
+	E.buf->markx = -1;
+	E.buf->marky = -1;
 	editorSetStatusMessage("Mark Cleared");
 }
 
-int markInvalid(struct editorBuffer *buf) {
-	int ret = (buf->markx < 0 || buf->marky < 0 || buf->numrows == 0 ||
-		   buf->marky >= buf->numrows ||
-		   buf->markx > (buf->row[buf->marky].size) ||
-		   (buf->markx == buf->cx && buf->cy == buf->marky));
+void editorMarkBuffer(void) {
+	if (E.buf->numrows > 0) {
+		E.buf->cy = E.buf->numrows;
+		E.buf->cx = E.buf->row[--E.buf->cy].size;
+		editorSetMark();
+		E.buf->cy = 0;
+		E.buf->cx = 0;
+	}
+}
+
+int markInvalid(void) {
+	int ret = (E.buf->markx < 0 || E.buf->marky < 0 || E.buf->numrows == 0 ||
+		   E.buf->marky >= E.buf->numrows ||
+		   E.buf->markx > (E.buf->row[E.buf->marky].size) ||
+		   (E.buf->markx == E.buf->cx && E.buf->cy == E.buf->marky));
 
 	if (ret) {
 		editorSetStatusMessage("Mark invalid.");
@@ -58,7 +71,7 @@ static void normalizeRegion(struct editorBuffer *buf) {
 }
 
 void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
-	if (markInvalid(buf))
+	if (markInvalid())
 		return;
 	editorCopyRegion(ed, buf);
 	normalizeRegion(buf);
@@ -108,7 +121,7 @@ void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 }
 
 void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf) {
-	if (markInvalid(buf))
+	if (markInvalid())
 		return;
 	int origCx = buf->cx;
 	int origCy = buf->cy;
@@ -144,36 +157,51 @@ void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 	buf->marky = origMarky;
 }
 
-void editorYank(struct editorConfig *ed, struct editorBuffer *buf) {
+void editorYank(struct editorConfig *ed, struct editorBuffer *buf, int count) {
 	if (ed->kill == NULL) {
 		editorSetStatusMessage("Kill ring empty.");
 		return;
 	}
 
-	clearRedos(buf);
+	if (count <= 0) count = 1;
 
-	struct editorUndo *new = newUndo();
-	new->startx = buf->cx;
-	new->starty = buf->cy;
-	free(new->data);
-	new->datalen = strlen(ed->kill);
-	new->datasize = new->datalen + 1;
-	new->data = malloc(new->datasize);
-	strcpy(new->data, ed->kill);
-	new->append = 0;
+	// Check if this is a line yank (ends with newline)
+	int killLen = strlen(ed->kill);
+	int isLineYank = (killLen > 0 && ed->kill[killLen - 1] == '\n');
 
-	for (int i = 0; ed->kill[i] != 0; i++) {
-		if (ed->kill[i] == '\n') {
-			editorInsertNewline(buf);
-		} else {
-			editorInsertChar(buf, ed->kill[i]);
+	for (int j = 0; j < count; j++) {
+		clearRedos(buf);
+
+		struct editorUndo *new = newUndo();
+		new->startx = buf->cx;
+		new->starty = buf->cy;
+		free(new->data);
+		new->datalen = killLen;
+		new->datasize = new->datalen + 1;
+		new->data = malloc(new->datasize);
+		strcpy(new->data, ed->kill);
+		new->append = 0;
+
+		for (int i = 0; ed->kill[i] != 0; i++) {
+			if (ed->kill[i] == '\n') {
+				editorInsertNewline(buf, 1);
+			} else {
+				editorInsertChar(buf, ed->kill[i], 1);
+			}
+		}
+
+		new->endx = buf->cx;
+		new->endy = buf->cy;
+		new->prev = buf->undo;
+		buf->undo = new;
+
+		// For line yanks with multiple repetitions, position cursor
+		// at the beginning of the next line for the next yank
+		if (isLineYank && j < count - 1) {
+			buf->cx = 0;
+			// Already on next line due to the newline
 		}
 	}
-
-	new->endx = buf->cx;
-	new->endy = buf->cy;
-	new->prev = buf->undo;
-	buf->undo = new;
 
 	buf->dirty = 1;
 	editorUpdateBuffer(buf);
@@ -181,7 +209,7 @@ void editorYank(struct editorConfig *ed, struct editorBuffer *buf) {
 
 void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
 			   uint8_t *(*transformer)(uint8_t *)) {
-	if (markInvalid(buf))
+	if (markInvalid())
 		return;
 	normalizeRegion(buf);
 
@@ -194,7 +222,7 @@ void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
 
 	uint8_t *input = ed->kill;
 	ed->kill = transformer(input);
-	editorYank(ed, buf);
+	editorYank(ed, buf, 1);
 	buf->undo->paired = 1;
 
 	if (input == ed->kill) {
@@ -206,7 +234,7 @@ void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
 }
 
 void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
-	if (markInvalid(buf))
+	if (markInvalid())
 		return;
 	normalizeRegion(buf);
 
@@ -358,7 +386,7 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 /*** Rectangles ***/
 
 void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
-	if (markInvalid(buf))
+	if (markInvalid())
 		return;
 
 	uint8_t *string = editorPrompt(buf, (uint8_t *)"String rectangle: %s",
@@ -530,7 +558,7 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 }
 
 void editorCopyRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
-	if (markInvalid(buf))
+	if (markInvalid())
 		return;
 	normalizeRegion(buf);
 
@@ -614,7 +642,7 @@ void editorCopyRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 }
 
 void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
-	if (markInvalid(buf))
+	if (markInvalid())
 		return;
 	normalizeRegion(buf);
 

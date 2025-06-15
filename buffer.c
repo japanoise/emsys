@@ -1,10 +1,17 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "emsys.h"
 #include "buffer.h"
 #include "unicode.h"
 #include "undo.h"
+#include "prompt.h"
+#include "display.h"
+#include "util.h"
+#include "terminal.h"
+
+extern struct editorConfig E;
 
 void editorUpdateRow(erow *row) {
 	int tabs = 0;
@@ -167,12 +174,11 @@ struct editorBuffer *newBuffer() {
 	ret->query = NULL;
 	ret->dirty = 0;
 	ret->special_buffer = 0;
-	ret->undo = NULL;
+	ret->undo = newUndo();
 	ret->redo = NULL;
 	ret->next = NULL;
-	ret->uarg = 0;
-	ret->uarg_active = 0;
 	ret->truncate_lines = 0;
+	ret->single_line = 0;
 	return ret;
 }
 
@@ -186,4 +192,208 @@ void editorUpdateBuffer(struct editorBuffer *buf) {
 	for (int i = 0; i < buf->numrows; i++) {
 		editorUpdateRow(&buf->row[i]);
 	}
+}
+
+void editorSwitchToNamedBuffer(struct editorConfig *ed,
+			       struct editorBuffer *current) {
+	char prompt[512];
+	const char *defaultBufferName = NULL;
+
+	if (ed->lastVisitedBuffer && ed->lastVisitedBuffer != current) {
+		defaultBufferName = ed->lastVisitedBuffer->filename ?
+					    ed->lastVisitedBuffer->filename :
+					    "*scratch*";
+	} else {
+		// Find the first buffer that isn't the current one
+		struct editorBuffer *defaultBuffer = ed->firstBuf;
+		while (defaultBuffer == current && defaultBuffer->next) {
+			defaultBuffer = defaultBuffer->next;
+		}
+		if (defaultBuffer != current) {
+			defaultBufferName = defaultBuffer->filename ?
+						    defaultBuffer->filename :
+						    "*scratch*";
+		}
+	}
+
+	if (defaultBufferName) {
+		snprintf(prompt, sizeof(prompt),
+			 "Switch to buffer (default %s): %%s",
+			 defaultBufferName);
+	} else {
+		snprintf(prompt, sizeof(prompt), "Switch to buffer: %%s");
+	}
+
+	uint8_t *buffer_name =
+		editorPrompt(current, (uint8_t *)prompt, PROMPT_BASIC, NULL);
+
+	if (buffer_name == NULL) {
+		// User canceled the prompt
+		editorSetStatusMessage("Buffer switch canceled");
+		return;
+	}
+
+	struct editorBuffer *targetBuffer = NULL;
+
+	if (buffer_name[0] == '\0') {
+		// User pressed Enter without typing anything
+		if (defaultBufferName) {
+			// Find the default buffer
+			for (struct editorBuffer *buf = ed->firstBuf;
+			     buf != NULL; buf = buf->next) {
+				if (buf == current)
+					continue;
+				if ((buf->filename &&
+				     strcmp(buf->filename, defaultBufferName) ==
+					     0) ||
+				    (!buf->filename &&
+				     strcmp("*scratch*", defaultBufferName) ==
+					     0)) {
+					targetBuffer = buf;
+					break;
+				}
+			}
+		}
+		if (!targetBuffer) {
+			editorSetStatusMessage("No buffer to switch to");
+			free(buffer_name);
+			return;
+		}
+	} else {
+		for (struct editorBuffer *buf = ed->firstBuf; buf != NULL;
+		     buf = buf->next) {
+			if (buf == current)
+				continue;
+
+			const char *bufName = buf->filename ? buf->filename :
+							      "*scratch*";
+			if (strcmp((char *)buffer_name, bufName) == 0) {
+				targetBuffer = buf;
+				break;
+			}
+		}
+
+		if (!targetBuffer) {
+			editorSetStatusMessage("No buffer named '%s'",
+					       buffer_name);
+			free(buffer_name);
+			return;
+		}
+	}
+
+	if (targetBuffer) {
+		ed->lastVisitedBuffer =
+			current; // Update the last visited buffer
+		ed->buf = targetBuffer;
+
+		const char *switchedBufferName =
+			ed->buf->filename ? ed->buf->filename : "*scratch*";
+		editorSetStatusMessage("Switched to buffer %s",
+				       switchedBufferName);
+
+		for (int i = 0; i < ed->nwindows; i++) {
+			if (ed->windows[i]->focused) {
+				ed->windows[i]->buf = ed->buf;
+			}
+		}
+	}
+
+	free(buffer_name);
+}
+
+void editorNextBuffer(void) {
+	E.buf = E.buf->next;
+	if (E.buf == NULL) {
+		E.buf = E.firstBuf;
+	}
+	for (int i = 0; i < E.nwindows; i++) {
+		if (E.windows[i]->focused) {
+			E.windows[i]->buf = E.buf;
+		}
+	}
+}
+
+void editorPreviousBuffer(void) {
+	if (E.buf == E.firstBuf) {
+		// If we're at the first buffer, go to the last buffer
+		E.buf = E.firstBuf;
+		while (E.buf->next != NULL) {
+			E.buf = E.buf->next;
+		}
+	} else {
+		// Otherwise, go to the previous buffer
+		struct editorBuffer *temp = E.firstBuf;
+		while (temp->next != E.buf) {
+			temp = temp->next;
+		}
+		E.buf = temp;
+	}
+	// Update the focused buffer in all windows
+	for (int i = 0; i < E.nwindows; i++) {
+		if (E.windows[i]->focused) {
+			E.windows[i]->buf = E.buf;
+		}
+	}
+}
+
+void editorKillBuffer(void) {
+	struct editorBuffer *bufr = E.buf;
+	
+	// Bypass confirmation for special buffers
+	if (bufr->dirty && bufr->filename != NULL &&
+	    !bufr->special_buffer) {
+		editorSetStatusMessage(
+			"Buffer %.20s modified; kill anyway? (y or n)",
+			bufr->filename);
+		editorRefreshScreen();
+		int c = editorReadKey();
+		if (c != 'y' && c != 'Y') {
+			editorSetStatusMessage("");
+			return;
+		}
+	}
+
+	// Find the previous buffer (if any)
+	struct editorBuffer *prevBuf = NULL;
+	if (E.buf != E.firstBuf) {
+		prevBuf = E.firstBuf;
+		while (prevBuf->next != E.buf) {
+			prevBuf = prevBuf->next;
+		}
+	}
+
+	// Update window focus
+	for (int i = 0; i < E.nwindows; i++) {
+		if (E.windows[i]->buf == bufr) {
+			// If it's the last buffer, create a new scratch buffer
+			if (bufr->next == NULL && prevBuf == NULL) {
+				E.windows[i]->buf = newBuffer();
+				E.windows[i]->buf->filename =
+					stringdup("*scratch*");
+				E.windows[i]->buf->special_buffer = 1;
+				E.firstBuf = E.windows[i]->buf;
+				E.buf = E.firstBuf; // Ensure E.buf is updated
+			} else if (bufr->next == NULL) {
+				E.windows[i]->buf = E.firstBuf;
+				E.buf = E.firstBuf; // Ensure E.buf is updated
+			} else {
+				E.windows[i]->buf = bufr->next;
+				E.buf = bufr->next; // Ensure E.buf is updated
+			}
+		}
+	}
+
+	// Update the main buffer list
+	if (E.firstBuf == bufr) {
+		E.firstBuf = bufr->next;
+	} else if (prevBuf != NULL) {
+		prevBuf->next = bufr->next;
+	}
+
+	// Update the focused buffer
+	if (E.buf == bufr) {
+		E.buf = (bufr->next != NULL) ? bufr->next : prevBuf;
+	}
+
+	destroyBuffer(bufr);
 }

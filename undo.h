@@ -3,8 +3,8 @@
 
 #include "emsys.h"
 
-void editorDoUndo(struct editorBuffer *buf);
-void editorDoRedo(struct editorBuffer *buf);
+void editorDoUndo(struct editorBuffer *buf, int count);
+void editorDoRedo(struct editorBuffer *buf, int count);
 void editorUndoAppendChar(struct editorBuffer *buf, uint8_t c);
 void editorUndoAppendUnicode(struct editorConfig *ed, struct editorBuffer *buf);
 void editorUndoBackSpace(struct editorBuffer *buf, uint8_t c);

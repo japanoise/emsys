@@ -14,7 +14,7 @@ struct abuf {
 	int len;
 };
 
-#define ABUF_INIT {NULL, 0}
+#define ABUF_INIT { NULL, 0 }
 
 /* Display constants */
 extern const int minibuffer_height;
@@ -26,7 +26,8 @@ void abFree(struct abuf *ab);
 
 /* Display functions */
 void editorRefreshScreen(void);
-void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows, int screencols);
+void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
+		    int screencols);
 void editorDrawStatusBar(struct abuf *ab, struct editorWindow *win);
 void editorDrawMinibuffer(struct abuf *ab);
 void editorScroll(void);
@@ -36,12 +37,21 @@ void editorCursorBottomLineLong(long curs);
 void editorSetStatusMessage(const char *fmt, ...);
 void editorResizeScreen(void);
 void editorRecenter(struct editorWindow *win);
-void editorToggleTruncateLines(struct editorConfig *ed, struct editorBuffer *buf);
-void editorVersion(struct editorConfig *ed, struct editorBuffer *buf);
+void editorToggleTruncateLines(void);
+void editorVersion(void);
+/* Wrappers for command table */
+void editorVersionWrapper(struct editorConfig *ed, struct editorBuffer *buf);
+void editorToggleTruncateLinesWrapper(struct editorConfig *ed,
+                                      struct editorBuffer *buf);
 
 /* Window management functions */
-int windowFocusedIdx(struct editorConfig *ed);
-void editorSwitchWindow(struct editorConfig *ed);
-void synchronizeBufferCursor(struct editorBuffer *buf, struct editorWindow *win);
+int windowFocusedIdx(void);
+void editorSwitchWindow(void);
+void synchronizeBufferCursor(struct editorBuffer *buf,
+			     struct editorWindow *win);
+void editorCreateWindow(void);
+void editorDestroyWindow(void);
+void editorDestroyOtherWindows(void);
+void editorWhatCursor(void);
 
 #endif /* DISPLAY_H */

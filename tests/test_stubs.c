@@ -75,13 +75,13 @@ void stub_refreshScreen(void) {
     }
     
     /* Capture status message if present */
-    if (E.minibuffer[0] != '\0') {
-        size_t len = strlen(E.minibuffer);
+    if (E.statusmsg[0] != '\0') {
+        size_t len = strlen(E.statusmsg);
         if (g_output_stub.pos + len + 2 < g_output_stub.size) {
             if (g_output_stub.pos > 0) {
                 g_output_stub.buffer[g_output_stub.pos++] = '\n';
             }
-            strcpy(g_output_stub.buffer + g_output_stub.pos, E.minibuffer);
+            strcpy(g_output_stub.buffer + g_output_stub.pos, E.statusmsg);
             g_output_stub.pos += len;
             g_output_stub.buffer[g_output_stub.pos] = '\0';
         }

@@ -32,9 +32,9 @@ void abFree(struct abuf *ab) {
 }
 
 /* Window management functions */
-int windowFocusedIdx(struct editorConfig *ed) {
+int windowFocusedIdx(void) {
 	for (int i = 0; i < E.nwindows; i++) {
-		if (ed->windows[i]->focused) {
+		if (E.windows[i]->focused) {
 			return i;
 		}
 	}
@@ -57,14 +57,14 @@ void synchronizeBufferCursor(struct editorBuffer *buf,
 	buf->cy = win->cy;
 }
 
-void editorSwitchWindow(struct editorConfig *ed) {
-	if (ed->nwindows == 1) {
+void editorSwitchWindow(void) {
+	if (E.nwindows == 1) {
 		editorSetStatusMessage("No other windows to select");
 		return;
 	}
 
-	int currentIdx = windowFocusedIdx(ed);
-	struct editorWindow *currentWindow = ed->windows[currentIdx];
+	int currentIdx = windowFocusedIdx();
+	struct editorWindow *currentWindow = E.windows[currentIdx];
 	struct editorBuffer *currentBuffer = currentWindow->buf;
 
 	// Store the current buffer's cursor position in the current window
@@ -73,19 +73,19 @@ void editorSwitchWindow(struct editorConfig *ed) {
 
 	// Switch to the next window
 	currentWindow->focused = 0;
-	int nextIdx = (currentIdx + 1) % ed->nwindows;
-	struct editorWindow *nextWindow = ed->windows[nextIdx];
+	int nextIdx = (currentIdx + 1) % E.nwindows;
+	struct editorWindow *nextWindow = E.windows[nextIdx];
 	nextWindow->focused = 1;
 
 	// Update the focused buffer
-	ed->focusBuf = nextWindow->buf;
+	E.buf = nextWindow->buf;
 
 	// Set the buffer's cursor position from the new window
-	ed->focusBuf->cx = nextWindow->cx;
-	ed->focusBuf->cy = nextWindow->cy;
+	E.buf->cx = nextWindow->cx;
+	E.buf->cy = nextWindow->cy;
 
 	// Synchronize the buffer's cursor with the new window's cursor
-	synchronizeBufferCursor(ed->focusBuf, nextWindow);
+	synchronizeBufferCursor(E.buf, nextWindow);
 }
 
 /* Display functions */
@@ -152,7 +152,7 @@ end:
 }
 
 void editorScroll(void) {
-	struct editorWindow *win = E.windows[windowFocusedIdx(&E)];
+	struct editorWindow *win = E.windows[windowFocusedIdx()];
 	struct editorBuffer *buf = win->buf;
 	if (buf->cy > buf->numrows) {
 		buf->cy = buf->numrows;
@@ -347,14 +347,14 @@ void editorDrawStatusBar(struct abuf *ab, struct editorWindow *win) {
 
 void editorDrawMinibuffer(struct abuf *ab) {
 	abAppend(ab, "\x1b[K", 3);
-	int msglen = strlen(E.minibuffer);
+	int msglen = strlen(E.statusmsg);
 	if (msglen > E.screencols)
 		msglen = E.screencols;
 	if (msglen && time(NULL) - E.statusmsg_time < 5) {
-		if (E.focusBuf->query && !E.focusBuf->match) {
+		if (E.buf->query && !E.buf->match) {
 			abAppend(ab, "\x1b[91m", 5);
 		}
-		abAppend(ab, E.minibuffer, msglen);
+		abAppend(ab, E.statusmsg, msglen);
 		abAppend(ab, "\x1b[0m", 4);
 	}
 }
@@ -365,7 +365,7 @@ void editorRefreshScreen(void) {
 	abAppend(&ab, "\x1b[?25l", 6); // Hide cursor
 	abAppend(&ab, "\x1b[H", 3);    // Move cursor to top-left corner
 
-	int focusedIdx = windowFocusedIdx(&E);
+	int focusedIdx = windowFocusedIdx();
 
 	int cumulative_height = 0;
 	int total_height = E.screenrows - minibuffer_height -
@@ -436,7 +436,7 @@ void editorCursorBottomLineLong(long curs) {
 void editorSetStatusMessage(const char *fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
-	vsnprintf(E.minibuffer, sizeof(E.minibuffer), fmt, ap);
+	vsnprintf(E.statusmsg, sizeof(E.statusmsg), fmt, ap);
 	va_end(ap);
 	E.statusmsg_time = time(NULL);
 }
@@ -447,6 +447,106 @@ void editorResizeScreen(void) {
 	editorRefreshScreen();
 }
 
+void editorCreateWindow(void) {
+	E.windows = realloc(E.windows, sizeof(struct editorWindow *) *
+					       (++E.nwindows));
+	E.windows[E.nwindows - 1] = malloc(sizeof(struct editorWindow));
+	E.windows[E.nwindows - 1]->focused = 0;
+	E.windows[E.nwindows - 1]->buf = E.buf;
+	E.windows[E.nwindows - 1]->cx = E.buf->cx;
+	E.windows[E.nwindows - 1]->cy = E.buf->cy;
+	E.windows[E.nwindows - 1]->rowoff = 0;
+	E.windows[E.nwindows - 1]->coloff = 0;
+	E.windows[E.nwindows - 1]->height =
+		(E.screenrows - minibuffer_height) / E.nwindows -
+		statusbar_height;
+}
+
+void editorDestroyWindow(void) {
+	if (E.nwindows == 1) {
+		editorSetStatusMessage("Can't kill last window");
+		return;
+	}
+	int idx = windowFocusedIdx();
+	editorSwitchWindow();
+	free(E.windows[idx]);
+	struct editorWindow **windows =
+		malloc(sizeof(struct editorWindow *) * (--E.nwindows));
+	int j = 0;
+	for (int i = 0; i <= E.nwindows; i++) {
+		if (i != idx) {
+			windows[j] = E.windows[i];
+			if (windows[j]->focused) {
+				E.buf = windows[j]->buf;
+			}
+			j++;
+		}
+	}
+	free(E.windows);
+	E.windows = windows;
+}
+
+void editorDestroyOtherWindows(void) {
+	if (E.nwindows == 1) {
+		editorSetStatusMessage("No other windows to delete");
+		return;
+	}
+	int idx = windowFocusedIdx();
+	struct editorWindow **windows = malloc(sizeof(struct editorWindow *));
+	for (int i = 0; i < E.nwindows; i++) {
+		if (i != idx) {
+			free(E.windows[i]);
+		}
+	}
+	windows[0] = E.windows[idx];
+	windows[0]->focused = 1;
+	E.buf = windows[0]->buf;
+	E.nwindows = 1;
+	free(E.windows);
+	E.windows = windows;
+	editorRefreshScreen();
+}
+
+void editorWhatCursor(void) {
+	struct editorBuffer *bufr = E.buf;
+	int c = 0;
+	
+	if (bufr->cy >= bufr->numrows) {
+		editorSetStatusMessage("End of buffer");
+		return;
+	} else if (bufr->row[bufr->cy].size <= bufr->cx) {
+		c = (uint8_t)'\n';
+	} else {
+		c = (uint8_t)bufr->row[bufr->cy].chars[bufr->cx];
+	}
+
+	int npoint = 0, point = 0;
+	for (int y = 0; y < bufr->numrows; y++) {
+		for (int x = 0; x <= bufr->row[y].size; x++) {
+			npoint++;
+			if (x == bufr->cx && y == bufr->cy) {
+				point = npoint;
+			}
+		}
+	}
+	int perc = npoint > 0 ? ((point - 1) * 100) / npoint : 0;
+
+	if (c == 127) {
+		editorSetStatusMessage("char: ^? (%d #o%03o #x%02X)"
+				       " point=%d of %d (%d%%)",
+				       c, c, c, point, npoint, perc);
+	} else if (c < ' ') {
+		editorSetStatusMessage("char: ^%c (%d #o%03o #x%02X)"
+				       " point=%d of %d (%d%%)",
+				       c + 0x40, c, c, c, point, npoint,
+				       perc);
+	} else {
+		editorSetStatusMessage("char: %c (%d #o%03o #x%02X)"
+				       " point=%d of %d (%d%%)",
+				       c, c, c, c, point, npoint, perc);
+	}
+}
+
 void editorRecenter(struct editorWindow *win) {
 	win->rowoff = win->buf->cy - (win->height / 2);
 	if (win->rowoff < 0) {
@@ -454,16 +554,26 @@ void editorRecenter(struct editorWindow *win) {
 	}
 }
 
-void editorToggleTruncateLines(struct editorConfig *UNUSED(ed),
-			       struct editorBuffer *buf) {
-	buf->truncate_lines = !buf->truncate_lines;
-	editorSetStatusMessage(buf->truncate_lines ?
+void editorToggleTruncateLines(void) {
+	E.buf->truncate_lines = !E.buf->truncate_lines;
+	editorSetStatusMessage(E.buf->truncate_lines ?
 				       "Truncate long lines enabled" :
 				       "Truncate long lines disabled");
 }
 
-void editorVersion(struct editorConfig *UNUSED(ed),
-		   struct editorBuffer *UNUSED(buf)) {
+void editorVersion(void) {
 	editorSetStatusMessage("emsys version " EMSYS_VERSION
 			       ", built " EMSYS_BUILD_DATE);
+}
+
+/* Wrapper for command table */
+void editorVersionWrapper(struct editorConfig *UNUSED(ed),
+		         struct editorBuffer *UNUSED(buf)) {
+	editorVersion();
+}
+
+/* Wrapper for command table */
+void editorToggleTruncateLinesWrapper(struct editorConfig *UNUSED(ed),
+			              struct editorBuffer *UNUSED(buf)) {
+	editorToggleTruncateLines();
 }

@@ -6,6 +6,7 @@
 #include "re.h"
 #include "buffer.h"
 #include "tab.h"
+#include "util.h"
 #include "undo.h"
 #include "unicode.h"
 #include "display.h"
@@ -96,6 +97,8 @@ cleanup:
 uint8_t *tabCompleteFiles(uint8_t *prompt) {
 	glob_t globlist;
 	uint8_t *ret = prompt;
+	uint8_t *allocated_prompt = NULL;
+	uint8_t *tilde_expanded = NULL;
 
 	if (*prompt == '~') {
 		char *home_dir = getenv("HOME");
@@ -116,7 +119,8 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 
 		strcpy(new_prompt, home_dir);
 		strcpy(new_prompt + home_len, prompt + 1); // Skip the '~'
-		prompt = (uint8_t *)new_prompt;
+		tilde_expanded = (uint8_t *)new_prompt;
+		prompt = tilde_expanded;
 	}
 
 	/*
@@ -127,8 +131,18 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 	 */
 #ifndef EMSYS_NO_SIMPLE_GLOB
 	int end = strlen((char *)prompt);
-	prompt[end] = '*';
-	prompt[end + 1] = 0;
+	/* Need to allocate a new string with room for the '*' */
+	char *glob_pattern = malloc(end + 2);
+	if (!glob_pattern) {
+		if (tilde_expanded)
+			free(tilde_expanded);
+		return ret; /* Return original prompt, not modified one */
+	}
+	strcpy(glob_pattern, (char *)prompt);
+	glob_pattern[end] = '*';
+	glob_pattern[end + 1] = 0;
+	allocated_prompt = (uint8_t *)glob_pattern;
+	prompt = allocated_prompt;
 #endif
 
 #ifndef GLOB_TILDE
@@ -187,8 +201,13 @@ TC_FILES_ACCEPT:;
 TC_FILES_CLEANUP:
 	globfree(&globlist);
 #ifndef EMSYS_NO_SIMPLE_GLOB
-	prompt[end] = 0;
+	if (allocated_prompt) {
+		free(allocated_prompt);
+	}
 #endif
+	if (tilde_expanded) {
+		free(tilde_expanded);
+	}
 	return ret;
 }
 
@@ -209,6 +228,10 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 		return;
 	}
 	struct erow *row = &bufr->row[bufr->cy];
+	if (!row->chars) {
+		editorSetStatusMessage("Nothing to complete here.");
+		return;
+	}
 	int wordStart = bufr->cx;
 	for (int i = bufr->cx - 1; i >= 0; i--) {
 		if (!alnum(row->chars[i]))
@@ -235,7 +258,8 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 		for (int i = 0; i < buf->numrows; i++) {
 			if (buf == bufr && buf->cy == i)
 				continue;
-			struct erow *row = &bufr->row[i];
+			struct erow *row = &buf->row[i];
+			if (!row->chars) continue;
 			int match_length;
 			int match_idx = re_matchp(pattern, (char *)row->chars,
 						  &match_length);

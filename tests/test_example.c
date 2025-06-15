@@ -40,7 +40,7 @@ void test_output_capture(void) {
     stub_output_init(1024);
     
     /* Exercise: set status message and refresh */
-    strcpy(E.minibuffer, "Test message");
+    strcpy(E.statusmsg, "Test message");
     E.statusmsg_time = time(NULL);
     stub_refreshScreen();
     
@@ -54,7 +54,7 @@ void test_version_display(void) {
     stub_output_init(1024);
     
     /* Exercise: display version */
-    strcpy(E.minibuffer, "emsys version " EMSYS_VERSION ", built " EMSYS_BUILD_DATE);
+    strcpy(E.statusmsg, "emsys version " EMSYS_VERSION ", built " EMSYS_BUILD_DATE);
     E.statusmsg_time = time(NULL);
     stub_refreshScreen();
     
@@ -67,7 +67,7 @@ void test_version_display(void) {
 void test_buffer_creation(void) {
     /* Since we moved buffer functions, just verify basic structure */
     TEST_ASSERT_EQUAL(8, EMSYS_TAB_STOP);
-    TEST_ASSERT_NOT_NULL(E.minibuffer);
+    TEST_ASSERT_NOT_NULL(E.minibuf);
 }
 
 /* Main test runner */
