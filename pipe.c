@@ -10,6 +10,7 @@
 #include "region.h"
 #include "pipe.h"
 #include "subprocess.h"
+#include "display.h"
 
 static uint8_t *cmd;
 static char *buf;

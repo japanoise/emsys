@@ -4,10 +4,11 @@
 #include <string.h>
 #include "emsys.h"
 #include "re.h"
-#include "row.h"
+#include "buffer.h"
 #include "tab.h"
 #include "undo.h"
 #include "unicode.h"
+#include "display.h"
 
 uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 				struct editorBuffer *currentBuffer) {

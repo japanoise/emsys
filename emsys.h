@@ -5,6 +5,7 @@
 #include <termios.h>
 #include <time.h>
 #include "config.h"
+#include "keymap.h"
 
 /*** util ***/
 
@@ -22,91 +23,6 @@
 #define CSI ESC "["
 #define CRLF "\r\n"
 #define ISCTRL(c) ((0 < c && c < 0x20) || c == 0x7f)
-#if !defined(CTRL)
-#define CTRL(x) ((x) & 0x1f)
-#endif
-
-enum editorKey {
-	BACKSPACE = 127,
-	ARROW_LEFT = 1000,
-	ARROW_RIGHT,
-	ARROW_UP,
-	ARROW_DOWN,
-	HOME_KEY,
-	DEL_KEY,
-	END_KEY,
-	PAGE_UP,
-	PAGE_DOWN,
-	UNICODE,
-	UNICODE_ERROR,
-	END_OF_FILE,
-	BEG_OF_FILE,
-	QUIT,
-	SAVE,
-	COPY,
-	CUT,
-	REDO,
-	FORWARD_WORD,
-	BACKWARD_WORD,
-	FORWARD_PARA,
-	BACKWARD_PARA,
-	SWITCH_BUFFER,
-	NEXT_BUFFER,
-	PREVIOUS_BUFFER,
-	MARK_BUFFER,
-	DELETE_WORD,
-	BACKSPACE_WORD,
-	OTHER_WINDOW,
-	CREATE_WINDOW,
-	DESTROY_WINDOW,
-	DESTROY_OTHER_WINDOWS,
-	KILL_BUFFER,
-	MACRO_RECORD,
-	MACRO_END,
-	MACRO_EXEC,
-	ALT_0,
-	ALT_1,
-	ALT_2,
-	ALT_3,
-	ALT_4,
-	ALT_5,
-	ALT_6,
-	ALT_7,
-	ALT_8,
-	ALT_9,
-	SUSPEND,
-	UPCASE_WORD,
-	DOWNCASE_WORD,
-	CAPCASE_WORD,
-	UPCASE_REGION,
-	DOWNCASE_REGION,
-	TOGGLE_TRUNCATE_LINES,
-	TRANSPOSE_WORDS,
-	EXEC_CMD,
-	FIND_FILE,
-	WHAT_CURSOR,
-	PIPE_CMD,
-	CUSTOM_INFO_MESSAGE,
-	QUERY_REPLACE,
-	GOTO_LINE,
-	BACKTAB,
-	SWAP_MARK,
-	JUMP_REGISTER,
-	MACRO_REGISTER,
-	POINT_REGISTER,
-	NUMBER_REGISTER,
-	REGION_REGISTER,
-	INC_REGISTER,
-	INSERT_REGISTER,
-	VIEW_REGISTER,
-	STRING_RECT,
-	COPY_RECT,
-	KILL_RECT,
-	YANK_RECT,
-	RECT_REGISTER,
-	EXPAND,
-	UNIVERSAL_ARGUMENT,
-};
 
 enum promptType {
 	PROMPT_BASIC,
@@ -242,13 +158,9 @@ struct editorConfig {
 
 /*** prototypes ***/
 
-void editorSetStatusMessage(const char *fmt, ...);
-void editorRefreshScreen();
 uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 		      enum promptType t,
 		      void (*callback)(struct editorBuffer *, uint8_t *, int));
-void editorCursorBottomLine(int);
-void editorCursorBottomLineLong(long);
 void editorUpdateBuffer(struct editorBuffer *buf);
 void editorInsertNewline(struct editorBuffer *bufr);
 void editorInsertChar(struct editorBuffer *bufr, int c);
@@ -258,9 +170,7 @@ struct editorBuffer *newBuffer();
 void destroyBuffer(struct editorBuffer *);
 int editorReadKey();
 void editorRecordKey(int c);
-void editorRecenter(struct editorWindow *win);
 void editorExecMacro(struct editorMacro *macro);
 char *stringdup(const char *s);
-int windowFocusedIdx(struct editorConfig *ed);
-void editorScroll();
+
 #endif

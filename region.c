@@ -5,8 +5,9 @@
 #include "emsys.h"
 #include "re.h"
 #include "region.h"
-#include "row.h"
+#include "buffer.h"
 #include "undo.h"
+#include "display.h"
 
 void editorSetMark(struct editorBuffer *buf) {
 	buf->markx = buf->cx;

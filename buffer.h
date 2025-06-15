@@ -1,5 +1,5 @@
-#ifndef EMSYS_ROW_H
-#define EMSYS_ROW_H
+#ifndef EMSYS_BUFFER_H
+#define EMSYS_BUFFER_H
 #include "emsys.h"
 void editorUpdateRow(erow *row);
 void editorInsertRow(struct editorBuffer *bufr, int at, char *s, size_t len);
@@ -11,4 +11,7 @@ void editorRowInsertUnicode(struct editorConfig *ed, struct editorBuffer *bufr,
 void editorRowAppendString(struct editorBuffer *bufr, erow *row, char *s,
 			   size_t len);
 void editorRowDelChar(struct editorBuffer *bufr, erow *row, int at);
+struct editorBuffer *newBuffer();
+void destroyBuffer(struct editorBuffer *buf);
+void editorUpdateBuffer(struct editorBuffer *buf);
 #endif
