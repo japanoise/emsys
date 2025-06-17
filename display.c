@@ -3,6 +3,8 @@
 #include "terminal.h"
 #include "unicode.h"
 #include "unused.h"
+#include "region.h"
+#include "buffer.h"
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -18,17 +20,206 @@ const int statusbar_height = 1;
 
 /* Append buffer implementation */
 void abAppend(struct abuf *ab, const char *s, int len) {
-	char *new = realloc(ab->b, ab->len + len);
-
-	if (new == NULL)
-		return;
-	memcpy(&new[ab->len], s, len);
-	ab->b = new;
+	if (ab->len + len > ab->capacity) {
+		int new_capacity = ab->capacity == 0 ? 1024 : ab->capacity * 2;
+		while (new_capacity < ab->len + len) {
+			new_capacity *= 2;
+		}
+		char *new = realloc(ab->b, new_capacity);
+		if (new == NULL)
+			return;
+		ab->b = new;
+		ab->capacity = new_capacity;
+	}
+	memcpy(&ab->b[ab->len], s, len);
 	ab->len += len;
 }
 
 void abFree(struct abuf *ab) {
 	free(ab->b);
+}
+
+/* Check if a render position is within the marked region */
+static int isRenderPosInRegion(struct editorBuffer *buf, int row,
+			       int render_pos) {
+	if (markInvalidSilent())
+		return 0;
+
+	erow *erow_ptr = &buf->row[row];
+	if (!erow_ptr)
+		return 0;
+
+	if (buf->rectangle_mode) {
+		int top_row = buf->cy < buf->marky ? buf->cy : buf->marky;
+		int bottom_row = buf->cy > buf->marky ? buf->cy : buf->marky;
+		int left_col = buf->cx < buf->markx ? buf->cx : buf->markx;
+		int right_col = buf->cx > buf->markx ? buf->cx : buf->markx;
+
+		if (row < top_row || row > bottom_row)
+			return 0;
+
+		int left_render = charsToDisplayColumn(erow_ptr, left_col);
+		int right_render = charsToDisplayColumn(erow_ptr, right_col);
+
+		return (render_pos >= left_render && render_pos < right_render);
+	} else {
+		int start_row = buf->cy < buf->marky ? buf->cy : buf->marky;
+		int end_row = buf->cy > buf->marky ? buf->cy : buf->marky;
+		int start_col =
+			(buf->cy < buf->marky ||
+			 (buf->cy == buf->marky && buf->cx <= buf->markx)) ?
+				buf->cx :
+				buf->markx;
+		int end_col =
+			(buf->cy > buf->marky ||
+			 (buf->cy == buf->marky && buf->cx >= buf->markx)) ?
+				buf->cx :
+				buf->markx;
+
+		if (row < start_row || row > end_row)
+			return 0;
+
+		if (row == start_row && row == end_row) {
+			int start_render =
+				charsToDisplayColumn(erow_ptr, start_col);
+			int end_render =
+				charsToDisplayColumn(erow_ptr, end_col);
+			return (render_pos >= start_render &&
+				render_pos < end_render);
+		}
+		if (row == start_row) {
+			int start_render =
+				charsToDisplayColumn(erow_ptr, start_col);
+			return (render_pos >= start_render);
+		}
+		if (row == end_row) {
+			int end_render =
+				charsToDisplayColumn(erow_ptr, end_col);
+			return (render_pos < end_render);
+		}
+		return 1; /* Entire middle row is in region */
+	}
+}
+
+/* Check if a render position is at the current search match */
+static int isRenderPosCurrentSearchMatch(struct editorBuffer *buf, int row,
+					 int render_pos) {
+	if (!buf->query || !buf->query[0] || !buf->match)
+		return 0;
+	if (row != buf->cy)
+		return 0;
+
+	erow *erow_ptr = &buf->row[row];
+	if (!erow_ptr)
+		return 0;
+
+	int match_len = strlen((char *)buf->query);
+	int start_render = charsToDisplayColumn(erow_ptr, buf->cx);
+	int end_render = charsToDisplayColumn(erow_ptr, buf->cx + match_len);
+
+	return (render_pos >= start_render && render_pos < end_render);
+}
+
+/* Calculate number of rows to scroll for smooth scrolling */
+int calculateRowsToScroll(struct editorBuffer *buf, struct editorWindow *win,
+			  int direction) {
+	int rendered_lines = 0;
+	int rows_to_scroll = 0;
+	int start_row = (direction > 0) ? win->rowoff : win->rowoff - 1;
+
+	while (rendered_lines < win->height) {
+		if (start_row < 0 || start_row >= buf->numrows)
+			break;
+		erow *row = &buf->row[start_row];
+		int line_height =
+			buf->truncate_lines ?
+				1 :
+				((calculateLineWidth(row) / E.screencols) + 1);
+		if (rendered_lines + line_height > win->height && direction < 0)
+			break;
+		rendered_lines += line_height;
+		rows_to_scroll++;
+		start_row += direction;
+	}
+
+	return rows_to_scroll;
+}
+
+/* Render a line with highlighting support */
+static void renderLineWithHighlighting(erow *row, struct abuf *ab,
+				       int start_col, int end_col,
+				       struct editorBuffer *buf, int filerow) {
+	int render_x = 0;
+	int char_idx = 0;
+	int current_highlight = 0;
+
+	/* Skip to start column */
+	while (char_idx < row->size && render_x < start_col) {
+		if (row->chars[char_idx] < 0x80 &&
+		    !ISCTRL(row->chars[char_idx])) {
+			render_x += 1;
+			char_idx++;
+		} else {
+			render_x = nextScreenX(row->chars, &char_idx, render_x);
+			char_idx++;
+		}
+	}
+
+	/* Render visible portion */
+	while (char_idx < row->size && render_x < end_col) {
+		uint8_t c = row->chars[char_idx];
+
+		int in_region = isRenderPosInRegion(buf, filerow, render_x);
+		int is_current_match =
+			isRenderPosCurrentSearchMatch(buf, filerow, render_x);
+		int new_highlight = (in_region || is_current_match) ? 1 : 0;
+
+		if (new_highlight != current_highlight) {
+			if (current_highlight > 0) {
+				abAppend(ab, "\x1b[0m", 4);
+			}
+			if (new_highlight == 1) {
+				abAppend(ab, "\x1b[7m", 4); /* Reverse video */
+			}
+			current_highlight = new_highlight;
+		}
+
+		if (c == '\t') {
+			int next_tab_stop = (render_x + EMSYS_TAB_STOP) /
+					    EMSYS_TAB_STOP * EMSYS_TAB_STOP;
+			while (render_x < next_tab_stop && render_x < end_col) {
+				if (render_x >= start_col) {
+					abAppend(ab, " ", 1);
+				}
+				render_x++;
+			}
+		} else if (ISCTRL(c)) {
+			if (render_x >= start_col) {
+				abAppend(ab, "^", 1);
+				if (c == 0x7f) {
+					abAppend(ab, "?", 1);
+				} else {
+					char sym = c | 0x40;
+					abAppend(ab, &sym, 1);
+				}
+			}
+			render_x += 2;
+		} else {
+			int width = charInStringWidth(row->chars, char_idx);
+			if (render_x >= start_col) {
+				int bytes = utf8_nBytes(c);
+				abAppend(ab, (char *)&row->chars[char_idx],
+					 bytes);
+			}
+			render_x += width;
+		}
+
+		char_idx += utf8_nBytes(row->chars[char_idx]);
+	}
+
+	if (current_highlight > 0) {
+		abAppend(ab, "\x1b[0m", 4);
+	}
 }
 
 /* Window management functions */
@@ -89,105 +280,183 @@ void editorSwitchWindow(void) {
 }
 
 /* Display functions */
-void editorSetScxScy(struct editorWindow *win) {
+void setScxScy(struct editorWindow *win) {
 	struct editorBuffer *buf = win->buf;
-	erow *row = (buf->cy < buf->numrows) ? &buf->row[buf->cy] : NULL;
-	int i;
+	erow *row = (buf->cy >= buf->numrows) ? NULL : &buf->row[buf->cy];
 
-start:
-	i = win->rowoff;
 	win->scy = 0;
 	win->scx = 0;
 
-	if (buf->truncate_lines) {
-		// Truncated mode
-		win->scy = buf->cy - win->rowoff;
-		if (row) {
-			for (int j = 0; j < buf->cx; j++) {
-				if (row->chars[j] == '\t')
-					win->scx += (EMSYS_TAB_STOP - 1) -
-						    (win->scx % EMSYS_TAB_STOP);
-				win->scx++;
+	if (!buf->truncate_lines) {
+		if (buf->cy >= buf->numrows) {
+			// For virtual line, calculate position as if there's a line at buf->numrows
+			if (buf->numrows > 0) {
+				int virtual_screen_line = getScreenLineForRow(
+					buf, buf->numrows - 1);
+				// Add one line for the virtual line position
+				virtual_screen_line +=
+					((calculateLineWidth(
+						  &buf->row[buf->numrows - 1]) /
+					  E.screencols) +
+					 1);
+				int rowoff_screen_line =
+					getScreenLineForRow(buf, win->rowoff);
+				win->scy = virtual_screen_line -
+					   rowoff_screen_line;
+			} else {
+				// Empty buffer case - virtual line is at position 0
+				win->scy = 0 - win->rowoff;
 			}
-			win->scx -= win->coloff;
+		} else {
+			int cursor_screen_line =
+				getScreenLineForRow(buf, buf->cy);
+			int rowoff_screen_line =
+				getScreenLineForRow(buf, win->rowoff);
+			win->scy = cursor_screen_line - rowoff_screen_line;
 		}
 	} else {
-		// Wrapped mode
-		while (i < buf->cy) {
-			win->scy += (buf->row[i].renderwidth / E.screencols);
-			win->scy++;
-			i++;
-		}
-		if (buf->cy >= buf->numrows) {
-			goto end;
-		}
-		for (i = 0; i < buf->cx; i += utf8_nBytes(row->chars[i])) {
-			if (row->chars[i] == '\t') {
-				win->scx += (EMSYS_TAB_STOP - 1) -
-					    (win->scx % EMSYS_TAB_STOP);
-				win->scx++;
-			} else {
-				win->scx += charInStringWidth(row->chars, i);
-			}
-			if (win->scx >= E.screencols) {
-				win->scx = 0;
-				win->scy++;
-			}
-		}
+		win->scy = buf->cy - win->rowoff;
 	}
 
-end:
-	if (win->scy >= win->height) {
-		win->rowoff++;
-		goto start;
+	if (buf->cy >= buf->numrows) {
+		return;
 	}
 
-	// Ensure cursor is within window bounds
+	int total_width = charsToDisplayColumn(row, buf->cx);
+
+	if (buf->truncate_lines) {
+		win->scx = total_width - win->coloff;
+	} else {
+		int render_pos = charsToDisplayColumn(row, buf->cx);
+		win->scy += render_pos / E.screencols;
+		win->scx = render_pos % E.screencols;
+	}
+
 	if (win->scy < 0)
 		win->scy = 0;
 	if (win->scy >= win->height)
 		win->scy = win->height - 1;
+	if (win->scx < 0)
+		win->scx = 0;
 	if (win->scx >= E.screencols)
 		win->scx = E.screencols - 1;
 }
 
-void editorScroll(void) {
+void scroll(void) {
 	struct editorWindow *win = E.windows[windowFocusedIdx()];
 	struct editorBuffer *buf = win->buf;
-	if (buf->cy > buf->numrows) {
+
+	if (buf->cy + 1 > buf->numrows) {
 		buf->cy = buf->numrows;
-	}
-	if (buf->cy < buf->numrows && buf->cx > buf->row[buf->cy].size) {
+		buf->cx = 0;
+	} else if (buf->cx > buf->row[buf->cy].size) {
 		buf->cx = buf->row[buf->cy].size;
 	}
 
-	if (buf->truncate_lines) {
-		// Truncated mode scrolling
+	if (!buf->truncate_lines) {
 		if (buf->cy < win->rowoff) {
 			win->rowoff = buf->cy;
-		}
-		if (buf->cy >= win->rowoff + win->height) {
-			win->rowoff = buf->cy - win->height + 1;
-		}
-		if (buf->cx < win->coloff) {
-			win->coloff = buf->cx;
-		}
-		if (buf->cx >= win->coloff + E.screencols) {
-			win->coloff = buf->cx - E.screencols + 1;
+		} else {
+			int cursor_screen_row = 0;
+
+			for (int i = win->rowoff;
+			     i < buf->cy && i < buf->numrows; i++) {
+				int line_height =
+					(calculateLineWidth(&buf->row[i]) /
+					 E.screencols) +
+					1;
+				cursor_screen_row += line_height;
+			}
+
+			if (buf->cy < buf->numrows) {
+				erow *row = &buf->row[buf->cy];
+				int cursor_x = 0;
+				for (int j = 0; j < buf->cx;) {
+					int char_width;
+					if (j < row->size &&
+					    row->chars[j] == '\t') {
+						char_width = EMSYS_TAB_STOP -
+							     (cursor_x %
+							      EMSYS_TAB_STOP);
+					} else {
+						char_width = charInStringWidth(
+							row->chars, j);
+					}
+					cursor_x += char_width;
+					j += utf8_nBytes(row->chars[j]);
+				}
+				cursor_screen_row += cursor_x / E.screencols;
+			}
+
+			if (cursor_screen_row >= win->height) {
+				int visible_rows = 0;
+				if (buf->cy == buf->numrows) {
+					visible_rows = 1;
+				}
+				for (int i = buf->cy; i >= 0; i--) {
+					if (i < buf->numrows) {
+						int line_height =
+							(calculateLineWidth(
+								 &buf->row[i]) /
+							 E.screencols) +
+							1;
+						if (visible_rows + line_height >
+						    win->height) {
+							win->rowoff = i + 1;
+							break;
+						}
+						visible_rows += line_height;
+					}
+					if (i == 0) {
+						win->rowoff = 0;
+						break;
+					}
+				}
+			}
 		}
 	} else {
-		// Wrapped mode scrolling
 		if (buf->cy < win->rowoff) {
 			win->rowoff = buf->cy;
+		} else if (buf->cy >= win->rowoff + win->height) {
+			win->rowoff = buf->cy - win->height + 1;
 		}
-		// The vertical scrolling for wrapped mode is handled in editorSetScxScy
 	}
 
-	editorSetScxScy(win);
+	if (buf->truncate_lines) {
+		int rx = 0;
+		if (buf->cy < buf->numrows) {
+			erow *row = &buf->row[buf->cy];
+			for (int j = 0; j < buf->cx;) {
+				if (j < row->size) {
+					if (row->chars[j] == '\t') {
+						rx += EMSYS_TAB_STOP -
+						      (rx % EMSYS_TAB_STOP);
+					} else {
+						int char_width =
+							charInStringWidth(
+								row->chars, j);
+						rx += char_width;
+					}
+					j += utf8_nBytes(row->chars[j]);
+				} else {
+					break;
+				}
+			}
+		}
+		if (rx < win->coloff) {
+			win->coloff = rx;
+		} else if (rx >= win->coloff + E.screencols) {
+			win->coloff = rx - E.screencols + 1;
+		}
+	} else {
+		win->coloff = 0;
+	}
+
+	setScxScy(win);
 }
 
-void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
-		    int screencols) {
+void drawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
+	      int screencols) {
 	struct editorBuffer *buf = win->buf;
 	int y;
 	int filerow = win->rowoff;
@@ -198,33 +467,203 @@ void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 		} else {
 			erow *row = &buf->row[filerow];
 			if (buf->truncate_lines) {
-				// Truncated mode
-				int len = row->rsize - win->coloff;
-				if (len < 0)
-					len = 0;
-				if (len > screencols)
-					len = screencols;
-				abAppend(ab, &row->render[win->coloff], len);
+				// Truncated mode with visual marking
+				renderLineWithHighlighting(
+					row, ab, win->coloff,
+					win->coloff + screencols, buf, filerow);
 				filerow++;
 			} else {
-				// Wrapped mode
-				int len = row->rsize;
-				int start = 0;
-				while (len > 0) {
-					int chunk = len > screencols ?
-							    screencols :
-							    len;
-					abAppend(ab, &row->render[start],
-						 chunk);
-					start += chunk;
-					len -= chunk;
-					if (len > 0) {
+				// Wrapped mode with visual marking support
+				int render_x = 0;
+				int char_idx = 0;
+				int current_highlight = 0;
+				int line_start_render_x = 0;
+
+				while (char_idx < row->size && y < screenrows) {
+					// Track start of current screen line
+					line_start_render_x = render_x;
+
+					// Render one screen line worth of content
+					while (char_idx < row->size &&
+					       render_x - line_start_render_x <
+						       screencols) {
+						uint8_t c =
+							row->chars[char_idx];
+
+						int in_region =
+							isRenderPosInRegion(
+								buf, filerow,
+								render_x);
+						int is_current_match =
+							isRenderPosCurrentSearchMatch(
+								buf, filerow,
+								render_x);
+						int new_highlight =
+							(in_region ||
+							 is_current_match) ?
+								1 :
+								0;
+
+						if (new_highlight !=
+						    current_highlight) {
+							if (current_highlight >
+							    0) {
+								abAppend(
+									ab,
+									"\x1b[0m",
+									4);
+							}
+							if (new_highlight ==
+							    1) {
+								abAppend(
+									ab,
+									"\x1b[7m",
+									4); /* Reverse video */
+							}
+							current_highlight =
+								new_highlight;
+						}
+
+						if (c == '\t') {
+							int next_tab_stop =
+								(render_x +
+								 EMSYS_TAB_STOP) /
+								EMSYS_TAB_STOP *
+								EMSYS_TAB_STOP;
+							int tab_end =
+								next_tab_stop;
+							if (tab_end -
+								    line_start_render_x >
+							    screencols) {
+								tab_end =
+									line_start_render_x +
+									screencols;
+							}
+							while (render_x <
+							       tab_end) {
+								// Check highlighting for each space in tab
+								int space_in_region = isRenderPosInRegion(
+									buf,
+									filerow,
+									render_x);
+								int space_is_match = isRenderPosCurrentSearchMatch(
+									buf,
+									filerow,
+									render_x);
+								int space_highlight =
+									(space_in_region ||
+									 space_is_match) ?
+										1 :
+										0;
+								if (space_highlight !=
+								    current_highlight) {
+									if (current_highlight >
+									    0) {
+										abAppend(
+											ab,
+											"\x1b[0m",
+											4);
+									}
+									if (space_highlight ==
+									    1) {
+										abAppend(
+											ab,
+											"\x1b[7m",
+											4);
+									}
+									current_highlight =
+										space_highlight;
+								}
+								abAppend(ab,
+									 " ",
+									 1);
+								render_x++;
+							}
+						} else if (ISCTRL(c)) {
+							abAppend(ab, "^", 1);
+							if (c == 0x7f) {
+								abAppend(ab,
+									 "?",
+									 1);
+							} else {
+								char sym = c |
+									   0x40;
+								abAppend(ab,
+									 &sym,
+									 1);
+							}
+							render_x += 2;
+						} else {
+							int width = charInStringWidth(
+								row->chars,
+								char_idx);
+							int bytes =
+								utf8_nBytes(c);
+							abAppend(
+								ab,
+								(char *)&row->chars
+									[char_idx],
+								bytes);
+							render_x += width;
+						}
+
+						char_idx += utf8_nBytes(
+							row->chars[char_idx]);
+					}
+
+					// Fill rest of line with highlighted spaces if in region
+					while (render_x - line_start_render_x <
+					       screencols) {
+						int space_in_region =
+							isRenderPosInRegion(
+								buf, filerow,
+								render_x);
+						int space_is_match =
+							isRenderPosCurrentSearchMatch(
+								buf, filerow,
+								render_x);
+						int space_highlight =
+							(space_in_region ||
+							 space_is_match) ?
+								1 :
+								0;
+						if (space_highlight !=
+						    current_highlight) {
+							if (current_highlight >
+							    0) {
+								abAppend(
+									ab,
+									"\x1b[0m",
+									4);
+							}
+							if (space_highlight ==
+							    1) {
+								abAppend(
+									ab,
+									"\x1b[7m",
+									4);
+							}
+							current_highlight =
+								space_highlight;
+						}
+						abAppend(ab, " ", 1);
+						render_x++;
+					}
+
+					// Reset highlighting at end of screen line
+					if (current_highlight > 0) {
+						abAppend(ab, "\x1b[0m", 4);
+						current_highlight = 0;
+					}
+
+					// Move to next screen line if there's more content
+					if (char_idx < row->size &&
+					    y < screenrows - 1) {
 						abAppend(ab, "\r\n", 2);
 						y++;
-						if (y >= screenrows)
-							break;
 					}
 				}
+
 				filerow++;
 			}
 		}
@@ -235,21 +674,10 @@ void editorDrawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 	}
 }
 
-void editorDrawStatusBar(struct abuf *ab, struct editorWindow *win) {
+void drawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
 	/* XXX: It's actually possible for the status bar to end up
 	 * outside where it should be, so set it explicitly. */
 	char buf[32];
-	int line = 0;
-	// Calculate line position based on window position
-	for (int i = 0; i < E.nwindows; i++) {
-		if (E.windows[i] == win) {
-			for (int j = 0; j < i; j++) {
-				line += E.windows[j]->height + statusbar_height;
-			}
-			line += win->height + statusbar_height;
-			break;
-		}
-	}
 	snprintf(buf, sizeof(buf), CSI "%d;%dH", line, 1);
 	abAppend(ab, buf, strlen(buf));
 
@@ -260,16 +688,18 @@ void editorDrawStatusBar(struct abuf *ab, struct editorWindow *win) {
 	int len = 0;
 	if (win->focused) {
 		len = snprintf(status, sizeof(status),
-			       "-- %.20s %c%c %2d:%2d --",
+			       "-- %.20s %c%c%c %2d:%2d --",
 			       bufr->filename ? bufr->filename : "*scratch*",
 			       bufr->dirty ? '*' : '-', bufr->dirty ? '*' : '-',
-			       bufr->cy + 1, bufr->cx);
+			       bufr->read_only ? '%' : ' ', bufr->cy + 1,
+			       bufr->cx);
 	} else {
 		len = snprintf(status, sizeof(status),
-			       "   %.20s %c%c %2d:%2d   ",
+			       "   %.20s %c%c%c %2d:%2d   ",
 			       bufr->filename ? bufr->filename : "*scratch*",
 			       bufr->dirty ? '*' : '-', bufr->dirty ? '*' : '-',
-			       win->cy + 1, win->cx);
+			       bufr->read_only ? '%' : ' ', win->cy + 1,
+			       win->cx);
 	}
 #ifdef EMSYS_DEBUG_UNDO
 #ifdef EMSYS_DEBUG_REDO
@@ -345,8 +775,15 @@ void editorDrawStatusBar(struct abuf *ab, struct editorWindow *win) {
 	abAppend(ab, "\x1b[m" CRLF, 5);
 }
 
-void editorDrawMinibuffer(struct abuf *ab) {
+void drawMinibuffer(struct abuf *ab) {
 	abAppend(ab, "\x1b[K", 3);
+
+	// Show prefix first if active
+	if (E.prefix_display[0]) {
+		abAppend(ab, E.prefix_display, strlen(E.prefix_display));
+	}
+
+	// Then show message
 	int msglen = strlen(E.statusmsg);
 	if (msglen > E.screencols)
 		msglen = E.screencols;
@@ -359,11 +796,12 @@ void editorDrawMinibuffer(struct abuf *ab) {
 	}
 }
 
-void editorRefreshScreen(void) {
+void refreshScreen(void) {
 	struct abuf ab = ABUF_INIT;
-	abAppend(&ab, "\x1b[2J", 4);   // Clear screen
 	abAppend(&ab, "\x1b[?25l", 6); // Hide cursor
-	abAppend(&ab, "\x1b[H", 3);    // Move cursor to top-left corner
+	write(STDOUT_FILENO, ab.b, ab.len);
+	ab.len = 0;
+	abAppend(&ab, "\x1b[H", 3); // Move cursor to top-left corner
 
 	int focusedIdx = windowFocusedIdx();
 
@@ -380,17 +818,19 @@ void editorRefreshScreen(void) {
 			win->height += remaining_height;
 
 		if (win->focused)
-			editorScroll();
-		editorDrawRows(win, &ab, win->height, E.screencols);
+			scroll();
+		drawRows(win, &ab, win->height, E.screencols);
 		cumulative_height += win->height + statusbar_height;
-		editorDrawStatusBar(&ab, win);
+		drawStatusBar(win, &ab, cumulative_height);
 	}
 
-	editorDrawMinibuffer(&ab);
+	drawMinibuffer(&ab);
+
+	// Clear any remaining lines below content
+	abAppend(&ab, "\x1b[J", 3);
 
 	// Position the cursor for the focused window
 	struct editorWindow *focusedWin = E.windows[focusedIdx];
-	struct editorBuffer *focusedBuf = focusedWin->buf;
 	char buf[32];
 
 	int cursor_y = focusedWin->scy + 1; // 1-based index
@@ -400,34 +840,30 @@ void editorRefreshScreen(void) {
 
 	// Ensure cursor doesn't go beyond the window's bottom
 	if (cursor_y > cumulative_height) {
-		cursor_y = cumulative_height - statusbar_height;
+		struct editorBuffer *buf = focusedWin->buf;
+		if (buf->cy >= buf->numrows) {
+			cursor_y = cumulative_height;
+		} else {
+			cursor_y = cumulative_height - statusbar_height;
+		}
 	}
 
 	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", cursor_y,
 		 focusedWin->scx + 1);
 	abAppend(&ab, buf, strlen(buf));
 
-	// Add back the reverse video effect for search
-	if (focusedBuf->query && focusedBuf->match) {
-		abAppend(&ab, "\x1b[7m", 4);
-		abAppend(&ab, focusedBuf->query, strlen(focusedBuf->query));
-		abAppend(&ab, "\x1b[0m", 4);
-		abAppend(&ab, buf,
-			 strlen(buf)); // Reposition cursor after highlighting
-	}
-
 	abAppend(&ab, "\x1b[?25h", 6); // Show cursor
 	write(STDOUT_FILENO, ab.b, ab.len);
 	abFree(&ab);
 }
 
-void editorCursorBottomLine(int curs) {
+void cursorBottomLine(int curs) {
 	char cbuf[32];
 	snprintf(cbuf, sizeof(cbuf), CSI "%d;%dH", E.screenrows, curs);
 	write(STDOUT_FILENO, cbuf, strlen(cbuf));
 }
 
-void editorCursorBottomLineLong(long curs) {
+void cursorBottomLineLong(long curs) {
 	char cbuf[32];
 	snprintf(cbuf, sizeof(cbuf), CSI "%d;%ldH", E.screenrows, curs);
 	write(STDOUT_FILENO, cbuf, strlen(cbuf));
@@ -441,15 +877,15 @@ void editorSetStatusMessage(const char *fmt, ...) {
 	E.statusmsg_time = time(NULL);
 }
 
-void editorResizeScreen(void) {
+void editorResizeScreen(int UNUSED(sig)) {
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1)
 		die("getWindowSize");
-	editorRefreshScreen();
+	refreshScreen();
 }
 
 void editorCreateWindow(void) {
-	E.windows = realloc(E.windows, sizeof(struct editorWindow *) *
-					       (++E.nwindows));
+	E.windows = realloc(E.windows,
+			    sizeof(struct editorWindow *) * (++E.nwindows));
 	E.windows[E.nwindows - 1] = malloc(sizeof(struct editorWindow));
 	E.windows[E.nwindows - 1]->focused = 0;
 	E.windows[E.nwindows - 1]->buf = E.buf;
@@ -504,13 +940,13 @@ void editorDestroyOtherWindows(void) {
 	E.nwindows = 1;
 	free(E.windows);
 	E.windows = windows;
-	editorRefreshScreen();
+	refreshScreen();
 }
 
 void editorWhatCursor(void) {
 	struct editorBuffer *bufr = E.buf;
 	int c = 0;
-	
+
 	if (bufr->cy >= bufr->numrows) {
 		editorSetStatusMessage("End of buffer");
 		return;
@@ -538,8 +974,7 @@ void editorWhatCursor(void) {
 	} else if (c < ' ') {
 		editorSetStatusMessage("char: ^%c (%d #o%03o #x%02X)"
 				       " point=%d of %d (%d%%)",
-				       c + 0x40, c, c, c, point, npoint,
-				       perc);
+				       c + 0x40, c, c, c, point, npoint, perc);
 	} else {
 		editorSetStatusMessage("char: %c (%d #o%03o #x%02X)"
 				       " point=%d of %d (%d%%)",
@@ -547,7 +982,7 @@ void editorWhatCursor(void) {
 	}
 }
 
-void editorRecenter(struct editorWindow *win) {
+void recenter(struct editorWindow *win) {
 	win->rowoff = win->buf->cy - (win->height / 2);
 	if (win->rowoff < 0) {
 		win->rowoff = 0;
@@ -568,12 +1003,12 @@ void editorVersion(void) {
 
 /* Wrapper for command table */
 void editorVersionWrapper(struct editorConfig *UNUSED(ed),
-		         struct editorBuffer *UNUSED(buf)) {
+			  struct editorBuffer *UNUSED(buf)) {
 	editorVersion();
 }
 
 /* Wrapper for command table */
 void editorToggleTruncateLinesWrapper(struct editorConfig *UNUSED(ed),
-			              struct editorBuffer *UNUSED(buf)) {
+				      struct editorBuffer *UNUSED(buf)) {
 	editorToggleTruncateLines();
 }

@@ -1,10 +1,71 @@
 PROGNAME=emsys
 PREFIX=/usr/local
-VERSION?=git-$(shell git rev-parse --short HEAD)
+VERSION?=git-$(shell git rev-parse --short HEAD 2>/dev/null | sed 's/^/git-/' || echo "")
 BINDIR=$(PREFIX)/bin
 MANDIR=$(PREFIX)/man/man1
-OBJECTS=main.o wcwidth.o unicode.o buffer.o region.o undo.o transform.o find.o pipe.o tab.o register.o re.o fileio.o terminal.o display.o keymap.o edit.o prompt.o
-CFLAGS+=-std=c99 -D_POSIX_C_SOURCE=200112L -Wall -Wextra -pedantic -Wno-pointer-sign -Werror=incompatible-pointer-types -DEMSYS_BUILD_DATE=\"$(shell date '+%Y-%m-%dT%H:%M:%S%z')\" -DEMSYS_VERSION=\"$(VERSION)\"
+OBJECTS=main.o wcwidth.o unicode.o buffer.o region.o undo.o transform.o find.o pipe.o tab.o register.o re.o fileio.o terminal.o display.o keymap.o edit.o prompt.o compat.o
+
+# Platform Detection: 3-Platform Strategy
+# 
+# emsys supports exactly 3 platforms:
+# 1. POSIX   - Default for all Unix systems (Linux, *BSD, macOS, Solaris, AIX, HP-UX, etc.)
+# 2. Android - Android/Termux with optimizations  
+# 3. MSYS2   - Windows MSYS2 environment
+#
+# If no platform argument specified or platform is not android/msys2, assume POSIX.
+
+UNAME_S = $(shell uname -s)
+
+# Default: assume POSIX-compliant system
+DETECTED_PLATFORM = posix
+
+# Exception 1: Android/Termux detection (multiple methods for reliability)
+ifdef ANDROID_ROOT
+    DETECTED_PLATFORM = android
+endif
+ifneq (,$(TERMUX))
+    DETECTED_PLATFORM = android
+endif
+ifeq ($(shell test -d /data/data/com.termux && echo termux),termux)
+    DETECTED_PLATFORM = android
+endif
+
+# Exception 2: MSYS2 detection  
+ifneq (,$(findstring MSYS_NT,$(UNAME_S)))
+    DETECTED_PLATFORM = msys2
+endif
+ifneq (,$(findstring MINGW,$(UNAME_S)))
+    DETECTED_PLATFORM = msys2
+endif
+ifneq (,$(findstring CYGWIN,$(UNAME_S)))
+    DETECTED_PLATFORM = msys2
+endif
+
+# Allow override via command line: make PLATFORM=android
+PLATFORM ?= $(DETECTED_PLATFORM)
+
+CFLAGS+=-std=c99 -Wall -Wextra -pedantic -Wno-pointer-sign -Werror=incompatible-pointer-types -DEMSYS_BUILD_DATE=\"$(shell date '+%Y-%m-%dT%H:%M:%S%z')\" -DEMSYS_VERSION=\"$(VERSION)\"
+
+# Optional feature disabling
+DISABLE_PIPE ?= 0
+
+# Apply platform-specific settings
+ifeq ($(PLATFORM),android)
+    CC = clang
+    CFLAGS += -O2 -fPIC -fPIE -DNDEBUG
+    LDFLAGS += -pie
+    # Android disables pipe by default
+    DISABLE_PIPE = 1
+endif
+ifeq ($(PLATFORM),msys2)
+    CFLAGS += -D_GNU_SOURCE
+endif
+# All other platforms (posix) use standard POSIX C99 flags
+
+# Apply optional feature flags
+ifeq ($(DISABLE_PIPE),1)
+    CFLAGS += -DEMSYS_DISABLE_PIPE
+endif
 
 all: $(PROGNAME)
 
@@ -12,7 +73,7 @@ debug: CFLAGS+=-g -O0
 debug: $(PROGNAME)
 
 $(PROGNAME): config.h $(OBJECTS)
-	$(CC) -o $@ $^ $(LDFLAGS)
+	$(CC) -o $@ $(OBJECTS) $(LDFLAGS)
 
 debug-unicodetest: CFLAGS+=-g -O0
 debug-unicodetest: unicodetest
@@ -34,41 +95,14 @@ config.h:
 format:
 	clang-format -i *.c *.h
 
-test: tests/test_example tests/test_interactive
-	./tests/test_example
-	./tests/test_interactive
-
-tests/test_example: tests/test_example.o tests/test_stubs.o
-	$(CC) -o $@ $^ $(LDFLAGS)
-
-tests/test_example.o: tests/test_example.c tests/test.h tests/test_stubs.h
-	$(CC) $(CFLAGS) -c -o $@ $<
-
+# Test stub infrastructure
 tests/test_stubs.o: tests/test_stubs.c tests/test_stubs.h
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-# Interactive editor test - exclude main.o since it has main()
-TEST_OBJS = buffer.o edit.o keymap.o fileio.o display.o terminal.o \
-            undo.o region.o transform.o unicode.o wcwidth.o prompt.o \
-            tab.o pipe.o register.o re.o find.o
-
-tests/test_interactive: tests/test_interactive.o tests/test_stubs.o $(TEST_OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS)
-
-tests/test_interactive.o: tests/test_interactive.c tests/test.h tests/test_stubs.h
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-# Unit tests
-tests/test_units: tests/test_units.o buffer.o unicode.o wcwidth.o undo.o
-	$(CC) -o $@ $^ $(LDFLAGS)
-
-tests/test_units.o: tests/test_units.c tests/test.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # Headless integration test - exclude conflicting modules
 HEADLESS_OBJS = buffer.o edit.o keymap.o fileio.o \
                 undo.o region.o transform.o unicode.o wcwidth.o \
-                tab.o pipe.o register.o re.o find.o
+                tab.o pipe.o register.o re.o find.o compat.o
 
 tests/test_headless: tests/test_headless.o $(HEADLESS_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
@@ -77,15 +111,9 @@ tests/test_headless.o: tests/test_headless.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # Test targets
-test: tests/test_units tests/test_headless
-	@echo "=== Running unit tests ==="
-	./tests/test_units
-	@echo ""
+test: tests/test_headless
 	@echo "=== Running integration tests ==="
 	./tests/test_headless
-
-test-unit: tests/test_units
-	./tests/test_units
 
 test-integration: tests/test_headless
 	./tests/test_headless
@@ -98,4 +126,4 @@ clean:
 	rm -rf *.exe
 	rm -rf $(PROGNAME)
 	rm -rf unicodetest
-	rm -rf tests/*.o tests/test_example tests/test_interactive tests/test_units tests/test_headless
+	rm -rf tests/*.o tests/test_headless

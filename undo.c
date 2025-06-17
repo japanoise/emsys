@@ -12,66 +12,71 @@
 void editorDoUndo(struct editorBuffer *buf, int count) {
 	int times = count ? count : 1;
 	for (int j = 0; j < times; j++) {
-	if (buf->undo == NULL) {
-		editorSetStatusMessage("No further undo information.");
-		return;
-	}
-	int paired = buf->undo->paired;
-
-	if (buf->undo->delete) {
-		buf->cx = buf->undo->startx;
-		buf->cy = buf->undo->starty;
-		for (int i = buf->undo->datalen - 1; i >= 0; i--) {
-			if (buf->undo->data[i] == '\n') {
-				editorInsertNewline(buf, 1);
-			} else {
-				editorInsertChar(buf, buf->undo->data[i], 1);
-			}
-		}
-		buf->cx = buf->undo->endx;
-		buf->cy = buf->undo->endy;
-	} else {
-		if (buf->numrows == 0 || buf->undo->starty >= buf->numrows) {
+		if (buf->undo == NULL) {
+			editorSetStatusMessage("No further undo information.");
 			return;
 		}
-		struct erow *row = &buf->row[buf->undo->starty];
-		if (buf->undo->starty == buf->undo->endy) {
-			memmove(&row->chars[buf->undo->startx],
-				&row->chars[buf->undo->endx],
-				row->size - buf->undo->endx);
-			row->size -= buf->undo->endx - buf->undo->startx;
-			row->chars[row->size] = 0;
-		} else {
-			for (int i = buf->undo->starty + 1; i < buf->undo->endy;
-			     i++) {
-				editorDelRow(buf, buf->undo->starty + 1);
+		int paired = buf->undo->paired;
+
+		if (buf->undo->delete) {
+			buf->cx = buf->undo->startx;
+			buf->cy = buf->undo->starty;
+			for (int i = buf->undo->datalen - 1; i >= 0; i--) {
+				if (buf->undo->data[i] == '\n') {
+					editorInsertNewline(buf, 1);
+				} else {
+					editorInsertChar(buf,
+							 buf->undo->data[i], 1);
+				}
 			}
-			if (buf->undo->starty + 1 >= buf->numrows) {
+			buf->cx = buf->undo->endx;
+			buf->cy = buf->undo->endy;
+		} else {
+			if (buf->numrows == 0 ||
+			    buf->undo->starty >= buf->numrows) {
 				return;
 			}
-			struct erow *last = &buf->row[buf->undo->starty + 1];
-			row->size = buf->undo->startx;
-			row->size += last->size - buf->undo->endx;
-			row->chars = realloc(row->chars, row->size);
-			memcpy(&row->chars[buf->undo->startx],
-			       &last->chars[buf->undo->endx],
-			       last->size - buf->undo->endx);
-			editorDelRow(buf, buf->undo->starty + 1);
+			struct erow *row = &buf->row[buf->undo->starty];
+			if (buf->undo->starty == buf->undo->endy) {
+				memmove(&row->chars[buf->undo->startx],
+					&row->chars[buf->undo->endx],
+					row->size - buf->undo->endx);
+				row->size -=
+					buf->undo->endx - buf->undo->startx;
+				row->chars[row->size] = 0;
+			} else {
+				for (int i = buf->undo->starty + 1;
+				     i < buf->undo->endy; i++) {
+					editorDelRow(buf,
+						     buf->undo->starty + 1);
+				}
+				if (buf->undo->starty + 1 >= buf->numrows) {
+					return;
+				}
+				struct erow *last =
+					&buf->row[buf->undo->starty + 1];
+				row->size = buf->undo->startx;
+				row->size += last->size - buf->undo->endx;
+				row->chars = realloc(row->chars, row->size);
+				memcpy(&row->chars[buf->undo->startx],
+				       &last->chars[buf->undo->endx],
+				       last->size - buf->undo->endx);
+				editorDelRow(buf, buf->undo->starty + 1);
+			}
+			buf->cx = buf->undo->startx;
+			buf->cy = buf->undo->starty;
 		}
-		buf->cx = buf->undo->startx;
-		buf->cy = buf->undo->starty;
-	}
 
-	editorUpdateBuffer(buf);
+		editorUpdateBuffer(buf);
 
-	struct editorUndo *orig = buf->redo;
-	buf->redo = buf->undo;
-	buf->undo = buf->undo->prev;
-	buf->redo->prev = orig;
+		struct editorUndo *orig = buf->redo;
+		buf->redo = buf->undo;
+		buf->undo = buf->undo->prev;
+		buf->redo->prev = orig;
 
-	if (paired) {
-		editorDoUndo(buf, 1);
-	}
+		if (paired) {
+			editorDoUndo(buf, 1);
+		}
 	}
 }
 
@@ -94,59 +99,63 @@ void debugUnpair(struct editorConfig *UNUSED(ed), struct editorBuffer *buf) {
 void editorDoRedo(struct editorBuffer *buf, int count) {
 	int times = count ? count : 1;
 	for (int j = 0; j < times; j++) {
-	if (buf->redo == NULL) {
-		editorSetStatusMessage("No further redo information.");
-		return;
-	}
+		if (buf->redo == NULL) {
+			editorSetStatusMessage("No further redo information.");
+			return;
+		}
 
-	if (buf->redo->delete) {
-		struct erow *row = &buf->row[buf->redo->starty];
-		if (buf->redo->starty == buf->redo->endy) {
-			memmove(&row->chars[buf->redo->startx],
-				&row->chars[buf->redo->endx],
-				row->size - buf->redo->endx);
-			row->size -= buf->redo->endx - buf->redo->startx;
-			row->chars[row->size] = 0;
-		} else {
-			for (int i = buf->redo->starty + 1; i < buf->redo->endy;
-			     i++) {
+		if (buf->redo->delete) {
+			struct erow *row = &buf->row[buf->redo->starty];
+			if (buf->redo->starty == buf->redo->endy) {
+				memmove(&row->chars[buf->redo->startx],
+					&row->chars[buf->redo->endx],
+					row->size - buf->redo->endx);
+				row->size -=
+					buf->redo->endx - buf->redo->startx;
+				row->chars[row->size] = 0;
+			} else {
+				for (int i = buf->redo->starty + 1;
+				     i < buf->redo->endy; i++) {
+					editorDelRow(buf,
+						     buf->redo->starty + 1);
+				}
+				struct erow *last =
+					&buf->row[buf->redo->starty + 1];
+				row->size = buf->redo->startx;
+				row->size += last->size - buf->redo->endx;
+				row->chars = realloc(row->chars, row->size);
+				memcpy(&row->chars[buf->redo->startx],
+				       &last->chars[buf->redo->endx],
+				       last->size - buf->redo->endx);
 				editorDelRow(buf, buf->redo->starty + 1);
 			}
-			struct erow *last = &buf->row[buf->redo->starty + 1];
-			row->size = buf->redo->startx;
-			row->size += last->size - buf->redo->endx;
-			row->chars = realloc(row->chars, row->size);
-			memcpy(&row->chars[buf->redo->startx],
-			       &last->chars[buf->redo->endx],
-			       last->size - buf->redo->endx);
-			editorDelRow(buf, buf->redo->starty + 1);
-		}
-		buf->cx = buf->redo->startx;
-		buf->cy = buf->redo->starty;
-	} else {
-		buf->cx = buf->redo->startx;
-		buf->cy = buf->redo->starty;
-		for (int i = 0; i < buf->redo->datalen; i++) {
-			if (buf->redo->data[i] == '\n') {
-				editorInsertNewline(buf, 1);
-			} else {
-				editorInsertChar(buf, buf->redo->data[i], 1);
+			buf->cx = buf->redo->startx;
+			buf->cy = buf->redo->starty;
+		} else {
+			buf->cx = buf->redo->startx;
+			buf->cy = buf->redo->starty;
+			for (int i = 0; i < buf->redo->datalen; i++) {
+				if (buf->redo->data[i] == '\n') {
+					editorInsertNewline(buf, 1);
+				} else {
+					editorInsertChar(buf,
+							 buf->redo->data[i], 1);
+				}
 			}
+			buf->cx = buf->redo->endx;
+			buf->cy = buf->redo->endy;
 		}
-		buf->cx = buf->redo->endx;
-		buf->cy = buf->redo->endy;
-	}
 
-	editorUpdateBuffer(buf);
+		editorUpdateBuffer(buf);
 
-	struct editorUndo *orig = buf->undo;
-	buf->undo = buf->redo;
-	buf->redo = buf->redo->prev;
-	buf->undo->prev = orig;
+		struct editorUndo *orig = buf->undo;
+		buf->undo = buf->redo;
+		buf->redo = buf->redo->prev;
+		buf->undo->prev = orig;
 
-	if (buf->redo != NULL && buf->redo->paired) {
-		editorDoRedo(buf, 1);
-	}
+		if (buf->redo != NULL && buf->redo->paired) {
+			editorDoRedo(buf, 1);
+		}
 	}
 }
 

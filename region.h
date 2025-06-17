@@ -5,10 +5,13 @@
 #include "emsys.h"
 
 int markInvalid(void);
+int markInvalidSilent(void);
 
 void editorSetMark(void);
 
 void editorClearMark(void);
+
+void editorToggleRectangleMode(void);
 
 void editorMarkBuffer(void);
 

@@ -1,3 +1,5 @@
+#include "platform.h"
+#include "compat.h"
 #include "terminal.h"
 #include "emsys.h"
 #include <errno.h>
@@ -62,7 +64,7 @@ int getCursorPosition(int *rows, int *cols) {
 	if (write(STDOUT_FILENO, "\x1b[6n", 4) != 4)
 		return -1;
 
-	while (i < (unsigned int)(sizeof(buf) - 1)) {
+	while (i < (int)(sizeof(buf) - 1)) {
 		if (read(STDIN_FILENO, &buf[i], 1) != 1)
 			break;
 		if (buf[i] == 'R')

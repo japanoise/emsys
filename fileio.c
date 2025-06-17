@@ -1,6 +1,5 @@
-#define _DEFAULT_SOURCE
-#define _BSD_SOURCE
-#define _GNU_SOURCE
+#include "platform.h"
+#include "compat.h"
 
 #include "emsys.h"
 #include "fileio.h"
@@ -167,7 +166,7 @@ void findFile(void) {
 			int idx = windowFocusedIdx();
 			E_ptr->windows[idx]->buf = E_ptr->buf;
 
-			editorRefreshScreen(); // Refresh to reflect the change
+			refreshScreen(); // Refresh to reflect the change
 			return;
 		}
 		buf = buf->next;

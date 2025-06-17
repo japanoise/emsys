@@ -125,7 +125,7 @@ void editorWhitespaceCleanup(struct editorConfig *UNUSED(ed),
 				break;
 			}
 		}
-		editorUpdateRow(row);
+		updateRow(row);
 	}
 
 	if (buf->cx > buf->row[buf->cy].size) {

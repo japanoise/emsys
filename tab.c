@@ -1,3 +1,5 @@
+#include "platform.h"
+#include "compat.h"
 #include <glob.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -10,6 +12,7 @@
 #include "undo.h"
 #include "unicode.h"
 #include "display.h"
+#include "terminal.h"
 
 uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 				struct editorBuffer *currentBuffer) {
@@ -66,8 +69,8 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 	for (;;) {
 		editorSetStatusMessage("Multiple options: %s",
 				       completions[cur]);
-		editorRefreshScreen();
-		editorCursorBottomLine(strlen(completions[cur]) + 19);
+		refreshScreen();
+		cursorBottomLine(strlen(completions[cur]) + 19);
 
 		int c = editorReadKey();
 		switch (c) {
@@ -166,8 +169,8 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 	for (;;) {
 		editorSetStatusMessage("Multiple options: %s",
 				       globlist.gl_pathv[cur]);
-		editorRefreshScreen();
-		editorCursorBottomLine(curw + 19);
+		refreshScreen();
+		cursorBottomLine(curw + 19);
 
 		int c = editorReadKey();
 		switch (c) {
@@ -208,6 +211,101 @@ TC_FILES_CLEANUP:
 	if (tilde_expanded) {
 		free(tilde_expanded);
 	}
+	return ret;
+}
+
+uint8_t *tabCompleteCommands(struct editorConfig *ed, uint8_t *input) {
+	char **completions = NULL;
+	int count = 0;
+	int capacity = 8; // Initial capacity
+	uint8_t *ret = input;
+
+	// Allocate initial memory
+	completions = malloc(capacity * sizeof(char *));
+	if (completions == NULL) {
+		return ret;
+	}
+
+	// Convert input to lowercase for case-insensitive matching
+	int input_len = strlen((char *)input);
+	char *lower_input = malloc(input_len + 1);
+	if (lower_input == NULL) {
+		free(completions);
+		return ret;
+	}
+	for (int i = 0; i <= input_len; i++) {
+		uint8_t c = input[i];
+		if ('A' <= c && c <= 'Z') {
+			c |= 0x60;
+		}
+		lower_input[i] = c;
+	}
+
+	// Collect matching command names
+	for (int i = 0; i < ed->cmd_count; i++) {
+		if (strncmp(ed->cmd[i].key, lower_input, input_len) == 0) {
+			if (count >= capacity) {
+				capacity *= 2;
+				char **new_completions = realloc(
+					completions, capacity * sizeof(char *));
+				if (new_completions == NULL) {
+					// Handle reallocation failure
+					for (int j = 0; j < count; j++) {
+						free(completions[j]);
+					}
+					free(completions);
+					free(lower_input);
+					return ret;
+				}
+				completions = new_completions;
+			}
+			completions[count++] = stringdup(ed->cmd[i].key);
+		}
+	}
+
+	free(lower_input);
+
+	if (count < 1) {
+		goto cleanup;
+	}
+
+	if (count == 1) {
+		ret = (uint8_t *)stringdup(completions[0]);
+		goto cleanup;
+	}
+
+	// Multiple matches, allow cycling through them
+	int cur = 0;
+	for (;;) {
+		editorSetStatusMessage("cmd: %s", completions[cur]);
+		refreshScreen();
+
+		// Position cursor after the command text
+		int prompt_width = 5; // "cmd: "
+		cursorBottomLine(prompt_width + strlen(completions[cur]));
+
+		int c = editorReadKey();
+		switch (c) {
+		case '\r':
+			ret = (uint8_t *)stringdup(completions[cur]);
+			goto cleanup;
+		case CTRL('i'):
+			cur = (cur + 1) % count;
+			break;
+		case BACKTAB:
+			cur = (cur == 0) ? count - 1 : cur - 1;
+			break;
+		case CTRL('g'):
+			goto cleanup;
+		}
+	}
+
+cleanup:
+	for (int i = 0; i < count; i++) {
+		free(completions[i]);
+	}
+	free(completions);
+
 	return ret;
 }
 
@@ -259,7 +357,8 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 			if (buf == bufr && buf->cy == i)
 				continue;
 			struct erow *row = &buf->row[i];
-			if (!row->chars) continue;
+			if (!row->chars)
+				continue;
 			int match_length;
 			int match_idx = re_matchp(pattern, (char *)row->chars,
 						  &match_length);
@@ -324,8 +423,8 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 	int selw = stringWidth((uint8_t *)candidates[sel]);
 	for (;;) {
 		editorSetStatusMessage("Multiple options: %s", candidates[sel]);
-		editorRefreshScreen();
-		editorCursorBottomLine(selw + 19);
+		refreshScreen();
+		cursorBottomLine(selw + 19);
 
 		int c = editorReadKey();
 		switch (c) {
@@ -384,7 +483,7 @@ COMPLETE_WORD_DONE:;
 	       completelen);
 	row->size += completelen;
 	row->chars[row->size] = 0;
-	editorUpdateRow(row);
+	updateRow(row);
 
 	editorSetStatusMessage("Expanded %.30s to %.30s", word,
 			       candidates[sel]);

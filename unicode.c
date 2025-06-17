@@ -4,6 +4,7 @@
 #include <wchar.h>
 #include "wcwidth.h"
 #include "unicode.h"
+#include "emsys.h"
 
 /* The UCS format used by wcwidth.c. NOT a general purpose function. */
 static int utf8ToUCS(uint8_t *str, int idx) {
@@ -187,4 +188,28 @@ int utf8_nBytes(uint8_t ch) {
 
 int utf8_isCont(uint8_t ch) {
 	return (0x80 <= ch && ch <= 0xBF);
+}
+
+int nextScreenX(uint8_t *str, int *idx, int screen_x) {
+	uint8_t ch = str[*idx];
+
+	if (ch == '\t') {
+		/* Move to next tab stop */
+		screen_x = ((screen_x / EMSYS_TAB_STOP) + 1) * EMSYS_TAB_STOP;
+	} else if (ch < 0x20 || ch == 0x7f) {
+		/* Control characters display as ^X */
+		screen_x += 2;
+	} else if (ch < 0x80) {
+		/* Regular ASCII */
+		screen_x += 1;
+	} else {
+		/* Unicode character */
+		int width = charInStringWidth(str, *idx);
+		screen_x += width;
+		/* Skip continuation bytes */
+		int nbytes = utf8_nBytes(ch);
+		*idx += nbytes - 1;
+	}
+
+	return screen_x;
 }

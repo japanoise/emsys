@@ -162,7 +162,7 @@ void abFree(struct abuf *ab) {
 }
 
 /* Stub: capture screen refresh for testing */
-void editorRefreshScreen(void) {
+void refreshScreen(void) {
     /* Capture status message */
     if (E.statusmsg[0] != '\0') {
         int len = snprintf(output_buffer + output_pos, 
@@ -260,13 +260,13 @@ void editorDrawMinibuffer(struct abuf *ab) {
     (void)ab;
 }
 
-void editorScroll(void) { }
+void scroll(void) { }
 
 void editorSetScxScy(struct editorWindow *win) {
     (void)win;
 }
 
-void editorCursorBottomLine(int curs) {
+void cursorBottomLine(int curs) {
     (void)curs;
 }
 
@@ -274,12 +274,13 @@ void editorCursorBottomLineLong(long curs) {
     (void)curs;
 }
 
-void editorResizeScreen(void) {
+void editorResizeScreen(int sig) {
+    (void)sig;
     E.screenrows = 24;
     E.screencols = 80;
 }
 
-void editorRecenter(struct editorWindow *win) {
+void recenter(struct editorWindow *win) {
     (void)win;
 }
 
@@ -461,7 +462,7 @@ void runTest(const char *name, const char *input, const char *filename) {
     while ((c = editorReadKey()) != '\x11') { /* Ctrl-Q */
         extern void editorProcessKeypress(int c);
         editorProcessKeypress(c);
-        editorRefreshScreen();
+        refreshScreen();
     }
     
     /* Print captured output */
@@ -578,7 +579,7 @@ void test_transforms(void) {
             "\x1bl"         /* M-l lowercase word */
             "\x06"          /* forward */
             "\x1bc"         /* M-c capitalize word */
-            "\x11" ,        /* C-q */
+            "\x11",         /* C-q */
             NULL);
 }
 

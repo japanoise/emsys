@@ -22,7 +22,6 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 	uint8_t *result = NULL;
 
 	/* Save current buffer context */
-	struct editorBuffer *saved_buf = E.buf;
 	struct editorBuffer *saved_edbuf = E.edbuf;
 
 	/* Clear minibuffer */
@@ -43,11 +42,11 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 					(char *)E.minibuf->row[0].chars :
 					"";
 		editorSetStatusMessage((char *)prompt, content);
-		editorRefreshScreen();
+		refreshScreen();
 
 		/* Position cursor on bottom line */
 		int prompt_width = stringWidth(prompt) - 2;
-		editorCursorBottomLineLong(prompt_width + E.minibuf->cx + 1);
+		cursorBottomLineLong(prompt_width + E.minibuf->cx + 1);
 
 		/* Read key */
 		int c = editorReadKey();
@@ -100,6 +99,26 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 						stringdup("");
 				uint8_t *tc = tabCompleteBufferNames(
 					&E, (uint8_t *)old_text, bufr);
+				if (tc && tc != (uint8_t *)old_text) {
+					/* Replace minibuffer content */
+					editorDelRow(E.minibuf, 0);
+					editorInsertRow(E.minibuf, 0,
+							(char *)tc,
+							strlen((char *)tc));
+					E.minibuf->cx = strlen((char *)tc);
+					E.minibuf->cy = 0;
+					free(tc);
+				}
+				free(old_text);
+			} else if (t == PROMPT_COMMAND) {
+				char *old_text =
+					E.minibuf->numrows > 0 ?
+						stringdup((char *)E.minibuf
+								  ->row[0]
+								  .chars) :
+						stringdup("");
+				uint8_t *tc = tabCompleteCommands(
+					&E, (uint8_t *)old_text);
 				if (tc && tc != (uint8_t *)old_text) {
 					/* Replace minibuffer content */
 					editorDelRow(E.minibuf, 0);

@@ -5,4 +5,7 @@ emsys
 unicodetest
 /build
 /config.h
-/tests/test_example
+/tests/test_*
+!/tests/test_*.c
+!/tests/test_*.h
+!/tests/test_*.sh

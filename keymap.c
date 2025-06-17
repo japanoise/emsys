@@ -1,6 +1,5 @@
-#define _DEFAULT_SOURCE
-#define _BSD_SOURCE
-#define _GNU_SOURCE
+#include "platform.h"
+#include "compat.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -331,9 +330,11 @@ void executeCommand(int key) {
 			return;
 		case 'a':
 		case 'A':
+			editorProcessKeypress(MACRO_REGISTER);
+			return;
 		case 'm':
 		case 'M':
-			editorProcessKeypress(MACRO_REGISTER);
+			editorToggleRectangleMode();
 			return;
 		case CTRL('@'):
 		case ' ':
@@ -397,10 +398,11 @@ void executeCommand(int key) {
 /* Where the magic happens */
 void editorProcessKeypress(int c) {
 	// Record key if we're recording a macro (but not the macro commands themselves)
-	if (E.recording && c != MACRO_END && c != MACRO_RECORD && c != MACRO_EXEC) {
+	if (E.recording && c != MACRO_END && c != MACRO_RECORD &&
+	    c != MACRO_EXEC) {
 		editorRecordKey(c);
 	}
-	
+
 	struct editorBuffer *bufr = E.buf;
 	int windowIdx = windowFocusedIdx();
 	struct editorWindow *win = E.windows[windowIdx];
@@ -463,7 +465,7 @@ void editorProcessKeypress(int c) {
 
 	// Store uarg value and reset it after command execution
 	int uarg = E.uarg;
-	
+
 	switch (c) {
 	case '\r':
 		editorInsertNewline(bufr, uarg);
@@ -477,7 +479,7 @@ void editorProcessKeypress(int c) {
 		editorDelChar(bufr, uarg);
 		break;
 	case CTRL('l'):
-		editorRecenter(win);
+		recenter(win);
 		break;
 	case QUIT:
 		editorQuit();
@@ -580,9 +582,6 @@ void editorProcessKeypress(int c) {
 	case CTRL('w'):
 		editorKillRegion(&E, bufr);
 		editorClearMark();
-		break;
-	case CTRL('i'):
-		editorIndent(bufr, uarg);
 		break;
 	case CTRL('_'):
 #ifdef EMSYS_CUA
@@ -716,7 +715,7 @@ void editorProcessKeypress(int c) {
 
 	case EXEC_CMD:;
 		uint8_t *cmd =
-			editorPrompt(bufr, "cmd: %s", PROMPT_BASIC, NULL);
+			editorPrompt(bufr, "cmd: %s", PROMPT_COMMAND, NULL);
 		if (cmd != NULL) {
 			runCommand(cmd, &E, bufr);
 			free(cmd);
@@ -829,7 +828,8 @@ void editorProcessKeypress(int c) {
 	case MACRO_END:
 		if (E.recording) {
 			E.recording = 0;
-			editorSetStatusMessage("Macro recorded (%d keys)", E.macro.nkeys);
+			editorSetStatusMessage("Macro recorded (%d keys)",
+					       E.macro.nkeys);
 		} else {
 			editorSetStatusMessage("Not recording");
 		}
@@ -865,7 +865,7 @@ void editorProcessKeypress(int c) {
 		}
 		break;
 	}
-	
+
 	// Always reset universal argument after command execution
 	E.uarg = 0;
 }
