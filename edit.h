@@ -40,8 +40,8 @@ void editorBackPara(int count);
 void editorForwardPara(int count);
 
 /* Word transformations */
-void wordTransform(struct editorBuffer *bufr,
-		   int times, uint8_t *(*transformer)(uint8_t *));
+void wordTransform(struct editorBuffer *bufr, int times,
+		   uint8_t *(*transformer)(uint8_t *));
 void editorUpcaseWord(struct editorBuffer *bufr, int times);
 void editorDowncaseWord(struct editorBuffer *bufr, int times);
 void editorCapitalCaseWord(struct editorBuffer *bufr, int times);

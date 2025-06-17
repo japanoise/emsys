@@ -95,7 +95,7 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 			last_match = current;
 			bufr->cy = current;
 			bufr->cx = match - row->chars;
-			editorScroll();
+			scroll();
 			//			bufr->rowoff = bufr->numrows;
 			bufr->match = 1;
 			return;
@@ -114,7 +114,7 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 			last_match = current;
 			bufr->cy = current;
 			bufr->cx = match - row->chars;
-			editorScroll();
+			scroll();
 			//			bufr->rowoff = bufr->numrows;
 			bufr->match = 1;
 			break;
@@ -232,8 +232,8 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	for (;;) {
 		editorSetStatusMessage(prompt);
-		editorRefreshScreen();
-		editorCursorBottomLine(bufwidth + 2);
+		refreshScreen();
+		cursorBottomLine(bufwidth + 2);
 
 		int c = editorReadKey();
 		editorRecordKey(c);
@@ -321,7 +321,7 @@ RESET_PROMPT:
 			bufwidth = stringWidth(prompt);
 			break;
 		case CTRL('l'):
-			editorRecenter(currentWindow);
+			recenter(currentWindow);
 			break;
 		}
 	}

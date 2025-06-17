@@ -8,14 +8,15 @@
 #include "unicode.h"
 #include "unused.h"
 #include "display.h"
+#include "terminal.h"
 
 static int getRegisterName(char *prompt) {
 	int key;
 	int psize = stringWidth((uint8_t *)prompt);
 	do {
 		editorSetStatusMessage("%s:", prompt);
-		editorCursorBottomLine(psize + 2);
-		editorRefreshScreen();
+		cursorBottomLine(psize + 2);
+		refreshScreen();
 		key = editorReadKey();
 	} while (key > 127);
 	editorRecordKey(key);

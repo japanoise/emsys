@@ -27,6 +27,7 @@
 enum promptType {
 	PROMPT_BASIC,
 	PROMPT_FILES,
+	PROMPT_COMMAND,
 };
 /*** data ***/
 
@@ -36,6 +37,8 @@ typedef struct erow {
 	int renderwidth;
 	uint8_t *chars;
 	uint8_t *render;
+	int cached_width;
+	int width_valid;
 } erow;
 
 struct editorUndo {
@@ -62,7 +65,9 @@ struct editorBuffer {
 	int special_buffer;
 	int truncate_lines; // 0 for wrapped, 1 for unwrapped
 	int word_wrap;
+	int rectangle_mode;
 	int single_line;
+	int read_only;
 	erow *row;
 	char *filename;
 	uint8_t *query;
@@ -70,6 +75,9 @@ struct editorBuffer {
 	struct editorUndo *undo;
 	struct editorUndo *redo;
 	struct editorBuffer *next;
+	int *screen_line_start;
+	int screen_line_cache_size;
+	int screen_line_cache_valid;
 };
 
 struct editorWindow {
@@ -139,6 +147,7 @@ struct editorConfig {
 	uint8_t unicode[4];
 	int nunicode;
 	char statusmsg[256];
+	char prefix_display[32]; /* Display prefix commands like C-u */
 
 	/* Buffer management for minibuffer */
 	struct editorBuffer *edbuf;   /* Saved editor context */
@@ -173,7 +182,6 @@ void editorOpen(struct editorBuffer *bufr, char *filename);
 void die(const char *s);
 struct editorBuffer *newBuffer();
 void destroyBuffer(struct editorBuffer *);
-int editorReadKey();
 void editorRecordKey(int c);
 void editorExecMacro(struct editorMacro *macro);
 

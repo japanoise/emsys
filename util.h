@@ -10,7 +10,9 @@
 static inline void *xmalloc(size_t size) {
 	void *ptr = malloc(size);
 	if (!ptr && size != 0) {
-		fprintf(stderr, "xmalloc: out of memory (allocating %zu bytes)\n", size);
+		fprintf(stderr,
+			"xmalloc: out of memory (allocating %zu bytes)\n",
+			size);
 		abort();
 	}
 	return ptr;
@@ -19,7 +21,9 @@ static inline void *xmalloc(size_t size) {
 static inline void *xrealloc(void *ptr, size_t size) {
 	void *new_ptr = realloc(ptr, size);
 	if (!new_ptr && size != 0) {
-		fprintf(stderr, "xrealloc: out of memory (allocating %zu bytes)\n", size);
+		fprintf(stderr,
+			"xrealloc: out of memory (allocating %zu bytes)\n",
+			size);
 		abort();
 	}
 	return new_ptr;
@@ -33,7 +37,8 @@ static inline char *xstrdup(const char *s) {
 }
 
 static inline char *stringdup(const char *s) {
-	if (!s) return NULL;
+	if (!s)
+		return NULL;
 	return xstrdup(s);
 }
 

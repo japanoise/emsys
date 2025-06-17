@@ -1,3 +1,8 @@
+#include "platform.h"
+#include "compat.h"
+
+#ifndef EMSYS_DISABLE_PIPE
+
 #include <fcntl.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -150,8 +155,16 @@ void editorPipeCmd(struct editorConfig *ed, struct editorBuffer *bufr) {
 			// Update the focused window
 			int idx = windowFocusedIdx();
 			ed->windows[idx]->buf = ed->buf;
-			editorRefreshScreen();
+			refreshScreen();
 		}
 		free(pipeOutput);
 	}
 }
+
+#else /* EMSYS_DISABLE_PIPE */
+
+void editorPipeCmd(struct editorConfig *ed, struct editorBuffer *bufr) {
+	editorSetStatusMessage("Pipe command not available on this platform");
+}
+
+#endif /* EMSYS_DISABLE_PIPE */

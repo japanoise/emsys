@@ -28,6 +28,15 @@ void editorClearMark(void) {
 	editorSetStatusMessage("Mark Cleared");
 }
 
+void editorToggleRectangleMode(void) {
+	E.buf->rectangle_mode = !E.buf->rectangle_mode;
+	if (E.buf->rectangle_mode) {
+		editorSetStatusMessage("Rectangle mode ON");
+	} else {
+		editorSetStatusMessage("Rectangle mode OFF");
+	}
+}
+
 void editorMarkBuffer(void) {
 	if (E.buf->numrows > 0) {
 		E.buf->cy = E.buf->numrows;
@@ -38,11 +47,15 @@ void editorMarkBuffer(void) {
 	}
 }
 
+int markInvalidSilent(void) {
+	return (E.buf->markx < 0 || E.buf->marky < 0 || E.buf->numrows == 0 ||
+		E.buf->marky >= E.buf->numrows ||
+		E.buf->markx > (E.buf->row[E.buf->marky].size) ||
+		(E.buf->markx == E.buf->cx && E.buf->cy == E.buf->marky));
+}
+
 int markInvalid(void) {
-	int ret = (E.buf->markx < 0 || E.buf->marky < 0 || E.buf->numrows == 0 ||
-		   E.buf->marky >= E.buf->numrows ||
-		   E.buf->markx > (E.buf->row[E.buf->marky].size) ||
-		   (E.buf->markx == E.buf->cx && E.buf->cy == E.buf->marky));
+	int ret = markInvalidSilent();
 
 	if (ret) {
 		editorSetStatusMessage("Mark invalid.");
@@ -163,7 +176,8 @@ void editorYank(struct editorConfig *ed, struct editorBuffer *buf, int count) {
 		return;
 	}
 
-	if (count <= 0) count = 1;
+	if (count <= 0)
+		count = 1;
 
 	// Check if this is a line yank (ends with newline)
 	int killLen = strlen(ed->kill);

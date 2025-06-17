@@ -1,6 +1,5 @@
-#define _DEFAULT_SOURCE
-#define _BSD_SOURCE
-#define _GNU_SOURCE
+#include "platform.h"
+#include "compat.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -47,11 +46,11 @@ void editorSuspend(int UNUSED(sig)) {
 void editorResume(int UNUSED(sig)) {
 	setupHandlers();
 	enableRawMode();
-	editorResizeScreen();
+	editorResizeScreen(0);
 }
 
 void sigwinchHandler(int UNUSED(sig)) {
-	editorResizeScreen();
+	editorResizeScreen(0);
 }
 
 /*** init ***/
@@ -129,7 +128,7 @@ int main(int argc, char *argv[]) {
 	setupHandlers();
 
 	for (;;) {
-		editorRefreshScreen();
+		refreshScreen();
 		int c = editorReadKey();
 		if (c == MACRO_RECORD) {
 			if (E.recording) {
