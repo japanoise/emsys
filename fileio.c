@@ -11,16 +11,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
+#include <sys/stat.h>
+#include <sys/select.h>
 #include "display.h"
 #include "prompt.h"
 #include "util.h"
+#include "undo.h"
+#include "keymap.h"
+#include "unused.h"
 
 /* Access global editor state */
 extern struct editorConfig E;
 
 /* External functions we need */
 extern void die(const char *s);
-extern char *stringdup(const char *s);
 
 /*** file i/o ***/
 
@@ -46,7 +51,8 @@ char *editorRowsToString(struct editorBuffer *bufr, int *buflen) {
 
 void editorOpen(struct editorBuffer *bufr, char *filename) {
 	free(bufr->filename);
-	bufr->filename = stringdup(filename);
+	bufr->filename = xstrdup(filename);
+
 	FILE *fp = fopen(filename, "r");
 	if (!fp) {
 		if (errno == ENOENT) {
@@ -59,7 +65,7 @@ void editorOpen(struct editorBuffer *bufr, char *filename) {
 	char *line = NULL;
 	size_t linecap = 0;
 	ssize_t linelen;
-	/* Doesn't handle null bytes */
+
 	while ((linelen = getline(&line, &linecap, fp)) != -1) {
 		while (linelen > 0 &&
 		       (line[linelen - 1] == '\n' || line[linelen - 1] == '\r'))
@@ -76,10 +82,10 @@ void editorRevert(struct editorConfig *ed, struct editorBuffer *buf) {
 	editorOpen(new, buf->filename);
 	new->next = buf->next;
 	ed->buf = new;
-	if (ed->firstBuf == buf) {
-		ed->firstBuf = new;
+	if (ed->headbuf == buf) {
+		ed->headbuf = new;
 	}
-	struct editorBuffer *cur = ed->firstBuf;
+	struct editorBuffer *cur = ed->headbuf;
 	while (cur != NULL) {
 		if (cur->next == buf) {
 			cur->next = new;
@@ -95,8 +101,11 @@ void editorRevert(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->indent = buf->indent;
 	new->cx = buf->cx;
 	new->cy = buf->cy;
-	if (new->cy > new->numrows) {
-		new->cy = new->numrows;
+	if (new->numrows == 0) {
+		new->cy = 0;
+		new->cx = 0;
+	} else if (new->cy >= new->numrows) {
+		new->cy = new->numrows - 1;
 		new->cx = 0;
 	} else if (new->cx > new->row[new->cy].size) {
 		new->cx = new->row[new->cy].size;
@@ -124,8 +133,13 @@ void editorSave(struct editorBuffer *bufr) {
 				close(fd);
 				free(buf);
 				bufr->dirty = 0;
-				editorSetStatusMessage("Wrote %d bytes to %s",
-						       len, bufr->filename);
+
+				// Clear undo/redo on successful save
+				clearUndosAndRedos(bufr);
+
+				editorSetStatusMessage(
+					"Wrote %d bytes to %s (undo history cleared)",
+					len, bufr->filename);
 				return;
 			}
 		}
@@ -153,7 +167,7 @@ void findFile(void) {
 	}
 
 	// Check if a buffer with the same filename already exists
-	struct editorBuffer *buf = E_ptr->firstBuf;
+	struct editorBuffer *buf = E_ptr->headbuf;
 	while (buf != NULL) {
 		if (buf->filename != NULL &&
 		    strcmp(buf->filename, (char *)prompt) == 0) {
@@ -173,11 +187,67 @@ void findFile(void) {
 	}
 
 	// Create new buffer for the file
-	E_ptr->firstBuf = newBuffer();
-	editorOpen(E_ptr->firstBuf, (char *)prompt);
+	struct editorBuffer *newBuf = newBuffer();
+	editorOpen(newBuf, (char *)prompt);
 	free(prompt);
-	E_ptr->firstBuf->next = E_ptr->buf;
-	E_ptr->buf = E_ptr->firstBuf;
+
+	newBuf->next = E_ptr->headbuf;
+	E_ptr->headbuf = newBuf;
+	E_ptr->buf = newBuf;
 	int idx = windowFocusedIdx();
 	E_ptr->windows[idx]->buf = E_ptr->buf;
+}
+
+void editorInsertFile(struct editorConfig *UNUSED(ed),
+		      struct editorBuffer *buf) {
+	uint8_t *filename =
+		editorPrompt(buf, "Insert file: %s", PROMPT_FILES, NULL);
+	if (filename == NULL) {
+		return;
+	}
+
+	FILE *fp = fopen((char *)filename, "r");
+	if (!fp) {
+		if (errno == ENOENT) {
+			editorSetStatusMessage("File not found: %s", filename);
+		} else {
+			editorSetStatusMessage("Error opening file: %s",
+					       strerror(errno));
+		}
+		free(filename);
+		return;
+	}
+
+	int saved_cy = buf->cy;
+
+	newUndo(buf);
+
+	char *line = NULL;
+	size_t linecap = 0;
+	ssize_t linelen;
+	int lines_inserted = 0;
+
+	while ((linelen = getline(&line, &linecap, fp)) != -1) {
+		while (linelen > 0 && (line[linelen - 1] == '\n' ||
+				       line[linelen - 1] == '\r')) {
+			linelen--;
+		}
+
+		editorInsertRow(buf, saved_cy + lines_inserted, line, linelen);
+		lines_inserted++;
+	}
+
+	free(line);
+	fclose(fp);
+
+	if (lines_inserted > 0) {
+		buf->cy = saved_cy + lines_inserted - 1;
+		buf->cx = buf->row[buf->cy].size;
+	}
+
+	editorSetStatusMessage("Inserted %d lines from %s", lines_inserted,
+			       filename);
+	free(filename);
+
+	buf->dirty++;
 }

@@ -13,6 +13,7 @@
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
+#include <limits.h>
 #include "emsys.h"
 #include "util.h"
 #include "fileio.h"
@@ -42,7 +43,6 @@ void showPrefix(const char *prefix) {
 
 // Forward declarations for command functions
 
-// Comparison function for qsort and bsearch
 static int compare_commands(const void *a, const void *b) {
 	return strcmp(((struct editorCommand *)a)->key,
 		      ((struct editorCommand *)b)->key);
@@ -53,6 +53,8 @@ void setupCommands(struct editorConfig *ed) {
 		{ "capitalize-region", editorCapitalizeRegion },
 		{ "indent-spaces", editorIndentSpaces },
 		{ "indent-tabs", editorIndentTabs },
+		{ "insert-file", editorInsertFile },
+		{ "isearch-forward-regexp", editorRegexFindWrapper },
 		{ "kanaya", editorCapitalizeRegion },
 		{ "query-replace", editorQueryReplace },
 		{ "replace-regexp", editorReplaceRegex },
@@ -104,16 +106,27 @@ void editorRecordKey(int c) {
 	if (E.recording) {
 		E.macro.keys[E.macro.nkeys++] = c;
 		if (E.macro.nkeys >= E.macro.skeys) {
+			if (E.macro.skeys > INT_MAX / 2 ||
+			    (size_t)E.macro.skeys >
+				    SIZE_MAX / (2 * sizeof(int))) {
+				die("buffer size overflow");
+			}
 			E.macro.skeys *= 2;
-			E.macro.keys = realloc(E.macro.keys,
-					       E.macro.skeys * sizeof(int));
+			E.macro.keys = xrealloc(E.macro.keys,
+						E.macro.skeys * sizeof(int));
 		}
 		if (c == UNICODE) {
 			for (int i = 0; i < E.nunicode; i++) {
 				E.macro.keys[E.macro.nkeys++] = E.unicode[i];
 				if (E.macro.nkeys >= E.macro.skeys) {
+					if (E.macro.skeys > INT_MAX / 2 ||
+					    (size_t)E.macro.skeys >
+						    SIZE_MAX /
+							    (2 * sizeof(int))) {
+						die("buffer size overflow");
+					}
 					E.macro.skeys *= 2;
-					E.macro.keys = realloc(
+					E.macro.keys = xrealloc(
 						E.macro.keys,
 						E.macro.skeys * sizeof(int));
 				}
@@ -131,7 +144,7 @@ void editorRecordKey(int c) {
 /* Command execution with prefix state machine */
 void executeCommand(int key) {
 	static enum PrefixState prefix = PREFIX_NONE;
-	struct editorBuffer *bufr = E.buf;
+	struct editorBuffer *UNUSED(bufr) = E.buf;
 
 	/* Handle prefix state transitions and commands */
 	switch (key) {
@@ -188,6 +201,9 @@ void executeCommand(int key) {
 			return;
 		case 'h':
 			editorProcessKeypress(MARK_BUFFER);
+			return;
+		case 'i':
+			editorProcessKeypress(INSERT_FILE);
 			return;
 		case 'o':
 		case 'O':
@@ -390,7 +406,6 @@ void executeCommand(int key) {
 		}
 	}
 
-	/* No prefix active, process normally */
 	prefix = PREFIX_NONE;
 	editorProcessKeypress(key);
 }
@@ -544,6 +559,12 @@ void editorProcessKeypress(int c) {
 		break;
 	case CTRL('s'):
 		editorFind(bufr);
+		break;
+	case REGEX_SEARCH_FORWARD:
+		editorRegexFind(bufr);
+		break;
+	case REGEX_SEARCH_BACKWARD:
+		editorBackwardRegexFind(bufr);
 		break;
 	case UNICODE_ERROR:
 		editorSetStatusMessage("Bad UTF-8 sequence");
@@ -729,6 +750,10 @@ void editorProcessKeypress(int c) {
 		editorGotoLine();
 		break;
 
+	case INSERT_FILE:
+		editorInsertFile(&E, bufr);
+		break;
+
 	case CTRL('x'):
 	case 033:
 		/* These take care of their own error messages */
@@ -818,7 +843,7 @@ void editorProcessKeypress(int c) {
 			if (E.macro.keys) {
 				free(E.macro.keys);
 			}
-			E.macro.keys = malloc(E.macro.skeys * sizeof(int));
+			E.macro.keys = xmalloc(E.macro.skeys * sizeof(int));
 			editorSetStatusMessage("Recording macro...");
 		} else {
 			editorSetStatusMessage("Already recording");
@@ -848,6 +873,12 @@ void editorProcessKeypress(int c) {
 	default:
 		if (c == '\t') {
 			// Handle TAB character
+			// In minibuffer, tab should NOT be processed here
+			// It's handled by the prompt function for completion
+			if (bufr == E.minibuf) {
+				// Do nothing - let prompt handle it
+				break;
+			}
 			int count = uarg ? uarg : 1;
 			for (int i = 0; i < count; i++) {
 				editorUndoAppendChar(bufr, '\t');
@@ -873,6 +904,14 @@ void editorProcessKeypress(int c) {
 /*** init ***/
 
 void editorExecMacro(struct editorMacro *macro) {
+	const int MAX_MACRO_DEPTH = 100;
+	if (E.macro_depth >= MAX_MACRO_DEPTH) {
+		editorSetStatusMessage("Macro recursion depth exceeded");
+		return;
+	}
+
+	E.macro_depth++;
+
 	struct editorMacro tmp;
 	tmp.keys = NULL;
 	if (macro != &E.macro) {
@@ -895,4 +934,6 @@ void editorExecMacro(struct editorMacro *macro) {
 	if (tmp.keys != NULL) {
 		memcpy(&E.macro, &tmp, sizeof(struct editorMacro));
 	}
+
+	E.macro_depth--;
 }

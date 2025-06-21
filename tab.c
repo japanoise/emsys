@@ -4,8 +4,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include "emsys.h"
-#include "re.h"
+#include <regex.h>
 #include "buffer.h"
 #include "tab.h"
 #include "util.h"
@@ -22,14 +23,14 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 	uint8_t *ret = input;
 
 	// Allocate initial memory
-	completions = malloc(capacity * sizeof(char *));
+	completions = xmalloc(capacity * sizeof(char *));
 	if (completions == NULL) {
 		// Handle allocation failure
 		return ret;
 	}
 
 	// Collect matching buffer names
-	for (struct editorBuffer *b = ed->firstBuf; b != NULL; b = b->next) {
+	for (struct editorBuffer *b = ed->headbuf; b != NULL; b = b->next) {
 		if (b == currentBuffer)
 			continue;
 
@@ -37,21 +38,16 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 		if (strncmp(name, (char *)input, strlen((char *)input)) == 0) {
 			if (count + 1 >= capacity) {
 				// Double capacity and reallocate
-				capacity *= 2;
-				char **new_completions = realloc(
-					completions, capacity * sizeof(char *));
-				if (new_completions == NULL) {
-					// Handle reallocation failure
-					// Free existing completions and return
-					for (int i = 0; i < count; i++) {
-						free(completions[i]);
-					}
-					free(completions);
-					return ret;
+				if (capacity > INT_MAX / 2 ||
+				    (size_t)capacity >
+					    SIZE_MAX / (2 * sizeof(char *))) {
+					die("buffer size overflow");
 				}
-				completions = new_completions;
+				capacity *= 2;
+				completions = xrealloc(
+					completions, capacity * sizeof(char *));
 			}
-			completions[count++] = stringdup(name);
+			completions[count++] = xstrdup(name);
 		}
 	}
 
@@ -60,7 +56,7 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 	}
 
 	if (count == 1) {
-		ret = (uint8_t *)stringdup(completions[0]);
+		ret = (uint8_t *)xstrdup(completions[0]);
 		goto cleanup;
 	}
 
@@ -75,7 +71,7 @@ uint8_t *tabCompleteBufferNames(struct editorConfig *ed, uint8_t *input,
 		int c = editorReadKey();
 		switch (c) {
 		case '\r':
-			ret = (uint8_t *)stringdup(completions[cur]);
+			ret = (uint8_t *)xstrdup(completions[cur]);
 			goto cleanup;
 		case CTRL('i'):
 			cur = (cur + 1) % count;
@@ -112,9 +108,9 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 
 		size_t home_len = strlen(home_dir);
 		size_t prompt_len = strlen((char *)prompt);
-		char *new_prompt =
-			malloc(home_len + prompt_len - 1 +
-			       1); // -1 for removed '~', +1 for null terminator
+		char *new_prompt = xmalloc(
+			home_len + prompt_len - 1 +
+			1); // -1 for removed '~', +1 for null terminator
 		if (!new_prompt) {
 			// Handle memory allocation failure
 			return prompt;
@@ -135,7 +131,7 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 #ifndef EMSYS_NO_SIMPLE_GLOB
 	int end = strlen((char *)prompt);
 	/* Need to allocate a new string with room for the '*' */
-	char *glob_pattern = malloc(end + 2);
+	char *glob_pattern = xmalloc(end + 2);
 	if (!glob_pattern) {
 		if (tilde_expanded)
 			free(tilde_expanded);
@@ -221,14 +217,14 @@ uint8_t *tabCompleteCommands(struct editorConfig *ed, uint8_t *input) {
 	uint8_t *ret = input;
 
 	// Allocate initial memory
-	completions = malloc(capacity * sizeof(char *));
+	completions = xmalloc(capacity * sizeof(char *));
 	if (completions == NULL) {
 		return ret;
 	}
 
 	// Convert input to lowercase for case-insensitive matching
 	int input_len = strlen((char *)input);
-	char *lower_input = malloc(input_len + 1);
+	char *lower_input = xmalloc(input_len + 1);
 	if (lower_input == NULL) {
 		free(completions);
 		return ret;
@@ -245,21 +241,16 @@ uint8_t *tabCompleteCommands(struct editorConfig *ed, uint8_t *input) {
 	for (int i = 0; i < ed->cmd_count; i++) {
 		if (strncmp(ed->cmd[i].key, lower_input, input_len) == 0) {
 			if (count >= capacity) {
-				capacity *= 2;
-				char **new_completions = realloc(
-					completions, capacity * sizeof(char *));
-				if (new_completions == NULL) {
-					// Handle reallocation failure
-					for (int j = 0; j < count; j++) {
-						free(completions[j]);
-					}
-					free(completions);
-					free(lower_input);
-					return ret;
+				if (capacity > INT_MAX / 2 ||
+				    (size_t)capacity >
+					    SIZE_MAX / (2 * sizeof(char *))) {
+					die("buffer size overflow");
 				}
-				completions = new_completions;
+				capacity *= 2;
+				completions = xrealloc(
+					completions, capacity * sizeof(char *));
 			}
-			completions[count++] = stringdup(ed->cmd[i].key);
+			completions[count++] = xstrdup(ed->cmd[i].key);
 		}
 	}
 
@@ -270,7 +261,7 @@ uint8_t *tabCompleteCommands(struct editorConfig *ed, uint8_t *input) {
 	}
 
 	if (count == 1) {
-		ret = (uint8_t *)stringdup(completions[0]);
+		ret = (uint8_t *)xstrdup(completions[0]);
 		goto cleanup;
 	}
 
@@ -287,7 +278,7 @@ uint8_t *tabCompleteCommands(struct editorConfig *ed, uint8_t *input) {
 		int c = editorReadKey();
 		switch (c) {
 		case '\r':
-			ret = (uint8_t *)stringdup(completions[cur]);
+			ret = (uint8_t *)xstrdup(completions[cur]);
 			goto cleanup;
 		case CTRL('i'):
 			cur = (cur + 1) % count;
@@ -347,22 +338,31 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 	strcat(word, rpattern);
 	int ncand = 0;
 	int scand = 32;
-	char **candidates = malloc(sizeof(uint8_t *) * scand);
-	re_t pattern = re_compile(word);
+	char **candidates = xmalloc(sizeof(uint8_t *) * scand);
+
+	regex_t pattern;
+	regmatch_t matches[1];
+	if (regcomp(&pattern, word, REG_EXTENDED) != 0) {
+		free(word);
+		free(candidates);
+		editorSetStatusMessage("Invalid regex pattern");
+		return;
+	}
 
 	/* This is a deeply naive algorithm. */
 	/* First, find every word that starts with the word to complete */
-	for (struct editorBuffer *buf = ed->firstBuf; buf; buf = buf->next) {
+	for (struct editorBuffer *buf = ed->headbuf; buf; buf = buf->next) {
 		for (int i = 0; i < buf->numrows; i++) {
 			if (buf == bufr && buf->cy == i)
 				continue;
 			struct erow *row = &buf->row[i];
 			if (!row->chars)
 				continue;
-			int match_length;
-			int match_idx = re_matchp(pattern, (char *)row->chars,
-						  &match_length);
-			if (match_idx >= 0) {
+			if (regexec(&pattern, (char *)row->chars, 1, matches,
+				    0) == 0) {
+				int match_idx = matches[0].rm_so;
+				int match_length =
+					matches[0].rm_eo - matches[0].rm_so;
 				candidates[ncand] = calloc(match_length + 1, 1);
 				strncpy(candidates[ncand],
 					(char *)&row->chars[match_idx],
@@ -370,9 +370,9 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 				ncand++;
 				if (ncand >= scand) {
 					scand <<= 1;
-					candidates =
-						realloc(candidates,
-							sizeof(char *) * scand);
+					candidates = xrealloc(candidates,
+							      sizeof(char *) *
+								      scand);
 				}
 			}
 		}
@@ -467,7 +467,7 @@ COMPLETE_WORD_DONE:;
 	new->endy = bufr->cy;
 	new->datalen = completelen;
 	if (new->datasize < completelen + 1) {
-		new->data = realloc(new->data, new->datalen + 1);
+		new->data = xrealloc(new->data, new->datalen + 1);
 		new->datasize = new->datalen + 1;
 	}
 	new->append = 0;
@@ -476,20 +476,21 @@ COMPLETE_WORD_DONE:;
 	strcat((char *)new->data, &candidates[sel][bufr->cx - wordStart]);
 	bufr->undo = new;
 
-	row->chars = realloc(row->chars, row->size + 1 + completelen);
+	row->chars = xrealloc(row->chars, row->size + 1 + completelen);
 	memcpy(&row->chars[bufr->cx + completelen], &row->chars[bufr->cx],
 	       row->size - bufr->cx);
 	memcpy(&row->chars[bufr->cx], &candidates[sel][bufr->cx - wordStart],
 	       completelen);
 	row->size += completelen;
 	row->chars[row->size] = 0;
-	updateRow(row);
+	row->render_valid = 0;
 
 	editorSetStatusMessage("Expanded %.30s to %.30s", word,
 			       candidates[sel]);
 	bufr->cx += completelen;
 
 COMPLETE_WORD_CLEANUP:
+	regfree(&pattern);
 	for (int i = 0; i < ncand; i++) {
 		free(candidates[i]);
 	}

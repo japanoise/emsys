@@ -3,7 +3,7 @@ PREFIX=/usr/local
 VERSION?=git-$(shell git rev-parse --short HEAD 2>/dev/null | sed 's/^/git-/' || echo "")
 BINDIR=$(PREFIX)/bin
 MANDIR=$(PREFIX)/man/man1
-OBJECTS=main.o wcwidth.o unicode.o buffer.o region.o undo.o transform.o find.o pipe.o tab.o register.o re.o fileio.o terminal.o display.o keymap.o edit.o prompt.o compat.o
+OBJECTS=main.o wcwidth.o unicode.o buffer.o region.o undo.o transform.o find.o pipe.o tab.o register.o fileio.o terminal.o display.o keymap.o edit.o prompt.o compat.o
 
 # Platform Detection: 3-Platform Strategy
 # 
@@ -72,14 +72,12 @@ all: $(PROGNAME)
 debug: CFLAGS+=-g -O0
 debug: $(PROGNAME)
 
+test: $(PROGNAME)
+	@./tests/run_tests.sh
+
 $(PROGNAME): config.h $(OBJECTS)
 	$(CC) -o $@ $(OBJECTS) $(LDFLAGS)
 
-debug-unicodetest: CFLAGS+=-g -O0
-debug-unicodetest: unicodetest
-
-unicodetest: unicode.o unicodetest.o wcwidth.o
-	$(CC) -o $@ $^ $(LDFLAGS)
 
 install: $(PROGNAME) $(PROGNAME).1
 	mkdir -pv $(BINDIR)
@@ -95,35 +93,9 @@ config.h:
 format:
 	clang-format -i *.c *.h
 
-# Test stub infrastructure
-tests/test_stubs.o: tests/test_stubs.c tests/test_stubs.h
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-# Headless integration test - exclude conflicting modules
-HEADLESS_OBJS = buffer.o edit.o keymap.o fileio.o \
-                undo.o region.o transform.o unicode.o wcwidth.o \
-                tab.o pipe.o register.o re.o find.o compat.o
-
-tests/test_headless: tests/test_headless.o $(HEADLESS_OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS)
-
-tests/test_headless.o: tests/test_headless.c
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-# Test targets
-test: tests/test_headless
-	@echo "=== Running integration tests ==="
-	./tests/test_headless
-
-test-integration: tests/test_headless
-	./tests/test_headless
-
-test-help:
-	./tests/test_runner.sh --help
 
 clean:
 	rm -rf *.o
 	rm -rf *.exe
 	rm -rf $(PROGNAME)
-	rm -rf unicodetest
-	rm -rf tests/*.o tests/test_headless
+	rm -rf tests/*.o

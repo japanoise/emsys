@@ -9,6 +9,7 @@
 #include "unused.h"
 #include "display.h"
 #include "terminal.h"
+#include "util.h"
 
 static int getRegisterName(char *prompt) {
 	int key;
@@ -33,7 +34,7 @@ static int getRegisterName(char *prompt) {
 static void registerMessage(char *msg, char reg) {
 	char str[4];
 	if (reg < 32) {
-		sprintf(str, "C-%c", reg + '@');
+		snprintf(str, sizeof(str), "C-%c", reg + '@');
 	} else {
 		str[0] = reg;
 		str[1] = 0;
@@ -196,12 +197,15 @@ void editorIncrementRegister(struct editorConfig *ed,
 		uint8_t *tmp = ed->kill;
 		ed->kill = NULL;
 		editorCopyRegion(ed, bufr);
-		int len = strlen((char *)ed->kill) +
-			  strlen((char *)ed->registers[reg].rdata.region) + 1;
+		size_t kill_len = strlen((char *)ed->kill);
+		size_t region_len =
+			strlen((char *)ed->registers[reg].rdata.region);
+		size_t new_len = region_len + kill_len + 1;
 		ed->registers[reg].rdata.region =
-			realloc(ed->registers[reg].rdata.region, len);
-		strcat((char *)ed->registers[reg].rdata.region,
-		       (char *)ed->kill);
+			xrealloc(ed->registers[reg].rdata.region, new_len);
+		/* Use memcpy instead of strcat to be explicit about lengths */
+		memcpy(ed->registers[reg].rdata.region + region_len, ed->kill,
+		       kill_len + 1);
 		ed->kill = tmp;
 		registerMessage("Added region to register %s", reg);
 		break;
@@ -237,7 +241,8 @@ void editorInsertRegister(struct editorConfig *ed, struct editorBuffer *bufr) {
 		break;
 	case REGISTER_NUMBER:;
 		char str[32];
-		sprintf(str, "%ld", ed->registers[reg].rdata.number);
+		snprintf(str, sizeof(str), "%ld",
+			 ed->registers[reg].rdata.number);
 		ed->kill = (uint8_t *)str;
 		editorYank(ed, bufr, 1);
 		ed->kill = tmp;
@@ -270,7 +275,7 @@ void editorViewRegister(struct editorConfig *ed,
 	GET_REGISTER(reg, "View register");
 	char str[4];
 	if (reg < 32) {
-		sprintf(str, "C-%c", reg + '@');
+		snprintf(str, sizeof(str), "C-%c", reg + '@');
 	} else {
 		str[0] = reg;
 		str[1] = 0;
@@ -284,8 +289,9 @@ void editorViewRegister(struct editorConfig *ed,
 				       ed->registers[reg].rdata.region);
 		break;
 	case REGISTER_NUMBER:
-		editorSetStatusMessage("%s (number): %d", str,
-				       ed->registers[reg].rdata.number);
+		editorSetStatusMessage(
+			"%s (number): %lld", str,
+			(long long)ed->registers[reg].rdata.number);
 		break;
 	case REGISTER_POINT:;
 		struct editorPoint *pt = ed->registers[reg].rdata.point;

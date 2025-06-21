@@ -193,6 +193,10 @@ int editorReadKey() {
 			return EXPAND;
 		} else if (seq[0] == 127) {
 			return BACKSPACE_WORD;
+		} else if (seq[0] == CTRL('s')) {
+			return REGEX_SEARCH_FORWARD;
+		} else if (seq[0] == CTRL('r')) {
+			return REGEX_SEARCH_BACKWARD;
 		} else {
 			switch ((seq[0] & 0x1f) | 0x40) {
 			case 'B':

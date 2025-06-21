@@ -1,6 +1,6 @@
-/* unity.h style */
-#ifndef MINIMAL_TEST_H
-#define MINIMAL_TEST_H
+/* Test framework for emsys */
+#ifndef TEST_H
+#define TEST_H
 
 #include <stdio.h>
 #include <string.h>
@@ -81,4 +81,4 @@ static const char *_current_test_name = NULL;
 void setUp(void);
 void tearDown(void);
 
-#endif /* MINIMAL_TEST_H */
+#endif /* TEST_H */

@@ -29,17 +29,22 @@ static inline void *xrealloc(void *ptr, size_t size) {
 	return new_ptr;
 }
 
+static inline void *xcalloc(size_t nmemb, size_t size) {
+	void *ptr = calloc(nmemb, size);
+	if (!ptr && nmemb != 0 && size != 0) {
+		fprintf(stderr,
+			"xcalloc: out of memory (allocating %zu * %zu bytes)\n",
+			nmemb, size);
+		abort();
+	}
+	return ptr;
+}
+
 static inline char *xstrdup(const char *s) {
 	size_t len = strlen(s) + 1;
 	char *ptr = xmalloc(len);
 	memcpy(ptr, s, len);
 	return ptr;
-}
-
-static inline char *stringdup(const char *s) {
-	if (!s)
-		return NULL;
-	return xstrdup(s);
 }
 
 #endif /* EMSYS_UTIL_H */

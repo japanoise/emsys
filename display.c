@@ -5,6 +5,7 @@
 #include "unused.h"
 #include "region.h"
 #include "buffer.h"
+#include "util.h"
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -12,8 +13,10 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <limits.h>
 
 extern struct editorConfig E;
+extern void updateRow(erow *row);
 
 const int minibuffer_height = 1;
 const int statusbar_height = 1;
@@ -23,12 +26,12 @@ void abAppend(struct abuf *ab, const char *s, int len) {
 	if (ab->len + len > ab->capacity) {
 		int new_capacity = ab->capacity == 0 ? 1024 : ab->capacity * 2;
 		while (new_capacity < ab->len + len) {
+			if (new_capacity > INT_MAX / 2) {
+				die("buffer size overflow");
+			}
 			new_capacity *= 2;
 		}
-		char *new = realloc(ab->b, new_capacity);
-		if (new == NULL)
-			return;
-		ab->b = new;
+		ab->b = xrealloc(ab->b, new_capacity);
 		ab->capacity = new_capacity;
 	}
 	memcpy(&ab->b[ab->len], s, len);
@@ -466,6 +469,9 @@ void drawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 			abAppend(ab, CSI "34m~" CSI "0m", 10);
 		} else {
 			erow *row = &buf->row[filerow];
+			if (!row->render_valid) {
+				updateRow(row);
+			}
 			if (buf->truncate_lines) {
 				// Truncated mode with visual marking
 				renderLineWithHighlighting(

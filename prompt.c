@@ -57,10 +57,10 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 		case '\r':
 			if (E.minibuf->numrows > 0 &&
 			    E.minibuf->row[0].size > 0) {
-				result = (uint8_t *)stringdup(
+				result = (uint8_t *)xstrdup(
 					(char *)E.minibuf->row[0].chars);
 			} else {
-				result = (uint8_t *)stringdup("");
+				result = (uint8_t *)xstrdup("");
 			}
 			goto done;
 
@@ -73,10 +73,10 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 			if (t == PROMPT_FILES) {
 				char *old_text =
 					E.minibuf->numrows > 0 ?
-						stringdup((char *)E.minibuf
-								  ->row[0]
-								  .chars) :
-						stringdup("");
+						xstrdup((char *)E.minibuf
+								->row[0]
+								.chars) :
+						xstrdup("");
 				uint8_t *tc =
 					tabCompleteFiles((uint8_t *)old_text);
 				if (tc && tc != (uint8_t *)old_text) {
@@ -93,10 +93,10 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 			} else if (t == PROMPT_BASIC) {
 				char *old_text =
 					E.minibuf->numrows > 0 ?
-						stringdup((char *)E.minibuf
-								  ->row[0]
-								  .chars) :
-						stringdup("");
+						xstrdup((char *)E.minibuf
+								->row[0]
+								.chars) :
+						xstrdup("");
 				uint8_t *tc = tabCompleteBufferNames(
 					&E, (uint8_t *)old_text, bufr);
 				if (tc && tc != (uint8_t *)old_text) {
@@ -113,10 +113,10 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 			} else if (t == PROMPT_COMMAND) {
 				char *old_text =
 					E.minibuf->numrows > 0 ?
-						stringdup((char *)E.minibuf
-								  ->row[0]
-								  .chars) :
-						stringdup("");
+						xstrdup((char *)E.minibuf
+								->row[0]
+								.chars) :
+						xstrdup("");
 				uint8_t *tc = tabCompleteCommands(
 					&E, (uint8_t *)old_text);
 				if (tc && tc != (uint8_t *)old_text) {
@@ -134,7 +134,6 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 			break;
 
 		default:
-			/* Let normal key processing handle it */
 			editorProcessKeypress(c);
 
 			/* Ensure single line */
@@ -168,7 +167,6 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 			}
 		}
 
-		/* Callback if provided */
 		if (callback) {
 			char *text = E.minibuf->numrows > 0 ?
 					     (char *)E.minibuf->row[0].chars :
