@@ -39,6 +39,7 @@ typedef struct erow {
 	uint8_t *render;
 	int cached_width;
 	int width_valid;
+	int render_valid;
 } erow;
 
 struct editorUndo {
@@ -60,6 +61,7 @@ struct editorBuffer {
 	int cx, cy;
 	int markx, marky;
 	int numrows;
+	int rowcap;
 	int end;
 	int dirty;
 	int special_buffer;
@@ -155,7 +157,7 @@ struct editorConfig {
 
 	time_t statusmsg_time;
 	struct termios orig_termios;
-	struct editorBuffer *firstBuf;
+	struct editorBuffer *headbuf;
 	struct editorBuffer *buf; /* Current active buffer */
 	int nwindows;
 	struct editorWindow **windows;
@@ -168,6 +170,7 @@ struct editorConfig {
 	struct editorRegister registers[127];
 	struct editorBuffer *lastVisitedBuffer;
 	int uarg; /* Universal argument: 0 = off, non-zero = active with that value */
+	int macro_depth; /* Current macro execution depth to prevent infinite recursion */
 };
 
 /*** prototypes ***/
@@ -180,7 +183,7 @@ void editorInsertNewline(struct editorBuffer *bufr, int count);
 void editorInsertChar(struct editorBuffer *bufr, int c, int count);
 void editorOpen(struct editorBuffer *bufr, char *filename);
 void die(const char *s);
-struct editorBuffer *newBuffer();
+struct editorBuffer *newBuffer(void);
 void destroyBuffer(struct editorBuffer *);
 void editorRecordKey(int c);
 void editorExecMacro(struct editorMacro *macro);

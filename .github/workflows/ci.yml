@@ -11,32 +11,41 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        
+        compiler: [gcc, clang]
+        exclude:
+          # macOS uses clang by default, skip gcc
+          - os: macos-latest
+            compiler: gcc
+
     runs-on: ${{ matrix.os }}
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Build
-      run: make
+    - name: Build with ${{ matrix.compiler }}
+      run: make CC=${{ matrix.compiler }}
     
     - name: Run unit tests
       run: make test
 
   sanitizers:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [gcc, clang]
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Build with AddressSanitizer + UndefinedBehaviorSanitizer
-      run: make clean && make CFLAGS="-fsanitize=address,undefined -g -O1" LDFLAGS="-fsanitize=address,undefined"
+    - name: Build with AddressSanitizer + UndefinedBehaviorSanitizer (${{ matrix.compiler }})
+      run: make clean && make CC=${{ matrix.compiler }} CFLAGS="-fsanitize=address,undefined -g -O1 -fno-omit-frame-pointer" LDFLAGS="-fsanitize=address,undefined"
     
     - name: Test with sanitizers
       run: |
-        echo "Testing with sanitizers enabled..."
-        timeout 5s ./emsys --version || true
-        echo "test content" | timeout 5s ./emsys || true
+        echo "Testing emsys with sanitizers enabled..."
+        ./emsys --version
+        echo "Running unit tests with sanitizers..."
+        make test
 
   security:
     runs-on: ubuntu-latest

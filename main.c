@@ -74,10 +74,11 @@ void initEditor() {
 	E.macro.keys = NULL;
 	E.micro = 0;
 	E.playback = 0;
-	E.firstBuf = NULL;
+	E.headbuf = NULL;
 	memset(E.registers, 0, sizeof(E.registers));
 	setupCommands(&E);
 	E.lastVisitedBuffer = NULL;
+	E.macro_depth = 0;
 
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1)
 		die("getWindowSize");
@@ -92,8 +93,8 @@ int main(int argc, char *argv[]) {
 
 	enableRawMode();
 	initEditor();
-	E.firstBuf = newBuffer();
-	E.buf = E.firstBuf;
+	E.headbuf = newBuffer();
+	E.buf = E.headbuf;
 	if (argc >= 2) {
 		int i = 1;
 		int linum = -1;
@@ -102,17 +103,22 @@ int main(int argc, char *argv[]) {
 			i++;
 		}
 		for (; i < argc; i++) {
-			E.firstBuf = newBuffer();
-			editorOpen(E.firstBuf, argv[i]);
-			E.firstBuf->next = E.buf;
+			struct editorBuffer *newBuf = newBuffer();
+			editorOpen(newBuf, argv[i]);
+
+			newBuf->next = E.headbuf;
 			if (linum > 0) {
-				E.firstBuf->cy = linum - 1;
-				linum = -1;
-				if (E.firstBuf->cy > E.firstBuf->numrows) {
-					E.firstBuf->cy = E.firstBuf->numrows;
+				if (newBuf->numrows == 0) {
+					newBuf->cy = 0;
+				} else if (linum - 1 >= newBuf->numrows) {
+					newBuf->cy = newBuf->numrows - 1;
+				} else {
+					newBuf->cy = linum - 1;
 				}
+				linum = -1;
 			}
-			E.buf = E.firstBuf;
+			E.headbuf = newBuf;
+			E.buf = newBuf;
 		}
 	}
 	E.windows[0]->buf = E.buf;
@@ -121,7 +127,7 @@ int main(int argc, char *argv[]) {
 	E.minibuf = newBuffer();
 	E.minibuf->single_line = 1;
 	E.minibuf->truncate_lines = 1;
-	E.minibuf->filename = stringdup("*minibuffer*");
+	E.minibuf->filename = xstrdup("*minibuffer*");
 	E.edbuf = E.buf;
 
 	editorSetStatusMessage("emsys " EMSYS_VERSION " - C-x C-c to quit");

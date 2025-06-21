@@ -35,7 +35,9 @@ static uint8_t *transformerPipeCmd(uint8_t *input) {
 				       subprocess_option_inherit_environment,
 				       &subprocess);
 	if (result) {
-		die("subprocess");
+		editorSetStatusMessage(
+			"Shell command failed: unable to create subprocess");
+		return NULL;
 	}
 	FILE *p_stdin = subprocess_stdin(&subprocess);
 	FILE *p_stdout = subprocess_stdout(&subprocess);
@@ -47,7 +49,18 @@ static uint8_t *transformerPipeCmd(uint8_t *input) {
 
 	/* Join process */
 	int sub_ret;
-	subprocess_join(&subprocess, &sub_ret);
+	if (subprocess_join(&subprocess, &sub_ret) != 0) {
+		editorSetStatusMessage(
+			"Shell command failed: error waiting for subprocess");
+		return NULL;
+	}
+
+	/* Check if subprocess exited with error */
+	if (sub_ret != 0) {
+		editorSetStatusMessage("Shell command exited with status %d",
+				       sub_ret);
+		/* Continue anyway to show any output/errors */
+	}
 
 	/* Read stdout of process into buffer */
 	int c = fgetc(p_stdout);
@@ -57,11 +70,22 @@ static uint8_t *transformerPipeCmd(uint8_t *input) {
 		buf[i] = 0;
 		if (i >= bsiz - 10) {
 			bsiz <<= 1;
-			buf = realloc(buf, bsiz);
+			char *newbuf = realloc(buf, bsiz);
+			if (!newbuf) {
+				subprocess_destroy(&subprocess);
+				editorSetStatusMessage(
+					"Shell command failed: out of memory");
+				return NULL;
+			}
+			buf = newbuf;
 		}
 		c = fgetc(p_stdout);
 	}
-	editorSetStatusMessage("Read %d bytes", i);
+
+	/* Only show byte count if subprocess succeeded */
+	if (sub_ret == 0) {
+		editorSetStatusMessage("Read %d bytes", i);
+	}
 
 	/* Cleanup & return */
 	subprocess_destroy(&subprocess);
@@ -69,7 +93,7 @@ static uint8_t *transformerPipeCmd(uint8_t *input) {
 }
 
 uint8_t *editorPipe(struct editorConfig *ed, struct editorBuffer *bf) {
-	buf = calloc(1, BUFSIZ + 1);
+	buf = xcalloc(1, BUFSIZ + 1);
 	cmd = NULL;
 	cmd = editorPrompt(bf, (uint8_t *)"Shell command on region: %s",
 			   PROMPT_BASIC, NULL);
@@ -118,7 +142,7 @@ void editorPipeCmd(struct editorConfig *ed, struct editorBuffer *bufr) {
 			editorSetStatusMessage("%s", pipeOutput);
 		} else {
 			struct editorBuffer *newBuf = newBuffer();
-			newBuf->filename = stringdup("*Shell Output*");
+			newBuf->filename = xstrdup("*Shell Output*");
 			newBuf->special_buffer = 1;
 
 			// Use a temporary buffer to build each row
@@ -141,10 +165,10 @@ void editorPipeCmd(struct editorConfig *ed, struct editorBuffer *bufr) {
 			}
 
 			// Link the new buffer and update focus
-			if (ed->firstBuf == NULL) {
-				ed->firstBuf = newBuf;
+			if (ed->headbuf == NULL) {
+				ed->headbuf = newBuf;
 			} else {
-				struct editorBuffer *temp = ed->firstBuf;
+				struct editorBuffer *temp = ed->headbuf;
 				while (temp->next != NULL) {
 					temp = temp->next;
 				}

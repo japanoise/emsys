@@ -89,9 +89,11 @@ enum editorKey {
 	RECT_REGISTER,
 	EXPAND,
 	UNIVERSAL_ARGUMENT,
+	REGEX_SEARCH_FORWARD,
+	REGEX_SEARCH_BACKWARD,
+	INSERT_FILE,
 };
 
-/* Forward declarations */
 struct editorBuffer;
 struct editorMacro;
 struct editorConfig;

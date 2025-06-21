@@ -13,6 +13,7 @@
 #include "region.h"
 #include "prompt.h"
 #include "terminal.h"
+#include "util.h"
 
 extern struct editorConfig E;
 
@@ -84,7 +85,7 @@ void editorInsertNewline(struct editorBuffer *bufr, int count) {
 			row = &bufr->row[bufr->cy];
 			row->size = bufr->cx;
 			row->chars[row->size] = '\0';
-			updateRow(row);
+			row->render_valid = 0;
 		}
 		bufr->cy++;
 		bufr->cx = 0;
@@ -185,7 +186,7 @@ UNINDENT_PERFORM:
 	bufr->undo = new;
 	if (new->datasize < trunc - 1) {
 		new->datasize = trunc + 1;
-		new->data = realloc(new->data, new->datasize);
+		new->data = xrealloc(new->data, new->datasize);
 	}
 	memset(new->data, indCh, trunc);
 	new->data[trunc] = 0;
@@ -612,7 +613,7 @@ void editorKillLine(int count) {
 			// Copy to kill ring
 			int kill_len = row->size - E.buf->cx;
 			free(E.kill);
-			E.kill = malloc(kill_len + 1);
+			E.kill = xmalloc(kill_len + 1);
 			memcpy(E.kill, &row->chars[E.buf->cx], kill_len);
 			E.kill[kill_len] = '\0';
 
@@ -629,7 +630,7 @@ void editorKillLine(int count) {
 			new->datalen = kill_len;
 			if (new->datasize < new->datalen + 1) {
 				new->datasize = new->datalen + 1;
-				new->data = realloc(new->data, new->datasize);
+				new->data = xrealloc(new->data, new->datasize);
 			}
 			for (int i = 0; i < kill_len; i++) {
 				new->data[i] = E.kill[kill_len - i - 1];
@@ -638,7 +639,7 @@ void editorKillLine(int count) {
 
 			row->size = E.buf->cx;
 			row->chars[row->size] = '\0';
-			updateRow(row);
+			row->render_valid = 0;
 			E.buf->dirty = 1;
 			editorClearMark();
 		}
@@ -654,7 +655,7 @@ void editorKillLineBackwards(void) {
 
 	// Copy to kill ring
 	free(E.kill);
-	E.kill = malloc(E.buf->cx + 1);
+	E.kill = xmalloc(E.buf->cx + 1);
 	memcpy(E.kill, row->chars, E.buf->cx);
 	E.kill[E.buf->cx] = '\0';
 
@@ -671,7 +672,7 @@ void editorKillLineBackwards(void) {
 	new->datalen = E.buf->cx;
 	if (new->datasize < new->datalen + 1) {
 		new->datasize = new->datalen + 1;
-		new->data = realloc(new->data, new->datasize);
+		new->data = xrealloc(new->data, new->datasize);
 	}
 	for (int i = 0; i < E.buf->cx; i++) {
 		new->data[i] = E.kill[E.buf->cx - i - 1];
@@ -776,7 +777,7 @@ void editorQuit(void) {
 		E.recording = 0;
 	}
 	// Check all buffers for unsaved changes, except the special buffers
-	struct editorBuffer *current = E.firstBuf;
+	struct editorBuffer *current = E.headbuf;
 	int hasUnsavedChanges = 0;
 	while (current != NULL) {
 		if (current->dirty && current->filename != NULL &&

@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include "emsys.h"
 #include "region.h"
 #include "buffer.h"
@@ -8,6 +9,7 @@
 #include "unicode.h"
 #include "display.h"
 #include "unused.h"
+#include "util.h"
 
 void editorDoUndo(struct editorBuffer *buf, int count) {
 	int times = count ? count : 1;
@@ -57,7 +59,7 @@ void editorDoUndo(struct editorBuffer *buf, int count) {
 					&buf->row[buf->undo->starty + 1];
 				row->size = buf->undo->startx;
 				row->size += last->size - buf->undo->endx;
-				row->chars = realloc(row->chars, row->size);
+				row->chars = xrealloc(row->chars, row->size);
 				memcpy(&row->chars[buf->undo->startx],
 				       &last->chars[buf->undo->endx],
 				       last->size - buf->undo->endx);
@@ -123,7 +125,7 @@ void editorDoRedo(struct editorBuffer *buf, int count) {
 					&buf->row[buf->redo->starty + 1];
 				row->size = buf->redo->startx;
 				row->size += last->size - buf->redo->endx;
-				row->chars = realloc(row->chars, row->size);
+				row->chars = xrealloc(row->chars, row->size);
 				memcpy(&row->chars[buf->redo->startx],
 				       &last->chars[buf->redo->endx],
 				       last->size - buf->redo->endx);
@@ -160,7 +162,7 @@ void editorDoRedo(struct editorBuffer *buf, int count) {
 }
 
 struct editorUndo *newUndo() {
-	struct editorUndo *ret = malloc(sizeof(*ret));
+	struct editorUndo *ret = xmalloc(sizeof(*ret));
 	ret->prev = NULL;
 	ret->paired = 0;
 	ret->startx = 0;
@@ -171,7 +173,7 @@ struct editorUndo *newUndo() {
 	ret->delete = 0;
 	ret->datalen = 0;
 	ret->datasize = 22;
-	ret->data = malloc(ret->datasize);
+	ret->data = xmalloc(ret->datasize);
 	ret->data[0] = 0;
 	return ret;
 }
@@ -218,8 +220,12 @@ void editorUndoAppendChar(struct editorBuffer *buf, uint8_t c) {
 	buf->undo->data[buf->undo->datalen++] = c;
 	buf->undo->data[buf->undo->datalen] = 0;
 	if (buf->undo->datalen >= buf->undo->datasize - 2) {
+		if ((size_t)buf->undo->datasize > SIZE_MAX / 2) {
+			die("buffer size overflow");
+		}
 		buf->undo->datasize *= 2;
-		buf->undo->data = realloc(buf->undo->data, buf->undo->datasize);
+		buf->undo->data =
+			xrealloc(buf->undo->data, buf->undo->datasize);
 	}
 	buf->undo->append = !(buf->undo->datalen >= buf->undo->datasize - 2);
 	if (c == '\n') {
@@ -278,8 +284,12 @@ void editorUndoBackSpace(struct editorBuffer *buf, uint8_t c) {
 	buf->undo->data[buf->undo->datalen++] = c;
 	buf->undo->data[buf->undo->datalen] = 0;
 	if (buf->undo->datalen >= buf->undo->datasize - 2) {
+		if ((size_t)buf->undo->datasize > SIZE_MAX / 2) {
+			die("buffer size overflow");
+		}
 		buf->undo->datasize *= 2;
-		buf->undo->data = realloc(buf->undo->data, buf->undo->datasize);
+		buf->undo->data =
+			xrealloc(buf->undo->data, buf->undo->datasize);
 	}
 	if (c == '\n') {
 		buf->undo->starty--;
@@ -308,9 +318,12 @@ void editorUndoDelChar(struct editorBuffer *buf, erow *row) {
 	if (buf->cx == row->size) {
 		buf->undo->datalen++;
 		if (buf->undo->datalen >= buf->undo->datasize - 2) {
+			if ((size_t)buf->undo->datasize > SIZE_MAX / 2) {
+				die("buffer size overflow");
+			}
 			buf->undo->datasize *= 2;
 			buf->undo->data =
-				realloc(buf->undo->data, buf->undo->datasize);
+				xrealloc(buf->undo->data, buf->undo->datasize);
 		}
 		memmove(&buf->undo->data[1], buf->undo->data,
 			buf->undo->datalen - 1);
@@ -321,9 +334,12 @@ void editorUndoDelChar(struct editorBuffer *buf, erow *row) {
 		int n = utf8_nBytes(row->chars[buf->cx]);
 		buf->undo->datalen += n;
 		if (buf->undo->datalen >= buf->undo->datasize - 2) {
+			if ((size_t)buf->undo->datasize > SIZE_MAX / 2) {
+				die("buffer size overflow");
+			}
 			buf->undo->datasize *= 2;
 			buf->undo->data =
-				realloc(buf->undo->data, buf->undo->datasize);
+				xrealloc(buf->undo->data, buf->undo->datasize);
 		}
 		memmove(&buf->undo->data[n], buf->undo->data,
 			buf->undo->datalen - n);

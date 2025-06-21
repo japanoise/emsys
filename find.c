@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <regex.h>
+#include <stdint.h>
 #include "display.h"
 #include "keymap.h"
 #include "terminal.h"
@@ -12,8 +14,34 @@
 #include "unicode.h"
 #include "region.h"
 #include "prompt.h"
+#include "unused.h"
 
 extern struct editorConfig E;
+static int regex_mode = 0;
+
+/* Helper function to search for regex match in a string */
+static uint8_t *regexSearch(uint8_t *text, uint8_t *pattern) {
+	if (!pattern || !text || strlen((char *)pattern) == 0) {
+		return NULL;
+	}
+
+	regex_t regex;
+	regmatch_t match[1];
+
+	/* Try to compile regex, fall back to literal search if invalid */
+	if (regcomp(&regex, (char *)pattern, REG_EXTENDED) != 0) {
+		return strstr((char *)text, (char *)pattern);
+	}
+
+	/* Execute regex search */
+	if (regexec(&regex, (char *)text, 1, match, 0) == 0) {
+		regfree(&regex);
+		return text + match[0].rm_so;
+	}
+
+	regfree(&regex);
+	return NULL;
+}
 
 // https://stackoverflow.com/a/779960
 // You must free the result if result is non-NULL.
@@ -21,13 +49,13 @@ uint8_t *orig;
 uint8_t *repl;
 
 char *str_replace(char *orig, char *rep, char *with) {
-	char *result;  // the return string
-	char *ins;     // the next insert point
-	char *tmp;     // varies
-	int len_rep;   // length of rep (the string to remove)
-	int len_with;  // length of with (the string to replace rep with)
-	int len_front; // distance between rep and end of last rep
-	int count;     // number of replacements
+	char *result;	  // the return string
+	char *ins;	  // the next insert point
+	char *tmp;	  // varies
+	size_t len_rep;	  // length of rep (the string to remove)
+	size_t len_with;  // length of with (the string to replace rep with)
+	size_t len_front; // distance between rep and end of last rep
+	size_t count;	  // number of replacements
 
 	// sanity checks and initialization
 	if (!orig || !rep)
@@ -45,7 +73,29 @@ char *str_replace(char *orig, char *rep, char *with) {
 		ins = tmp + len_rep;
 	}
 
-	tmp = result = malloc(strlen(orig) + (len_with - len_rep) * count + 1);
+	// Check for potential overflow
+	size_t orig_len = strlen(orig);
+	size_t result_size;
+	if (len_with > len_rep) {
+		// Check if multiplication would overflow
+		size_t diff = len_with - len_rep;
+		if (count > 0 && diff > (SIZE_MAX - orig_len - 1) / count) {
+			return NULL; // Overflow would occur
+		}
+		result_size = orig_len + diff * count + 1;
+	} else if (len_with < len_rep) {
+		// Shrinking - need to handle underflow
+		size_t diff = len_rep - len_with;
+		if (diff * count > orig_len) {
+			// Would result in negative size
+			return NULL;
+		}
+		result_size = orig_len - diff * count + 1;
+	} else {
+		// len_with == len_rep, no size change
+		result_size = orig_len + 1;
+	}
+	tmp = result = malloc(result_size);
 
 	if (!result)
 		return NULL;
@@ -58,11 +108,18 @@ char *str_replace(char *orig, char *rep, char *with) {
 	while (count--) {
 		ins = strstr(orig, rep);
 		len_front = ins - orig;
-		tmp = strncpy(tmp, orig, len_front) + len_front;
-		tmp = strcpy(tmp, with) + len_with;
+		size_t remaining = result_size - (tmp - result);
+		memcpy(tmp, orig, len_front);
+		tmp += len_front;
+		remaining = result_size - (tmp - result);
+		int written = snprintf(tmp, remaining, "%s", with);
+		if (written >= 0 && (size_t)written < remaining) {
+			tmp += written;
+		}
 		orig += len_front + len_rep; // move to next "end of rep"
 	}
-	strcpy(tmp, orig);
+	size_t final_remaining = result_size - (tmp - result);
+	snprintf(tmp, final_remaining, "%s", orig);
 	return result;
 }
 
@@ -75,6 +132,7 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 	if (key == CTRL('g') || key == CTRL('c') || key == '\r') {
 		last_match = -1;
 		direction = 1;
+		regex_mode = 0; /* Reset regex mode on exit */
 		return;
 	} else if (key == CTRL('s')) {
 		direction = 1;
@@ -88,15 +146,30 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 	if (last_match == -1)
 		direction = 1;
 	int current = last_match;
-	if (current >= 0) {
+	if (current >= 0 && current < bufr->numrows) {
 		erow *row = &bufr->row[current];
-		uint8_t *match = strstr(&(row->chars[bufr->cx + 1]), query);
+		uint8_t *match;
+		if (bufr->cx + 1 >= row->size) {
+			match = NULL;
+		} else {
+			if (regex_mode) {
+				match = regexSearch(&(row->chars[bufr->cx + 1]),
+						    query);
+			} else {
+				match = strstr(&(row->chars[bufr->cx + 1]),
+					       query);
+			}
+		}
 		if (match) {
 			last_match = current;
 			bufr->cy = current;
 			bufr->cx = match - row->chars;
+			/* Ensure we're at a character boundary */
+			while (bufr->cx > 0 &&
+			       utf8_isCont(row->chars[bufr->cx])) {
+				bufr->cx--;
+			}
 			scroll();
-			//			bufr->rowoff = bufr->numrows;
 			bufr->match = 1;
 			return;
 		}
@@ -109,13 +182,22 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 			current = 0;
 
 		erow *row = &bufr->row[current];
-		uint8_t *match = strstr(row->chars, query);
+		uint8_t *match;
+		if (regex_mode) {
+			match = regexSearch(row->chars, query);
+		} else {
+			match = strstr(row->chars, query);
+		}
 		if (match) {
 			last_match = current;
 			bufr->cy = current;
 			bufr->cx = match - row->chars;
+			/* Ensure we're at a character boundary */
+			while (bufr->cx > 0 &&
+			       utf8_isCont(row->chars[bufr->cx])) {
+				bufr->cx--;
+			}
 			scroll();
-			//			bufr->rowoff = bufr->numrows;
 			bufr->match = 1;
 			break;
 		}
@@ -123,6 +205,7 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 }
 
 void editorFind(struct editorBuffer *bufr) {
+	regex_mode = 0; /* Start in normal mode */
 	int saved_cx = bufr->cx;
 	int saved_cy = bufr->cy;
 	//	int saved_rowoff = bufr->rowoff;
@@ -140,6 +223,24 @@ void editorFind(struct editorBuffer *bufr) {
 	}
 }
 
+void editorRegexFind(struct editorBuffer *bufr) {
+	regex_mode = 1; /* Start in regex mode */
+	int saved_cx = bufr->cx;
+	int saved_cy = bufr->cy;
+
+	uint8_t *query = editorPrompt(bufr, "Regex search (C-g to cancel): %s",
+				      PROMPT_BASIC, editorFindCallback);
+
+	bufr->query = NULL;
+	regex_mode = 0; /* Reset after search */
+	if (query) {
+		free(query);
+	} else {
+		bufr->cx = saved_cx;
+		bufr->cy = saved_cy;
+	}
+}
+
 uint8_t *transformerReplaceString(uint8_t *input) {
 	return str_replace(input, orig, repl);
 }
@@ -154,9 +255,10 @@ void editorReplaceString(struct editorConfig *ed, struct editorBuffer *buf) {
 	}
 
 	uint8_t *prompt = malloc(strlen(orig) + 20);
-	sprintf(prompt, "Replace %s with: %%s", orig);
+	snprintf(prompt, strlen(orig) + 20, "Replace %s with: %%s", orig);
 	repl = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 	free(prompt);
+	prompt = NULL;
 	if (repl == NULL) {
 		free(orig);
 		editorSetStatusMessage("Canceled replace-string.");
@@ -204,7 +306,7 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 	}
 
 	uint8_t *prompt = malloc(strlen(orig) + 25);
-	sprintf(prompt, "Query replace %s with: %%s", orig);
+	snprintf(prompt, strlen(orig) + 25, "Query replace %s with: %%s", orig);
 	repl = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 	free(prompt);
 	if (repl == NULL) {
@@ -214,7 +316,8 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 	}
 
 	prompt = malloc(strlen(orig) + strlen(repl) + 32);
-	sprintf(prompt, "Query replacing %s with %s:", orig, repl);
+	snprintf(prompt, strlen(orig) + strlen(repl) + 32,
+		 "Query replacing %s with %s:", orig, repl);
 	int bufwidth = stringWidth(prompt);
 	int savedMx = buf->markx;
 	int savedMy = buf->marky;
@@ -285,7 +388,8 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 			break;
 		case CTRL('r'):
 			prompt = malloc(strlen(orig) + 25);
-			sprintf(prompt, "Replace this %s with: %%s", orig);
+			snprintf(prompt, strlen(orig) + 25,
+				 "Replace this %s with: %%s", orig);
 			newStr = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 			free(prompt);
 			if (newStr == NULL) {
@@ -303,7 +407,8 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 		case 'e':
 		case 'E':
 			prompt = malloc(strlen(orig) + 25);
-			sprintf(prompt, "Query replace %s with: %%s", orig);
+			snprintf(prompt, strlen(orig) + 25,
+				 "Query replace %s with: %%s", orig);
 			newStr = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 			free(prompt);
 			if (newStr == NULL) {
@@ -316,8 +421,8 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 			NEXT_OCCUR(true);
 RESET_PROMPT:
 			prompt = malloc(strlen(orig) + strlen(repl) + 32);
-			sprintf(prompt, "Query replacing %s with %s:", orig,
-				repl);
+			snprintf(prompt, strlen(orig) + strlen(repl) + 32,
+				 "Query replacing %s with %s:", orig, repl);
 			bufwidth = stringWidth(prompt);
 			break;
 		case CTRL('l'):
@@ -333,5 +438,28 @@ QR_CLEANUP:
 	buf->marky = savedMy;
 	free(orig);
 	free(repl);
-	free(prompt);
+	if (prompt != NULL) {
+		free(prompt);
+	}
+}
+
+/* Wrapper for command table */
+void editorRegexFindWrapper(struct editorConfig *UNUSED(ed),
+			    struct editorBuffer *buf) {
+	editorRegexFind(buf);
+}
+
+/* Backward regex find - not yet implemented */
+void editorBackwardRegexFind(struct editorBuffer *bufr) {
+	(void)bufr;	/* Unused parameter */
+	regex_mode = 1; /* Start in regex mode */
+
+	editorSetStatusMessage("Backward regex search not yet implemented");
+	regex_mode = 0; /* Reset after search */
+}
+
+/* Wrapper for backward regex find */
+void editorBackwardRegexFindWrapper(struct editorConfig *UNUSED(ed),
+				    struct editorBuffer *buf) {
+	editorBackwardRegexFind(buf);
 }

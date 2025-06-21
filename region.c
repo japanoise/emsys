@@ -2,13 +2,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <regex.h>
 #include "emsys.h"
-#include "re.h"
 #include "region.h"
 #include "buffer.h"
 #include "undo.h"
 #include "display.h"
 #include "prompt.h"
+#include "util.h"
 
 extern struct editorConfig E;
 
@@ -123,7 +124,7 @@ void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 		struct erow *last = &buf->row[buf->cy + 1];
 		row->size = buf->cx;
 		row->size += last->size - buf->markx;
-		row->chars = realloc(row->chars, row->size);
+		row->chars = xrealloc(row->chars, row->size);
 		memcpy(&row->chars[buf->cx], &last->chars[buf->markx],
 		       last->size - buf->markx);
 		editorDelRow(buf, buf->cy + 1);
@@ -159,7 +160,7 @@ void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 
 		if (killpos >= regionSize - 2) {
 			regionSize *= 2;
-			ed->kill = realloc(ed->kill, regionSize);
+			ed->kill = xrealloc(ed->kill, regionSize);
 		}
 	}
 	ed->kill[killpos] = 0;
@@ -263,7 +264,8 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 	}
 
 	char prompt[64];
-	sprintf(prompt, "Regex replace %.35s with: %%s", regex);
+	snprintf(prompt, sizeof(prompt), "Regex replace %.35s with: %%s",
+		 regex);
 	uint8_t *repl =
 		editorPrompt(buf, (uint8_t *)prompt, PROMPT_BASIC, NULL);
 	if (repl == NULL) {
@@ -290,7 +292,7 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->datalen = strlen((char *)ed->kill);
 	if (new->datasize < new->datalen + 1) {
 		new->datasize = new->datalen + 1;
-		new->data = realloc(new->data, new->datasize);
+		new->data = xrealloc(new->data, new->datasize);
 	}
 	for (int i = 0; i < new->datalen; i++) {
 		new->data[i] = ed->kill[new->datalen - i - 1];
@@ -309,7 +311,7 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->datalen = buf->undo->datalen;
 	if (new->datasize < new->datalen + 1) {
 		new->datasize = new->datalen + 1;
-		new->data = realloc(new->data, new->datasize);
+		new->data = xrealloc(new->data, new->datasize);
 	}
 	new->prev = buf->undo;
 	new->append = 0;
@@ -318,13 +320,27 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 	buf->undo = new;
 
 	/* Regex boilerplate & setup */
-	int match_length;
-	re_t pattern = re_compile((char *)regex);
+	regex_t pattern;
+	regmatch_t matches[1];
+	int regcomp_result = regcomp(&pattern, (char *)regex, REG_EXTENDED);
+	if (regcomp_result != 0) {
+		char error_msg[256];
+		regerror(regcomp_result, &pattern, error_msg,
+			 sizeof(error_msg));
+		editorSetStatusMessage("Regex error: %s", error_msg);
+		free(regex);
+		free(repl);
+		return;
+	}
 
 	for (int i = buf->cy; i <= buf->marky; i++) {
 		struct erow *row = &buf->row[i];
-		int match_idx =
-			re_matchp(pattern, (char *)row->chars, &match_length);
+		int regexec_result =
+			regexec(&pattern, (char *)row->chars, 1, matches, 0);
+		int match_idx = (regexec_result == 0) ? matches[0].rm_so : -1;
+		int match_length = (regexec_result == 0) ? (matches[0].rm_eo -
+							    matches[0].rm_so) :
+							   0;
 		if (i != 0)
 			strcat((char *)new->data, "\n");
 		if (match_idx < 0) {
@@ -356,9 +372,10 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 		row = &buf->row[i];
 		int extra = replen - match_length;
 		if (extra > 0) {
-			row->chars = realloc(row->chars, row->size + 1 + extra);
+			row->chars =
+				xrealloc(row->chars, row->size + 1 + extra);
 			new->datasize += extra;
-			new->data = realloc(new->data, new->datasize);
+			new->data = xrealloc(new->data, new->datasize);
 		}
 		memmove(&row->chars[match_idx + replen],
 			&row->chars[match_idx + match_length],
@@ -389,6 +406,7 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 	buf->cy = new->endy;
 
 	editorUpdateBuffer(buf);
+	regfree(&pattern);
 	free(regex);
 	free(repl);
 
@@ -501,15 +519,15 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	/* First, topy */
 	struct erow *row = &buf->row[topy];
 	if (row->size < botx) {
-		row->chars = realloc(row->chars, botx + 1);
+		row->chars = xrealloc(row->chars, botx + 1);
 		memset(&row->chars[row->size], ' ', botx - row->size);
 		row->size = botx;
 		/* Better safe than sorry */
 		new->datasize += row->size + 1;
-		new->data = realloc(new->data, new->datasize);
+		new->data = xrealloc(new->data, new->datasize);
 	}
 	if (extra > 0) {
-		row->chars = realloc(row->chars, row->size + 1 + extra);
+		row->chars = xrealloc(row->chars, row->size + 1 + extra);
 	}
 	memcpy(&row->chars[topx + slen], &row->chars[botx], row->size - botx);
 	memcpy(&row->chars[topx], string, slen);
@@ -526,14 +544,15 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		/* Next, middle lines */
 		row = &buf->row[i];
 		if (row->size < botx) {
-			row->chars = realloc(row->chars, botx + 1);
+			row->chars = xrealloc(row->chars, botx + 1);
 			memset(&row->chars[row->size], ' ', botx - row->size);
 			row->size = botx;
 			new->datasize += row->size + 1;
-			new->data = realloc(new->data, new->datasize);
+			new->data = xrealloc(new->data, new->datasize);
 		}
 		if (extra > 0) {
-			row->chars = realloc(row->chars, row->size + 1 + extra);
+			row->chars =
+				xrealloc(row->chars, row->size + 1 + extra);
 		}
 		memcpy(&row->chars[topx + slen], &row->chars[botx],
 		       row->size - botx);
@@ -548,14 +567,15 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		strcat((char *)new->data, "\n");
 		row = &buf->row[boty];
 		if (row->size < botx) {
-			row->chars = realloc(row->chars, botx + 1);
+			row->chars = xrealloc(row->chars, botx + 1);
 			memset(&row->chars[row->size], ' ', botx - row->size);
 			row->size = botx;
 			new->datasize += row->size + 1;
-			new->data = realloc(new->data, new->datasize);
+			new->data = xrealloc(new->data, new->datasize);
 		}
 		if (extra > 0) {
-			row->chars = realloc(row->chars, row->size + 1 + extra);
+			row->chars =
+				xrealloc(row->chars, row->size + 1 + extra);
 		}
 		memcpy(&row->chars[topx + slen], &row->chars[botx],
 		       row->size - botx);
@@ -600,7 +620,7 @@ void editorCopyRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		buf->markx = botx;
 	}
 
-	ed->rectKill = calloc((ed->rx * ed->ry) + 1, 1);
+	ed->rectKill = xcalloc((ed->rx * ed->ry) + 1, 1);
 
 	/* First, topy */
 	int idx = 0;
@@ -691,7 +711,7 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	editorCopyRegion(ed, buf);
 	clearRedos(buf);
 
-	ed->rectKill = calloc((ed->rx * ed->ry) + 1, 1);
+	ed->rectKill = xcalloc((ed->rx * ed->ry) + 1, 1);
 
 	struct editorUndo *new = newUndo();
 	new->startx = buf->cx;
@@ -826,7 +846,7 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	topy = buf->cy;
 	botx = topx;
 	boty = topy + ed->ry - 1;
-	char *string = calloc(ed->rx + 1, 1);
+	char *string = xcalloc(ed->rx + 1, 1);
 
 	buf->marky = boty;
 	if (botx > buf->row[boty].size) {
@@ -848,7 +868,7 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		new->endy = buf->numrows - 1;
 		if (extralines >= new->datasize) {
 			new->datasize = extralines + 1;
-			new->data = realloc(new->data, new->datasize);
+			new->data = xrealloc(new->data, new->datasize);
 		}
 		memset(new->data, '\n', extralines);
 		new->data[extralines] = 0;
@@ -915,14 +935,14 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	struct erow *row = &buf->row[topy];
 	strncpy(string, (char *)&ed->rectKill[idx * ed->rx], ed->rx);
 	if (row->size < botx) {
-		row->chars = realloc(row->chars, botx + 1);
+		row->chars = xrealloc(row->chars, botx + 1);
 		memset(&row->chars[row->size], ' ', botx - row->size);
 		row->size = botx;
 		new->datasize += row->size + 1;
-		new->data = realloc(new->data, new->datasize);
+		new->data = xrealloc(new->data, new->datasize);
 	}
 	if (ed->rx > 0) {
-		row->chars = realloc(row->chars, row->size + 1 + ed->rx);
+		row->chars = xrealloc(row->chars, row->size + 1 + ed->rx);
 	}
 	memcpy(&row->chars[topx + ed->rx], &row->chars[botx], row->size - botx);
 	memcpy(&row->chars[topx], string, ed->rx);
@@ -941,15 +961,15 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		row = &buf->row[topy + idx];
 		strncpy(string, (char *)&ed->rectKill[idx * ed->rx], ed->rx);
 		if (row->size < botx) {
-			row->chars = realloc(row->chars, botx + 1);
+			row->chars = xrealloc(row->chars, botx + 1);
 			memset(&row->chars[row->size], ' ', botx - row->size);
 			row->size = botx;
 			new->datasize += row->size + 1;
-			new->data = realloc(new->data, new->datasize);
+			new->data = xrealloc(new->data, new->datasize);
 		}
 		if (ed->rx > 0) {
 			row->chars =
-				realloc(row->chars, row->size + 1 + ed->rx);
+				xrealloc(row->chars, row->size + 1 + ed->rx);
 		}
 		memcpy(&row->chars[topx + ed->rx], &row->chars[botx],
 		       row->size - botx);
@@ -966,15 +986,15 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		strncpy(string, (char *)&ed->rectKill[idx * ed->rx], ed->rx);
 		row = &buf->row[boty];
 		if (row->size < botx) {
-			row->chars = realloc(row->chars, botx + 1);
+			row->chars = xrealloc(row->chars, botx + 1);
 			memset(&row->chars[row->size], ' ', botx - row->size);
 			row->size = botx;
 			new->datasize += row->size + 1;
-			new->data = realloc(new->data, new->datasize);
+			new->data = xrealloc(new->data, new->datasize);
 		}
 		if (ed->rx > 0) {
 			row->chars =
-				realloc(row->chars, row->size + 1 + ed->rx);
+				xrealloc(row->chars, row->size + 1 + ed->rx);
 		}
 		memcpy(&row->chars[topx + ed->rx], &row->chars[botx],
 		       row->size - botx);
