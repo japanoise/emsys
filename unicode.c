@@ -111,7 +111,7 @@ static int testCaseStringWidth(char *str, int expected) {
 	return actual != expected;
 }
 
-int unicodeTest() {
+int unicodeTest(void) {
 	printf("UTF8 -> UCS conversion test\n");
 	int retval = testCaseUCS("$", 0x24);
 	retval = retval + testCaseUCS("\xC2\xA2", 0xA2);

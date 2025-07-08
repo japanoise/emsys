@@ -23,7 +23,12 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Build with ${{ matrix.compiler }}
-      run: make CC=${{ matrix.compiler }}
+      run: |
+        if [ "${{ matrix.os }}" = "macos-latest" ]; then
+          make darwin
+        else
+          make CC=${{ matrix.compiler }}
+        fi
     
     - name: Run unit tests
       run: make test

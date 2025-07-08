@@ -1,5 +1,4 @@
-#include "platform.h"
-#include "compat.h"
+#include "util.h"
 
 #ifndef EMSYS_DISABLE_PIPE
 
@@ -70,13 +69,7 @@ static uint8_t *transformerPipeCmd(uint8_t *input) {
 		buf[i] = 0;
 		if (i >= bsiz - 10) {
 			bsiz <<= 1;
-			char *newbuf = realloc(buf, bsiz);
-			if (!newbuf) {
-				subprocess_destroy(&subprocess);
-				editorSetStatusMessage(
-					"Shell command failed: out of memory");
-				return NULL;
-			}
+			char *newbuf = xrealloc(buf, bsiz);
 			buf = newbuf;
 		}
 		c = fgetc(p_stdout);

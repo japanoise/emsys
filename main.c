@@ -1,5 +1,4 @@
-#include "platform.h"
-#include "compat.h"
+#include "util.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -33,7 +32,7 @@
 const int page_overlap = 2;
 
 struct editorConfig E;
-void setupHandlers();
+void setupHandlers(void);
 
 /*** output ***/
 
@@ -49,24 +48,28 @@ void editorResume(int UNUSED(sig)) {
 	editorResizeScreen(0);
 }
 
+#ifdef SIGWINCH
 void sigwinchHandler(int UNUSED(sig)) {
 	editorResizeScreen(0);
 }
+#endif
 
 /*** init ***/
 
-void setupHandlers() {
+void setupHandlers(void) {
+#ifdef SIGWINCH
 	signal(SIGWINCH, sigwinchHandler);
+#endif
 	signal(SIGCONT, editorResume);
 	signal(SIGTSTP, editorSuspend);
 }
 
-void initEditor() {
+void initEditor(void) {
 	E.statusmsg[0] = 0;
 	E.kill = NULL;
 	E.rectKill = NULL;
-	E.windows = malloc(sizeof(struct editorWindow *) * 1);
-	E.windows[0] = malloc(sizeof(struct editorWindow));
+	E.windows = xmalloc(sizeof(struct editorWindow *) * 1);
+	E.windows[0] = xcalloc(1, sizeof(struct editorWindow));
 	E.windows[0]->focused = 1;
 	E.nwindows = 1;
 	E.recording = 0;
@@ -148,7 +151,7 @@ int main(int argc, char *argv[]) {
 				E.macro.skeys = 0x10;
 				free(E.macro.keys);
 				E.macro.keys =
-					malloc(E.macro.skeys * sizeof(int));
+					xmalloc(E.macro.skeys * sizeof(int));
 			}
 		} else if (c == MACRO_END) {
 			if (E.recording) {

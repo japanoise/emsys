@@ -15,6 +15,7 @@
 #include "region.h"
 #include "prompt.h"
 #include "unused.h"
+#include "util.h"
 
 extern struct editorConfig E;
 static int regex_mode = 0;
@@ -95,7 +96,7 @@ char *str_replace(char *orig, char *rep, char *with) {
 		// len_with == len_rep, no size change
 		result_size = orig_len + 1;
 	}
-	tmp = result = malloc(result_size);
+	tmp = result = xmalloc(result_size);
 
 	if (!result)
 		return NULL;
@@ -156,8 +157,8 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 				match = regexSearch(&(row->chars[bufr->cx + 1]),
 						    query);
 			} else {
-				match = strstr(&(row->chars[bufr->cx + 1]),
-					       query);
+				match = strstr((char *)&(row->chars[bufr->cx + 1]),
+					       (char *)query);
 			}
 		}
 		if (match) {
@@ -186,7 +187,7 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 		if (regex_mode) {
 			match = regexSearch(row->chars, query);
 		} else {
-			match = strstr(row->chars, query);
+			match = strstr((char *)row->chars, (char *)query);
 		}
 		if (match) {
 			last_match = current;
@@ -254,7 +255,7 @@ void editorReplaceString(struct editorConfig *ed, struct editorBuffer *buf) {
 		return;
 	}
 
-	uint8_t *prompt = malloc(strlen(orig) + 20);
+	uint8_t *prompt = xmalloc(strlen(orig) + 20);
 	snprintf(prompt, strlen(orig) + 20, "Replace %s with: %%s", orig);
 	repl = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 	free(prompt);
@@ -279,7 +280,7 @@ static int nextOccur(struct editorBuffer *buf, uint8_t *needle, int ocheck) {
 	}
 	while (buf->cy < buf->numrows) {
 		erow *row = &buf->row[buf->cy];
-		uint8_t *match = strstr(&(row->chars[buf->cx]), needle);
+		uint8_t *match = strstr((char *)&(row->chars[buf->cx]), (char *)needle);
 		if (match) {
 			if (!(buf->cx == ox && buf->cy == oy)) {
 				buf->cx = match - row->chars;
@@ -305,7 +306,7 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 		return;
 	}
 
-	uint8_t *prompt = malloc(strlen(orig) + 25);
+	uint8_t *prompt = xmalloc(strlen(orig) + 25);
 	snprintf(prompt, strlen(orig) + 25, "Query replace %s with: %%s", orig);
 	repl = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
 	free(prompt);
@@ -315,7 +316,7 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 		return;
 	}
 
-	prompt = malloc(strlen(orig) + strlen(repl) + 32);
+	prompt = xmalloc(strlen(orig) + strlen(repl) + 32);
 	snprintf(prompt, strlen(orig) + strlen(repl) + 32,
 		 "Query replacing %s with %s:", orig, repl);
 	int bufwidth = stringWidth(prompt);
@@ -387,7 +388,7 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 			buf->cx -= strlen(orig);
 			break;
 		case CTRL('r'):
-			prompt = malloc(strlen(orig) + 25);
+			prompt = xmalloc(strlen(orig) + 25);
 			snprintf(prompt, strlen(orig) + 25,
 				 "Replace this %s with: %%s", orig);
 			newStr = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
@@ -406,7 +407,7 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 			break;
 		case 'e':
 		case 'E':
-			prompt = malloc(strlen(orig) + 25);
+			prompt = xmalloc(strlen(orig) + 25);
 			snprintf(prompt, strlen(orig) + 25,
 				 "Query replace %s with: %%s", orig);
 			newStr = editorPrompt(buf, prompt, PROMPT_BASIC, NULL);
@@ -420,7 +421,7 @@ void editorQueryReplace(struct editorConfig *ed, struct editorBuffer *buf) {
 					      transformerReplaceString);
 			NEXT_OCCUR(true);
 RESET_PROMPT:
-			prompt = malloc(strlen(orig) + strlen(repl) + 32);
+			prompt = xmalloc(strlen(orig) + strlen(repl) + 32);
 			snprintf(prompt, strlen(orig) + strlen(repl) + 32,
 				 "Query replacing %s with %s:", orig, repl);
 			bufwidth = stringWidth(prompt);

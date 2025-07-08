@@ -10,10 +10,11 @@
 #include "display.h"
 #include "unused.h"
 #include "region.h"
+#include "util.h"
 
 #define MKOUTPUT(in, l, o)  \
-	int l = strlen(in); \
-	uint8_t *o = malloc(l + 1)
+	int l = strlen((char *)in); \
+	uint8_t *o = xmalloc(l + 1)
 
 uint8_t *transformerUpcase(uint8_t *input) {
 	MKOUTPUT(input, len, output);
@@ -81,7 +82,7 @@ uint8_t *transformerTransposeChars(uint8_t *input) {
 uint8_t *transformerTransposeWords(uint8_t *input) {
 	MKOUTPUT(input, len, output);
 
-	int endFirst, startSecond = 0;
+	int endFirst = 0, startSecond = 0;
 	int which = 0;
 	for (int i = 0; i <= len; i++) {
 		if (!which) {

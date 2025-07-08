@@ -98,9 +98,9 @@ void editorKillRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 	new->endx = buf->markx;
 	new->endy = buf->marky;
 	free(new->data);
-	new->datalen = strlen(ed->kill);
+	new->datalen = strlen((char *)ed->kill);
 	new->datasize = new->datalen + 1;
-	new->data = malloc(new->datasize);
+	new->data = xmalloc(new->datasize);
 	/* XXX: have to copy kill to undo in reverse */
 	for (int i = 0; i < new->datalen; i++) {
 		new->data[i] = ed->kill[new->datalen - i - 1];
@@ -144,7 +144,7 @@ void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 	normalizeRegion(buf);
 	free(ed->kill);
 	int regionSize = 32;
-	ed->kill = malloc(regionSize);
+	ed->kill = xmalloc(regionSize);
 
 	int killpos = 0;
 	while (!(buf->cy == buf->marky && buf->cx == buf->markx)) {
@@ -181,7 +181,7 @@ void editorYank(struct editorConfig *ed, struct editorBuffer *buf, int count) {
 		count = 1;
 
 	// Check if this is a line yank (ends with newline)
-	int killLen = strlen(ed->kill);
+	int killLen = strlen((char *)ed->kill);
 	int isLineYank = (killLen > 0 && ed->kill[killLen - 1] == '\n');
 
 	for (int j = 0; j < count; j++) {
@@ -193,8 +193,8 @@ void editorYank(struct editorConfig *ed, struct editorBuffer *buf, int count) {
 		free(new->data);
 		new->datalen = killLen;
 		new->datasize = new->datalen + 1;
-		new->data = malloc(new->datasize);
-		strcpy(new->data, ed->kill);
+		new->data = xmalloc(new->datasize);
+		emsys_strlcpy(new->data, ed->kill, new->datasize);
 		new->append = 0;
 
 		for (int i = 0; ed->kill[i] != 0; i++) {
@@ -230,8 +230,8 @@ void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
 
 	uint8_t *okill = NULL;
 	if (ed->kill != NULL) {
-		okill = malloc(strlen(ed->kill) + 1);
-		strcpy(okill, ed->kill);
+		okill = xmalloc(strlen((char *)ed->kill) + 1);
+		emsys_strlcpy(okill, ed->kill, strlen((char *)ed->kill) + 1);
 	}
 	editorKillRegion(ed, buf);
 
@@ -277,8 +277,8 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	uint8_t *okill = NULL;
 	if (ed->kill != NULL) {
-		okill = malloc(strlen((char *)ed->kill) + 1);
-		strcpy((char *)okill, (char *)ed->kill);
+		okill = xmalloc(strlen((char *)ed->kill) + 1);
+		emsys_strlcpy(okill, ed->kill, strlen((char *)ed->kill) + 1);
 	}
 	editorCopyRegion(ed, buf);
 
@@ -342,24 +342,24 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 							    matches[0].rm_so) :
 							   0;
 		if (i != 0)
-			strcat((char *)new->data, "\n");
+			emsys_strlcat((char *)new->data, "\n", new->datasize);
 		if (match_idx < 0) {
 			if (buf->cy == buf->marky) {
 				strncat((char *)new->data,
 					(char *)&row->chars[buf->cx],
 					buf->markx - buf->cx);
 			} else if (i == buf->cy) {
-				strcat((char *)new->data,
-				       (char *)&row->chars[buf->cx]);
+				emsys_strlcat((char *)new->data,
+				       (char *)&row->chars[buf->cx], new->datasize);
 			} else if (i == buf->marky) {
 				strncat((char *)new->data, (char *)row->chars,
 					buf->markx);
 			} else {
-				strcat((char *)new->data, (char *)row->chars);
+				emsys_strlcat((char *)new->data, (char *)row->chars, new->datasize);
 			}
 			continue;
 		} else if (i == buf->cy && match_idx < buf->cx) {
-			strcat((char *)new->data, (char *)&row->chars[buf->cx]);
+			emsys_strlcat((char *)new->data, (char *)&row->chars[buf->cx], new->datasize);
 			continue;
 		} else if (i == buf->marky &&
 			   match_idx + match_length > buf->markx) {
@@ -388,13 +388,13 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 			strncat((char *)new->data, (char *)&row->chars[buf->cx],
 				buf->markx - buf->cx);
 		} else if (i == buf->cy) {
-			strcat((char *)new->data, (char *)&row->chars[buf->cx]);
+			emsys_strlcat((char *)new->data, (char *)&row->chars[buf->cx], new->datasize);
 		} else if (i == buf->marky) {
 			buf->markx += extra;
 			strncat((char *)new->data, (char *)row->chars,
 				buf->markx);
 		} else {
-			strcat((char *)new->data, (char *)row->chars);
+			emsys_strlcat((char *)new->data, (char *)row->chars, new->datasize);
 		}
 	}
 	/* Now take care of insert undo */
@@ -430,8 +430,8 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	uint8_t *okill = NULL;
 	if (ed->kill != NULL) {
-		okill = malloc(strlen((char *)ed->kill) + 1);
-		strcpy((char *)okill, (char *)ed->kill);
+		okill = xmalloc(strlen((char *)ed->kill) + 1);
+		emsys_strlcpy(okill, ed->kill, strlen((char *)ed->kill) + 1);
 	}
 
 	/* Do all the bookkeeping for killing the region, with a little extra
@@ -478,7 +478,7 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	free(new->data);
 	new->datalen = strlen((char *)ed->kill);
 	new->datasize = new->datalen + 1;
-	new->data = malloc(new->datasize);
+	new->data = xmalloc(new->datasize);
 	for (int i = 0; i < new->datalen; i++) {
 		new->data[i] = ed->kill[new->datalen - i - 1];
 	}
@@ -503,7 +503,7 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	} else {
 		new->datasize = strlen((char *)ed->kill);
 	}
-	new->data = malloc(new->datasize);
+	new->data = xmalloc(new->datasize);
 	new->data[0] = 0;
 	new->append = 0;
 	new->paired = 1;
@@ -534,13 +534,13 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	row->size += extra;
 	row->chars[row->size] = 0;
 	if (boty == topy) {
-		strcat((char *)new->data, (char *)string);
+		emsys_strlcat((char *)new->data, (char *)string, new->datasize);
 	} else {
-		strcat((char *)new->data, (char *)&row->chars[topx]);
+		emsys_strlcat((char *)new->data, (char *)&row->chars[topx], new->datasize);
 	}
 
 	for (int i = topy + 1; i < boty; i++) {
-		strcat((char *)new->data, "\n");
+		emsys_strlcat((char *)new->data, "\n", new->datasize);
 		/* Next, middle lines */
 		row = &buf->row[i];
 		if (row->size < botx) {
@@ -559,12 +559,12 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		memcpy(&row->chars[topx], string, slen);
 		row->size += extra;
 		row->chars[row->size] = 0;
-		strcat((char *)new->data, (char *)row->chars);
+		emsys_strlcat((char *)new->data, (char *)row->chars, new->datasize);
 	}
 
 	/* Finally, end line */
 	if (topy != boty) {
-		strcat((char *)new->data, "\n");
+		emsys_strlcat((char *)new->data, "\n", new->datasize);
 		row = &buf->row[boty];
 		if (row->size < botx) {
 			row->chars = xrealloc(row->chars, botx + 1);
@@ -682,8 +682,8 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	uint8_t *okill = NULL;
 	if (ed->kill != NULL) {
-		okill = malloc(strlen((char *)ed->kill) + 1);
-		strcpy((char *)okill, (char *)ed->kill);
+		okill = xmalloc(strlen((char *)ed->kill) + 1);
+		emsys_strlcpy(okill, ed->kill, strlen((char *)ed->kill) + 1);
 	}
 	free(ed->rectKill);
 
@@ -721,7 +721,7 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	free(new->data);
 	new->datalen = strlen((char *)ed->kill);
 	new->datasize = new->datalen + 1;
-	new->data = malloc(new->datasize);
+	new->data = xmalloc(new->datasize);
 	for (int i = 0; i < new->datalen; i++) {
 		new->data[i] = ed->kill[new->datalen - i - 1];
 	}
@@ -741,7 +741,7 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	free(new->data);
 	new->datalen = strlen((char *)ed->kill) - (ed->rx * ed->ry);
 	new->datasize = 1 + new->datalen;
-	new->data = malloc(new->datasize);
+	new->data = xmalloc(new->datasize);
 	new->data[0] = 0;
 	new->append = 0;
 	new->paired = 1;
@@ -759,8 +759,8 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 			row->size -= (row->size - (botx - ed->rx));
 			row->chars[row->size] = 0;
 			if (boty != topy) {
-				strcat((char *)new->data,
-				       (char *)&row->chars[botx - ed->rx]);
+				emsys_strlcat((char *)new->data,
+				       (char *)&row->chars[botx - ed->rx], new->datasize);
 			}
 		}
 	} else {
@@ -770,14 +770,14 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		row->size -= ed->rx;
 		row->chars[row->size] = 0;
 		if (boty != topy) {
-			strcat((char *)new->data, (char *)&row->chars[topx]);
+			emsys_strlcat((char *)new->data, (char *)&row->chars[topx], new->datasize);
 		}
 	}
 	idx++;
 
 	while ((topy + idx) < boty) {
 		/* Middle lines */
-		strcat((char *)new->data, "\n");
+		emsys_strlcat((char *)new->data, "\n", new->datasize);
 		row = &buf->row[topy + idx];
 
 		if (row->size < botx) {
@@ -798,13 +798,13 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 			row->chars[row->size] = 0;
 		}
 
-		strcat((char *)new->data, (char *)row->chars);
+		emsys_strlcat((char *)new->data, (char *)row->chars, new->datasize);
 		idx++;
 	}
 
 	/* Finally, end line */
 	if (topy != boty) {
-		strcat((char *)new->data, "\n");
+		emsys_strlcat((char *)new->data, "\n", new->datasize);
 		row = &buf->row[topy + idx];
 
 		if (row->size < botx) {
@@ -837,8 +837,8 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	uint8_t *okill = NULL;
 	if (ed->kill != NULL) {
-		okill = malloc(strlen((char *)ed->kill) + 1);
-		strcpy((char *)okill, (char *)ed->kill);
+		okill = xmalloc(strlen((char *)ed->kill) + 1);
+		emsys_strlcpy(okill, ed->kill, strlen((char *)ed->kill) + 1);
 	}
 
 	int topx, topy, botx, boty;
@@ -894,7 +894,7 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		new->datalen = strlen((char *)ed->kill);
 	}
 	new->datasize = new->datalen + 1;
-	new->data = malloc(new->datasize);
+	new->data = xmalloc(new->datasize);
 	if (ed->kill == NULL) {
 		new->data[0] = 0;
 	} else {
@@ -924,7 +924,7 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	} else {
 		new->datasize = strlen((char *)ed->kill);
 	}
-	new->data = malloc(new->datasize);
+	new->data = xmalloc(new->datasize);
 	new->data[0] = 0;
 	new->append = 0;
 	new->paired = 1;
@@ -949,14 +949,14 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	row->size += ed->rx;
 	row->chars[row->size] = 0;
 	if (boty == topy) {
-		strcat((char *)new->data, string);
+		emsys_strlcat((char *)new->data, string, new->datasize);
 	} else {
-		strcat((char *)new->data, (char *)&row->chars[topx]);
+		emsys_strlcat((char *)new->data, (char *)&row->chars[topx], new->datasize);
 	}
 	idx++;
 
 	while ((topy + idx) < boty) {
-		strcat((char *)new->data, "\n");
+		emsys_strlcat((char *)new->data, "\n", new->datasize);
 		/* Next, middle lines */
 		row = &buf->row[topy + idx];
 		strncpy(string, (char *)&ed->rectKill[idx * ed->rx], ed->rx);
@@ -976,13 +976,13 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		memcpy(&row->chars[topx], string, ed->rx);
 		row->size += ed->rx;
 		row->chars[row->size] = 0;
-		strcat((char *)new->data, (char *)row->chars);
+		emsys_strlcat((char *)new->data, (char *)row->chars, new->datasize);
 		idx++;
 	}
 
 	/* Finally, end line */
 	if (topy != boty) {
-		strcat((char *)new->data, "\n");
+		emsys_strlcat((char *)new->data, "\n", new->datasize);
 		strncpy(string, (char *)&ed->rectKill[idx * ed->rx], ed->rx);
 		row = &buf->row[boty];
 		if (row->size < botx) {

@@ -1,5 +1,4 @@
-#include "platform.h"
-#include "compat.h"
+#include "util.h"
 #include <glob.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -99,6 +98,7 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 	uint8_t *allocated_prompt = NULL;
 	uint8_t *tilde_expanded = NULL;
 
+	/* Manual tilde expansion - works on all systems */
 	if (*prompt == '~') {
 		char *home_dir = getenv("HOME");
 		if (!home_dir) {
@@ -116,8 +116,8 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 			return prompt;
 		}
 
-		strcpy(new_prompt, home_dir);
-		strcpy(new_prompt + home_len, prompt + 1); // Skip the '~'
+		emsys_strlcpy(new_prompt, home_dir, home_len + prompt_len);
+		emsys_strlcpy(new_prompt + home_len, (char *)(prompt + 1), prompt_len); // Skip the '~'
 		tilde_expanded = (uint8_t *)new_prompt;
 		prompt = tilde_expanded;
 	}
@@ -137,19 +137,14 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 			free(tilde_expanded);
 		return ret; /* Return original prompt, not modified one */
 	}
-	strcpy(glob_pattern, (char *)prompt);
+	emsys_strlcpy(glob_pattern, (char *)prompt, end + 2);
 	glob_pattern[end] = '*';
 	glob_pattern[end + 1] = 0;
 	allocated_prompt = (uint8_t *)glob_pattern;
 	prompt = allocated_prompt;
 #endif
 
-#ifndef GLOB_TILDE
-	/* This isn't in POSIX, so define a fallback. */
-#define GLOB_TILDE 0
-#endif
-
-	if (glob((char *)prompt, GLOB_TILDE | GLOB_MARK, NULL, &globlist))
+	if (glob((char *)prompt, GLOB_MARK, NULL, &globlist))
 		goto TC_FILES_CLEANUP;
 
 	size_t cur = 0;
@@ -172,8 +167,8 @@ uint8_t *tabCompleteFiles(uint8_t *prompt) {
 		switch (c) {
 		case '\r':;
 TC_FILES_ACCEPT:;
-			ret = calloc(strlen(globlist.gl_pathv[cur]) + 1, 1);
-			strcpy((char *)ret, globlist.gl_pathv[cur]);
+			ret = xcalloc(strlen(globlist.gl_pathv[cur]) + 1, 1);
+			emsys_strlcpy((char *)ret, globlist.gl_pathv[cur], strlen(globlist.gl_pathv[cur]) + 1);
 			goto TC_FILES_CLEANUP;
 			break;
 		case CTRL('i'):
@@ -333,9 +328,9 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 	}
 
 	char rpattern[] = "[A-Za-z0-9\200-\377_]+";
-	char *word = calloc(bufr->cx - wordStart + 1 + sizeof(rpattern), 1);
+	char *word = xcalloc(bufr->cx - wordStart + 1 + sizeof(rpattern), 1);
 	strncpy(word, (char *)&row->chars[wordStart], bufr->cx - wordStart);
-	strcat(word, rpattern);
+	emsys_strlcat(word, rpattern, bufr->cx - wordStart + 1 + sizeof(rpattern));
 	int ncand = 0;
 	int scand = 32;
 	char **candidates = xmalloc(sizeof(uint8_t *) * scand);
@@ -363,7 +358,7 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 				int match_idx = matches[0].rm_so;
 				int match_length =
 					matches[0].rm_eo - matches[0].rm_so;
-				candidates[ncand] = calloc(match_length + 1, 1);
+				candidates[ncand] = xcalloc(match_length + 1, 1);
 				strncpy(candidates[ncand],
 					(char *)&row->chars[match_idx],
 					match_length);
@@ -473,7 +468,7 @@ COMPLETE_WORD_DONE:;
 	new->append = 0;
 	new->delete = 0;
 	new->data[0] = 0;
-	strcat((char *)new->data, &candidates[sel][bufr->cx - wordStart]);
+	emsys_strlcat((char *)new->data, &candidates[sel][bufr->cx - wordStart], new->datasize);
 	bufr->undo = new;
 
 	row->chars = xrealloc(row->chars, row->size + 1 + completelen);
