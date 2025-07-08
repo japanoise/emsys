@@ -1,5 +1,4 @@
-#include "platform.h"
-#include "compat.h"
+#include "util.h"
 
 #include "emsys.h"
 #include "fileio.h"
@@ -37,7 +36,7 @@ char *editorRowsToString(struct editorBuffer *bufr, int *buflen) {
 	}
 	*buflen = totlen;
 
-	char *buf = malloc(totlen);
+	char *buf = xmalloc(totlen);
 	char *p = buf;
 	for (j = 0; j < bufr->numrows; j++) {
 		memcpy(p, bufr->row[j].chars, bufr->row[j].size);
@@ -59,14 +58,15 @@ void editorOpen(struct editorBuffer *bufr, char *filename) {
 			editorSetStatusMessage("(New file)", bufr->filename);
 			return;
 		}
-		die("fopen");
+		editorSetStatusMessage("Can't open file: %s", strerror(errno));
+		return;
 	}
 
 	char *line = NULL;
 	size_t linecap = 0;
 	ssize_t linelen;
 
-	while ((linelen = getline(&line, &linecap, fp)) != -1) {
+	while ((linelen = emsys_getline(&line, &linecap, fp)) != -1) {
 		while (linelen > 0 &&
 		       (line[linelen - 1] == '\n' || line[linelen - 1] == '\r'))
 			linelen--;
@@ -220,14 +220,12 @@ void editorInsertFile(struct editorConfig *UNUSED(ed),
 
 	int saved_cy = buf->cy;
 
-	newUndo(buf);
-
 	char *line = NULL;
 	size_t linecap = 0;
 	ssize_t linelen;
 	int lines_inserted = 0;
 
-	while ((linelen = getline(&line, &linecap, fp)) != -1) {
+	while ((linelen = emsys_getline(&line, &linecap, fp)) != -1) {
 		while (linelen > 0 && (line[linelen - 1] == '\n' ||
 				       line[linelen - 1] == '\r')) {
 			linelen--;

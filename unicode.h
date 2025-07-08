@@ -1,6 +1,6 @@
 #include <stdint.h>
 
-int unicodeTest();
+int unicodeTest(void);
 
 int stringWidth(uint8_t *str);
 

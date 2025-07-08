@@ -144,7 +144,7 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 					total_len += E.minibuf->row[i].size;
 				}
 
-				char *joined = malloc(total_len + 1);
+				char *joined = xmalloc(total_len + 1);
 				joined[0] = 0;
 				for (int i = 0; i < E.minibuf->numrows; i++) {
 					if (E.minibuf->row[i].chars) {

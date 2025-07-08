@@ -310,7 +310,7 @@ void rowDelChar(struct editorBuffer *bufr, erow *row, int at) {
 	bufr->dirty = 1;
 }
 
-struct editorBuffer *newBuffer() {
+struct editorBuffer *newBuffer(void) {
 	struct editorBuffer *ret = xmalloc(sizeof(struct editorBuffer));
 	ret->indent = 0;
 	ret->markx = -1;

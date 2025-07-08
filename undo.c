@@ -161,7 +161,7 @@ void editorDoRedo(struct editorBuffer *buf, int count) {
 	}
 }
 
-struct editorUndo *newUndo() {
+struct editorUndo *newUndo(void) {
 	struct editorUndo *ret = xmalloc(sizeof(*ret));
 	ret->prev = NULL;
 	ret->paired = 0;

@@ -890,9 +890,9 @@ void editorResizeScreen(int UNUSED(sig)) {
 }
 
 void editorCreateWindow(void) {
-	E.windows = realloc(E.windows,
-			    sizeof(struct editorWindow *) * (++E.nwindows));
-	E.windows[E.nwindows - 1] = malloc(sizeof(struct editorWindow));
+	E.windows = xrealloc(E.windows,
+			     sizeof(struct editorWindow *) * (++E.nwindows));
+	E.windows[E.nwindows - 1] = xcalloc(1, sizeof(struct editorWindow));
 	E.windows[E.nwindows - 1]->focused = 0;
 	E.windows[E.nwindows - 1]->buf = E.buf;
 	E.windows[E.nwindows - 1]->cx = E.buf->cx;
@@ -913,7 +913,7 @@ void editorDestroyWindow(void) {
 	editorSwitchWindow();
 	free(E.windows[idx]);
 	struct editorWindow **windows =
-		malloc(sizeof(struct editorWindow *) * (--E.nwindows));
+		xmalloc(sizeof(struct editorWindow *) * (--E.nwindows));
 	int j = 0;
 	for (int i = 0; i <= E.nwindows; i++) {
 		if (i != idx) {
@@ -934,7 +934,7 @@ void editorDestroyOtherWindows(void) {
 		return;
 	}
 	int idx = windowFocusedIdx();
-	struct editorWindow **windows = malloc(sizeof(struct editorWindow *));
+	struct editorWindow **windows = xmalloc(sizeof(struct editorWindow *));
 	for (int i = 0; i < E.nwindows; i++) {
 		if (i != idx) {
 			free(E.windows[i]);

@@ -9,7 +9,7 @@ void editorUndoAppendChar(struct editorBuffer *buf, uint8_t c);
 void editorUndoAppendUnicode(struct editorConfig *ed, struct editorBuffer *buf);
 void editorUndoBackSpace(struct editorBuffer *buf, uint8_t c);
 void editorUndoDelChar(struct editorBuffer *buf, erow *row);
-struct editorUndo *newUndo();
+struct editorUndo *newUndo(void);
 void clearRedos(struct editorBuffer *buf);
 void clearUndosAndRedos(struct editorBuffer *buf);
 #ifdef EMSYS_DEBUG_UNDO

@@ -1,5 +1,4 @@
-#include "platform.h"
-#include "compat.h"
+#include "util.h"
 #include "terminal.h"
 #include "emsys.h"
 #include <errno.h>
@@ -21,19 +20,17 @@ void die(const char *s) {
 	write(STDOUT_FILENO, CSI "H", 3);
 	perror(s);
 	write(STDOUT_FILENO, CRLF, 2);
-	write(STDOUT_FILENO, "sleeping 5s", 11);
-	sleep(5);
 	exit(1);
 }
 
-void disableRawMode() {
+void disableRawMode(void) {
 	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1)
 		die("disableRawMode tcsetattr");
 	if (write(STDOUT_FILENO, CSI "?1049l", 8) == -1)
 		die("disableRawMode write");
 }
 
-void enableRawMode() {
+void enableRawMode(void) {
 	/* Saves the screen and switches to an alt screen */
 	if (write(STDOUT_FILENO, CSI "?1049h", 8) == -1)
 		die("enableRawMode write");
@@ -95,7 +92,7 @@ int getWindowSize(int *rows, int *cols) {
 	}
 }
 
-void editorDeserializeUnicode() {
+void editorDeserializeUnicode(void) {
 	E.unicode[0] = E.macro.keys[E.playback++];
 	E.nunicode = utf8_nBytes(E.unicode[0]);
 	for (int i = 1; i < E.nunicode; i++) {
@@ -104,7 +101,7 @@ void editorDeserializeUnicode() {
 }
 
 /* Raw reading a keypress - terminal layer only handles raw byte reading and escape sequences */
-int editorReadKey() {
+int editorReadKey(void) {
 	if (E.playback) {
 		int ret = E.macro.keys[E.playback++];
 		if (ret == UNICODE) {
@@ -236,11 +233,11 @@ ESC_UNKNOWN:;
 		char buf[8];
 		for (int i = 0; seq[i]; i++) {
 			if (seq[i] < ' ') {
-				sprintf(buf, "C-%c ", seq[i] + '`');
+				snprintf(buf, sizeof(buf), "C-%c ", seq[i] + '`');
 			} else {
-				sprintf(buf, "%c ", seq[i]);
+				snprintf(buf, sizeof(buf), "%c ", seq[i]);
 			}
-			strcat(seqR, buf);
+			emsys_strlcat(seqR, buf, sizeof(seqR));
 		}
 		editorSetStatusMessage("Unknown command M-%s", seqR);
 		return 033;
