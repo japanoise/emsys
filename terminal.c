@@ -4,8 +4,12 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/ioctl.h>
 #include <termios.h>
+#ifdef __sun
+#include <sys/types.h>  /* This might be needed first */
+#include <sys/termios.h>
+#endif
+#include <sys/ioctl.h>
 #include <unistd.h>
 #include <string.h>
 #include "unicode.h"
@@ -50,6 +54,8 @@ void enableRawMode(void) {
 	raw.c_oflag &= ~(OPOST);
 	raw.c_cflag |= (CS8);
 	raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+	raw.c_cc[VMIN] = 1;
+	raw.c_cc[VTIME] = 0;
 	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1)
 		die("enableRawMode tcsetattr");
 }

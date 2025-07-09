@@ -49,6 +49,7 @@ char *editorRowsToString(struct editorBuffer *bufr, int *buflen) {
 }
 
 void editorOpen(struct editorBuffer *bufr, char *filename) {
+	
 	free(bufr->filename);
 	bufr->filename = xstrdup(filename);
 
@@ -66,12 +67,15 @@ void editorOpen(struct editorBuffer *bufr, char *filename) {
 	size_t linecap = 0;
 	ssize_t linelen;
 
+	
 	while ((linelen = emsys_getline(&line, &linecap, fp)) != -1) {
+		
 		while (linelen > 0 &&
 		       (line[linelen - 1] == '\n' || line[linelen - 1] == '\r'))
 			linelen--;
 		editorInsertRow(bufr, bufr->numrows, line, linelen);
 	}
+	
 	free(line);
 	fclose(fp);
 	bufr->dirty = 0;

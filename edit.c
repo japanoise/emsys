@@ -20,6 +20,7 @@ extern struct editorConfig E;
 /* Character insertion */
 
 void editorInsertChar(struct editorBuffer *bufr, int c, int count) {
+	
 	if (count <= 0)
 		count = 1;
 
