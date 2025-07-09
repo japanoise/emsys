@@ -1,15 +1,15 @@
 PROGNAME = emsys
 PREFIX = /usr/local
+SHELL = /bin/sh
+
+# Version handling - fallback for when git is not available
+VERSION = 1.0.0
 
 # Standard C99 compiler settings
 CC = cc
+
 # Enable BSD and POSIX features portably
-CFLAGS = -std=c99 -Wall -Wextra -Wpedantic -Wno-pointer-sign \
-         -D_DEFAULT_SOURCE \
-         -D_BSD_SOURCE -O2 \
-         -D_POSIX_C_SOURCE=200112L \
-         -DEMSYS_VERSION=\"git\" \
-         -DEMSYS_BUILD_DATE=\"$(shell date '+%Y-%m-%d')\"
+CFLAGS = -std=c99 -Wall -Wextra -Wpedantic -Wno-pointer-sign -D_DEFAULT_SOURCE -D_BSD_SOURCE -O2
 
 # Installation directories
 BINDIR = $(PREFIX)/bin
@@ -21,8 +21,10 @@ OBJECTS = main.o wcwidth.o unicode.o buffer.o region.o undo.o transform.o \
           find.o pipe.o tab.o register.o fileio.o terminal.o display.o \
           keymap.o edit.o prompt.o util.o
 
-# Default target
-all: $(PROGNAME)
+# Default target with git version detection
+all:
+	@VERSION="`git describe --tags --always --dirty 2>/dev/null || echo $(VERSION)`"; \
+	make VERSION="$$VERSION" $(PROGNAME)
 
 # Link the executable
 $(PROGNAME): $(OBJECTS)
@@ -31,7 +33,7 @@ $(PROGNAME): $(OBJECTS)
 # POSIX suffix rule for .c to .o
 .SUFFIXES: .c .o
 .c.o:
-	$(CC) $(CFLAGS) -c $<
+	$(CC) $(CFLAGS) -DEMSYS_VERSION=\"$(VERSION)\" -c $<
 
 # Simple header dependency
 $(OBJECTS): config.h
@@ -67,28 +69,41 @@ distclean: clean
 test: $(PROGNAME)
 	./tests/run_tests.sh
 
+check: test
+
+# Sorry Dave
+hal:
+	make clean
+	make CFLAGS="$(CFLAGS) -D_POSIX_C_SOURCE=200112L -Werror" $(PROGNAME)
+	make test
+
 # Development targets
-debug: CFLAGS += -g -O0
-debug: clean all
+debug:
+	make CFLAGS="$(CFLAGS) -g -O0" $(PROGNAME)
+
 
 format:
 	clang-format -i *.c *.h
 
 # Platform-specific variants
 android:
-	CC=clang CFLAGS="$(CFLAGS) -fPIC -fPIE -DEMSYS_DISABLE_PIPE" LDFLAGS="-pie" $(MAKE) all
+	make CC=clang CFLAGS="$(CFLAGS) -fPIC -fPIE -DEMSYS_DISABLE_PIPE" LDFLAGS="-pie" $(PROGNAME)
+
 
 msys2:
-	CFLAGS="$(CFLAGS) -D_GNU_SOURCE" $(MAKE) all
+	make CFLAGS="$(CFLAGS) -D_GNU_SOURCE" $(PROGNAME)
 
 minimal:
-	CFLAGS="$(CFLAGS) -DEMSYS_DISABLE_PIPE -Os" $(MAKE) all
+	make CFLAGS="$(CFLAGS) -DEMSYS_DISABLE_PIPE -Os" $(PROGNAME)
+
+solaris:
+	VERSION="$(VERSION)" make CC=cc CFLAGS="-xc99 -D__EXTENSIONS__ -O2 -errtags=yes -erroff=E_ARG_INCOMPATIBLE_WITH_ARG_L" $(PROGNAME)
+
 
 darwin:
-	CFLAGS="-std=c99 -Wall -Wextra -Wpedantic -Wno-pointer-sign -D_DARWIN_C_SOURCE -O2 -DEMSYS_VERSION=\"git\" -DEMSYS_BUILD_DATE=\"$(shell date '+%Y-%m-%d')\"" $(MAKE) all
+	make CC=clang CFLAGS="$(CFLAGS) -D_DARWIN_C_SOURCE" $(PROGNAME)
 
-# Standard POSIX targets
-.PHONY: all install uninstall clean distclean test debug android msys2 minimal darwin
+
 
 # Help
 help:
@@ -103,3 +118,7 @@ help:
 	@echo "  darwin    Build for macOS/Darwin"
 	@echo "  msys2     Build for MSYS2"
 	@echo "  minimal   Build minimal version"
+	@echo "  solaris   Build for Solaris Developer Studio"
+	@echo "  check     Alias for test"
+	@echo "  format    Format code with clang-format"
+	@echo "  hal       HAL-9000 compliance"

@@ -15,9 +15,6 @@
 #define EMSYS_VERSION "unknown"
 #endif
 
-#ifndef EMSYS_BUILD_DATE
-#define EMSYS_BUILD_DATE "unknown"
-#endif
 
 #define ESC "\033"
 #define CSI ESC "["

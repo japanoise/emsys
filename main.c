@@ -96,6 +96,7 @@ int main(int argc, char *argv[]) {
 
 	enableRawMode();
 	initEditor();
+	
 	E.headbuf = newBuffer();
 	E.buf = E.headbuf;
 	if (argc >= 2) {
@@ -137,7 +138,9 @@ int main(int argc, char *argv[]) {
 	setupHandlers();
 
 	for (;;) {
+		
 		refreshScreen();
+		
 		int c = editorReadKey();
 		if (c == MACRO_RECORD) {
 			if (E.recording) {

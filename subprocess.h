@@ -54,8 +54,13 @@
 #elif defined(__clang__) || defined(__GNUC__)
 #define subprocess_pure __attribute__((pure))
 #define subprocess_weak __attribute__((weak))
+#elif defined(__SUNPRO_C) || defined(__sun)
+#define subprocess_pure
+#define subprocess_weak
 #else
-#error Non clang, non gcc, non MSVC compiler found!
+/* Unknown compiler - define as empty and hope for the best */
+#define subprocess_pure
+#define subprocess_weak
 #endif
 
 struct subprocess_s;

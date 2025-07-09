@@ -19,6 +19,7 @@ extern struct editorConfig E;
 uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 		      enum promptType t,
 		      void (*callback)(struct editorBuffer *, uint8_t *, int)) {
+	
 	uint8_t *result = NULL;
 
 	/* Save current buffer context */
@@ -181,5 +182,6 @@ done:
 	E.edbuf = saved_edbuf;
 
 	editorSetStatusMessage("");
+	
 	return result;
 }

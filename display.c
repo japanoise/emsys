@@ -14,6 +14,9 @@
 #include <time.h>
 #include <unistd.h>
 #include <limits.h>
+#ifdef __sun
+#include <termios.h>
+#endif
 
 extern struct editorConfig E;
 extern void updateRow(erow *row);
@@ -803,10 +806,9 @@ void drawMinibuffer(struct abuf *ab) {
 }
 
 void refreshScreen(void) {
+	
 	struct abuf ab = ABUF_INIT;
 	abAppend(&ab, "\x1b[?25l", 6); // Hide cursor
-	write(STDOUT_FILENO, ab.b, ab.len);
-	ab.len = 0;
 	abAppend(&ab, "\x1b[H", 3); // Move cursor to top-left corner
 
 	int focusedIdx = windowFocusedIdx();
@@ -859,7 +861,9 @@ void refreshScreen(void) {
 	abAppend(&ab, buf, strlen(buf));
 
 	abAppend(&ab, "\x1b[?25h", 6); // Show cursor
+	
 	write(STDOUT_FILENO, ab.b, ab.len);
+	
 	abFree(&ab);
 }
 
@@ -1003,8 +1007,7 @@ void editorToggleTruncateLines(void) {
 }
 
 void editorVersion(void) {
-	editorSetStatusMessage("emsys version " EMSYS_VERSION
-			       ", built " EMSYS_BUILD_DATE);
+	editorSetStatusMessage("emsys version " EMSYS_VERSION);
 }
 
 /* Wrapper for command table */

@@ -10,6 +10,12 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+/* Define feature test macros for subprocess.h to get fdopen, fileno, kill */
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200112L
+#endif
+
 #include "emsys.h"
 #include "region.h"
 #include "pipe.h"
