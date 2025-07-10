@@ -66,4 +66,7 @@ void editorBeginningOfLine(int count);
 void editorEndOfLine(int count);
 void editorQuit(void);
 
+/* External constants */
+extern const int page_overlap;
+
 #endif
