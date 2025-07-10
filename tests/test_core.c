@@ -177,6 +177,152 @@ void test_utf8_validation() {
     TEST_ASSERT_TRUE(utf8_isCont(valid4[3]));
 }
 
+/* Test emsys_getline functionality */
+#include "../util.h"
+#include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+void test_emsys_getline_short_line() {
+    /* Test reading a line shorter than initial buffer (120 bytes) */
+    const char *test_data = "Hello, World!\n";
+    FILE *fp = tmpfile();
+    TEST_ASSERT_NOT_NULL(fp);
+    
+    fputs(test_data, fp);
+    rewind(fp);
+    
+    char *line = NULL;
+    size_t n = 0;
+    ssize_t result = emsys_getline(&line, &n, fp);
+    
+    TEST_ASSERT_EQUAL_INT(14, result); /* Including newline */
+    TEST_ASSERT_EQUAL_STRING("Hello, World!\n", line);
+    TEST_ASSERT(n >= 14);
+    
+    free(line);
+    fclose(fp);
+}
+
+void test_emsys_getline_exact_120() {
+    /* Test reading exactly 120 characters (including newline) */
+    FILE *fp = tmpfile();
+    TEST_ASSERT_NOT_NULL(fp);
+    
+    /* Create a 119-char line + newline = 120 total */
+    for (int i = 0; i < 119; i++) {
+        fputc('A', fp);
+    }
+    fputc('\n', fp);
+    rewind(fp);
+    
+    char *line = NULL;
+    size_t n = 0;
+    ssize_t result = emsys_getline(&line, &n, fp);
+    
+    TEST_ASSERT_EQUAL_INT(120, result);
+    TEST_ASSERT(line[0] == 'A');
+    TEST_ASSERT(line[118] == 'A');
+    TEST_ASSERT(line[119] == '\n');
+    TEST_ASSERT(line[120] == '\0');
+    
+    free(line);
+    fclose(fp);
+}
+
+void test_emsys_getline_long_line() {
+    /* Test the bug we fixed: lines >= 120 chars should be read correctly */
+    FILE *fp = tmpfile();
+    TEST_ASSERT_NOT_NULL(fp);
+    
+    /* Create a 200-char line */
+    for (int i = 0; i < 200; i++) {
+        fputc('0' + (i % 10), fp);
+    }
+    fputc('\n', fp);
+    fputs("Second line\n", fp);
+    rewind(fp);
+    
+    char *line = NULL;
+    size_t n = 0;
+    
+    /* Read first line (200 chars + newline) */
+    ssize_t result = emsys_getline(&line, &n, fp);
+    TEST_ASSERT_EQUAL_INT(201, result);
+    TEST_ASSERT(line[0] == '0');
+    TEST_ASSERT(line[199] == '9');
+    TEST_ASSERT(line[200] == '\n');
+    TEST_ASSERT(n >= 201);
+    
+    /* Read second line to ensure file position is correct */
+    result = emsys_getline(&line, &n, fp);
+    TEST_ASSERT_EQUAL_INT(12, result);
+    TEST_ASSERT_EQUAL_STRING("Second line\n", line);
+    
+    free(line);
+    fclose(fp);
+}
+
+void test_emsys_getline_no_final_newline() {
+    /* Test line without trailing newline */
+    FILE *fp = tmpfile();
+    TEST_ASSERT_NOT_NULL(fp);
+    
+    fputs("No newline at end", fp);
+    rewind(fp);
+    
+    char *line = NULL;
+    size_t n = 0;
+    ssize_t result = emsys_getline(&line, &n, fp);
+    
+    TEST_ASSERT_EQUAL_INT(17, result);
+    TEST_ASSERT_EQUAL_STRING("No newline at end", line);
+    
+    free(line);
+    fclose(fp);
+}
+
+void test_emsys_getline_empty_file() {
+    /* Test empty file */
+    FILE *fp = tmpfile();
+    TEST_ASSERT_NOT_NULL(fp);
+    
+    char *line = NULL;
+    size_t n = 0;
+    ssize_t result = emsys_getline(&line, &n, fp);
+    
+    TEST_ASSERT_EQUAL_INT(-1, result);
+    
+    free(line);
+    fclose(fp);
+}
+
+void test_emsys_getline_multiple_reallocs() {
+    /* Test very long line requiring multiple buffer reallocations */
+    FILE *fp = tmpfile();
+    TEST_ASSERT_NOT_NULL(fp);
+    
+    /* Create a 1000-char line (will need to grow from 120->240->480->960->1920) */
+    for (int i = 0; i < 1000; i++) {
+        fputc('X', fp);
+    }
+    fputc('\n', fp);
+    rewind(fp);
+    
+    char *line = NULL;
+    size_t n = 0;
+    ssize_t result = emsys_getline(&line, &n, fp);
+    
+    TEST_ASSERT_EQUAL_INT(1001, result);
+    TEST_ASSERT(line[0] == 'X');
+    TEST_ASSERT(line[999] == 'X');
+    TEST_ASSERT(line[1000] == '\n');
+    TEST_ASSERT(n >= 1001);
+    
+    free(line);
+    fclose(fp);
+}
+
 /* Dummy functions for Unity compatibility */
 void setUp(void) {}
 void tearDown(void) {}
@@ -202,6 +348,14 @@ int main() {
     RUN_TEST(test_control_chars);
     RUN_TEST(test_tab_stops);
     RUN_TEST(test_string_ops);
+    
+    /* emsys_getline tests */
+    RUN_TEST(test_emsys_getline_short_line);
+    RUN_TEST(test_emsys_getline_exact_120);
+    RUN_TEST(test_emsys_getline_long_line);
+    RUN_TEST(test_emsys_getline_no_final_newline);
+    RUN_TEST(test_emsys_getline_empty_file);
+    RUN_TEST(test_emsys_getline_multiple_reallocs);
     
     return TEST_END();
 }
