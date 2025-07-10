@@ -186,7 +186,12 @@ void editorPipeCmd(struct editorConfig *ed, struct editorBuffer *bufr) {
 
 #else /* EMSYS_DISABLE_PIPE */
 
+#include "emsys.h"
+#include "display.h"
+
 void editorPipeCmd(struct editorConfig *ed, struct editorBuffer *bufr) {
+	(void)ed;    /* unused parameter */
+	(void)bufr;  /* unused parameter */
 	editorSetStatusMessage("Pipe command not available on this platform");
 }
 
