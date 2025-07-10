@@ -68,7 +68,13 @@ ssize_t emsys_getline(char **lineptr, size_t *n, FILE *stream) {
 
 	(*lineptr)[0] = '\0';
 
-	while (fgets(*lineptr, *n, stream) != NULL) {
+	/* Read first chunk */
+	if (fgets(*lineptr, *n, stream) == NULL) {
+		return -1;
+	}
+
+	/* Keep reading until we get a newline or EOF */
+	while (1) {
 		size_t len = strlen(*lineptr);
 
 		if (len == 0)
@@ -77,6 +83,7 @@ ssize_t emsys_getline(char **lineptr, size_t *n, FILE *stream) {
 		if ((*lineptr)[len - 1] == '\n')
 			return len;
 
+		/* Line doesn't end with newline, need to grow buffer and read more */
 		*n *= 2;
 		ptr = realloc(*lineptr, *n);
 		if (ptr == NULL)
