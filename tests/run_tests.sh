@@ -29,7 +29,7 @@ test -x ./emsys || exit 1
 echo "✓ Binary executable"
 
 # Test 4: Compile and run core tests
-cc -std=c99 -o test_core tests/test_core.c unicode.o wcwidth.o || exit 1
+cc -std=c99 -o test_core tests/test_core.c unicode.o wcwidth.o util.o || exit 1
 if ./test_core | grep -q "FAIL"; then
     echo "✗ Core tests failed"
     ./test_core
