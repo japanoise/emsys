@@ -806,7 +806,6 @@ void drawMinibuffer(struct abuf *ab) {
 }
 
 void refreshScreen(void) {
-	
 	struct abuf ab = ABUF_INIT;
 	abAppend(&ab, "\x1b[?25l", 6); // Hide cursor
 	abAppend(&ab, "\x1b[H", 3); // Move cursor to top-left corner

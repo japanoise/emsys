@@ -138,7 +138,6 @@ int main(int argc, char *argv[]) {
 	setupHandlers();
 
 	for (;;) {
-		
 		refreshScreen();
 		
 		int c = editorReadKey();

@@ -110,7 +110,6 @@ int charsToDisplayColumn(erow *row, int char_pos) {
 }
 
 void updateRow(erow *row) {
-	
 	int tabs = 0;
 	int extra = 0;
 	int j;
