@@ -92,6 +92,8 @@ enum editorKey {
 	REGEX_SEARCH_FORWARD,
 	REGEX_SEARCH_BACKWARD,
 	INSERT_FILE,
+	HISTORY_PREV,
+	HISTORY_NEXT,
 };
 
 struct editorBuffer;

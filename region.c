@@ -236,15 +236,13 @@ void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
 	editorKillRegion(ed, buf);
 
 	uint8_t *input = ed->kill;
-	ed->kill = transformer(input);
+	uint8_t *transformed = transformer(input);
+	free(ed->kill);
+	ed->kill = transformed;
 	editorYank(ed, buf, 1);
 	buf->undo->paired = 1;
 
-	if (input == ed->kill) {
-		editorSetStatusMessage("Shouldn't free input here");
-	} else {
-		free(ed->kill);
-	}
+	free(ed->kill);
 	ed->kill = okill;
 }
 

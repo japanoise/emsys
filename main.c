@@ -18,8 +18,9 @@
 #include "pipe.h"
 #include "region.h"
 #include "register.h"
+#include "history.h"
 #include "buffer.h"
-#include "tab.h"
+#include "completion.h"
 #include "transform.h"
 #include "undo.h"
 #include "unicode.h"
@@ -82,6 +83,10 @@ void initEditor(void) {
 	setupCommands(&E);
 	E.lastVisitedBuffer = NULL;
 	E.macro_depth = 0;
+	
+	initHistory(&E.file_history);
+	initHistory(&E.command_history);
+	initHistory(&E.shell_history);
 
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1)
 		die("getWindowSize");
@@ -178,5 +183,9 @@ int main(int argc, char *argv[]) {
 			executeCommand(c);
 		}
 	}
+	
+	/* cleanup */
+	free(E.kill);
+	
 	return 0;
 }

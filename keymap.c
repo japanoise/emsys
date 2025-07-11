@@ -21,7 +21,7 @@
 #include "region.h"
 #include "register.h"
 #include "buffer.h"
-#include "tab.h"
+#include "completion.h"
 #include "transform.h"
 #include "undo.h"
 #include "unicode.h"
@@ -666,19 +666,35 @@ void editorProcessKeypress(int c) {
 		break;
 
 	case OTHER_WINDOW:
-		editorSwitchWindow();
+		if (E.buf == E.minibuf) {
+			editorSetStatusMessage("Command attempted to use minibuffer while in minibuffer");
+		} else {
+			editorSwitchWindow();
+		}
 		break;
 
 	case CREATE_WINDOW:
-		editorCreateWindow();
+		if (E.buf == E.minibuf) {
+			editorSetStatusMessage("Command attempted to use minibuffer while in minibuffer");
+		} else {
+			editorCreateWindow();
+		}
 		break;
 
 	case DESTROY_WINDOW:
-		editorDestroyWindow();
+		if (E.buf == E.minibuf) {
+			editorSetStatusMessage("Command attempted to use minibuffer while in minibuffer");
+		} else {
+			editorDestroyWindow(windowFocusedIdx());
+		}
 		break;
 
 	case DESTROY_OTHER_WINDOWS:
-		editorDestroyOtherWindows();
+		if (E.buf == E.minibuf) {
+			editorSetStatusMessage("Command attempted to use minibuffer while in minibuffer");
+		} else {
+			editorDestroyOtherWindows();
+		}
 		break;
 	case KILL_BUFFER:
 		editorKillBuffer();

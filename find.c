@@ -127,7 +127,11 @@ char *str_replace(char *orig, char *rep, char *with) {
 void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 	static int last_match = -1;
 	static int direction = 1;
-	bufr->query = query;
+	
+	if (bufr->query != query) {
+		free(bufr->query);
+		bufr->query = query ? xstrdup((char *)query) : NULL;
+	}
 	bufr->match = 0;
 
 	if (key == CTRL('g') || key == CTRL('c') || key == '\r') {
@@ -214,6 +218,7 @@ void editorFind(struct editorBuffer *bufr) {
 	uint8_t *query = editorPrompt(bufr, "Search (C-g to cancel): %s",
 				      PROMPT_BASIC, editorFindCallback);
 
+	free(bufr->query);
 	bufr->query = NULL;
 	if (query) {
 		free(query);
@@ -232,6 +237,7 @@ void editorRegexFind(struct editorBuffer *bufr) {
 	uint8_t *query = editorPrompt(bufr, "Regex search (C-g to cancel): %s",
 				      PROMPT_BASIC, editorFindCallback);
 
+	free(bufr->query);
 	bufr->query = NULL;
 	regex_mode = 0; /* Reset after search */
 	if (query) {
