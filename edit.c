@@ -694,7 +694,7 @@ void editorPageUp(int count) {
 	struct editorBuffer *bufr = E.buf;
 	struct editorWindow *win = E.windows[windowFocusedIdx()];
 	int times = count ? count : 1;
-	
+
 	for (int n = 0; n < times; n++) {
 		int scroll_lines = win->height - page_overlap;
 		if (scroll_lines < 1) scroll_lines = 1;
@@ -751,7 +751,7 @@ void editorPageDown(int count) {
 	struct editorBuffer *bufr = E.buf;
 	struct editorWindow *win = E.windows[windowFocusedIdx()];
 	int times = count ? count : 1;
-	
+
 	for (int n = 0; n < times; n++) {
 		int scroll_lines = win->height - page_overlap;
 		if (scroll_lines < 1) scroll_lines = 1;
