@@ -53,6 +53,21 @@ struct editorUndo {
 	uint8_t *data;
 };
 
+struct completion_state {
+	char *last_completed_text;
+	int completion_start_pos;
+	int successive_tabs;
+	int last_completion_count;
+	int preserve_message;
+};
+
+struct completion_result {
+	char **matches;
+	int n_matches;
+	char *common_prefix;
+	int prefix_len;
+};
+
 struct editorBuffer {
 	int indent;
 	int cx, cy;
@@ -77,6 +92,7 @@ struct editorBuffer {
 	int *screen_line_start;
 	int screen_line_cache_size;
 	int screen_line_cache_valid;
+	struct completion_state completion_state;
 };
 
 struct editorWindow {
@@ -136,6 +152,21 @@ struct editorRegister {
 	union registerData rdata;
 };
 
+#define HISTORY_MAX_ENTRIES 100
+
+struct historyEntry {
+	char *str;
+	struct historyEntry *prev;
+	struct historyEntry *next;
+};
+
+struct editorHistory {
+	struct historyEntry *head;
+	struct historyEntry *tail;
+	struct historyEntry *current;
+	int count;
+};
+
 struct editorConfig {
 	uint8_t *kill;
 	uint8_t *rectKill;
@@ -168,6 +199,10 @@ struct editorConfig {
 	struct editorBuffer *lastVisitedBuffer;
 	int uarg; /* Universal argument: 0 = off, non-zero = active with that value */
 	int macro_depth; /* Current macro execution depth to prevent infinite recursion */
+	
+	struct editorHistory file_history;
+	struct editorHistory command_history;
+	struct editorHistory shell_history;
 };
 
 /*** prototypes ***/

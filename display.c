@@ -239,6 +239,15 @@ int windowFocusedIdx(void) {
 	return 0;
 }
 
+int findBufferWindow(struct editorBuffer *buf) {
+	for (int i = 0; i < E.nwindows; i++) {
+		if (E.windows[i]->buf == buf) {
+			return i;
+		}
+	}
+	return -1;
+}
+
 void synchronizeBufferCursor(struct editorBuffer *buf,
 			     struct editorWindow *win) {
 	// Ensure the cursor is within the buffer's bounds
@@ -815,14 +824,30 @@ void refreshScreen(void) {
 	int cumulative_height = 0;
 	int total_height = E.screenrows - minibuffer_height -
 			   (statusbar_height * E.nwindows);
-	int window_height = total_height / E.nwindows;
-	int remaining_height = total_height % E.nwindows;
+	
+	/* skip if heights already set */
+	int heights_set = 1;
+	for (int i = 0; i < E.nwindows; i++) {
+		if (E.windows[i]->height <= 0) {
+			heights_set = 0;
+			break;
+		}
+	}
+	
+	if (!heights_set) {
+		int window_height = total_height / E.nwindows;
+		int remaining_height = total_height % E.nwindows;
+		
+		for (int i = 0; i < E.nwindows; i++) {
+			struct editorWindow *win = E.windows[i];
+			win->height = window_height;
+			if (i == E.nwindows - 1)
+				win->height += remaining_height;
+		}
+	}
 
 	for (int i = 0; i < E.nwindows; i++) {
 		struct editorWindow *win = E.windows[i];
-		win->height = window_height;
-		if (i == E.nwindows - 1)
-			win->height += remaining_height;
 
 		if (win->focused)
 			scroll();
@@ -907,28 +932,36 @@ void editorCreateWindow(void) {
 		statusbar_height;
 }
 
-void editorDestroyWindow(void) {
+void editorDestroyWindow(int window_idx) {
 	if (E.nwindows == 1) {
 		editorSetStatusMessage("Can't kill last window");
 		return;
 	}
-	int idx = windowFocusedIdx();
-	editorSwitchWindow();
-	free(E.windows[idx]);
+	
+	int focused_idx = windowFocusedIdx();
+	
+	/* switch focus before destroying current window */
+	if (window_idx == focused_idx) {
+		editorSwitchWindow();
+	}
+	
+	free(E.windows[window_idx]);
 	struct editorWindow **windows =
 		xmalloc(sizeof(struct editorWindow *) * (--E.nwindows));
 	int j = 0;
-	for (int i = 0; i <= E.nwindows; i++) {
-		if (i != idx) {
+	for (int i = 0; i < E.nwindows + 1; i++) {
+		if (i != window_idx) {
 			windows[j] = E.windows[i];
-			if (windows[j]->focused) {
-				E.buf = windows[j]->buf;
-			}
 			j++;
 		}
 	}
 	free(E.windows);
 	E.windows = windows;
+	
+	/* reset heights */
+	for (int i = 0; i < E.nwindows; i++) {
+		E.windows[i]->height = 0;
+	}
 }
 
 void editorDestroyOtherWindows(void) {

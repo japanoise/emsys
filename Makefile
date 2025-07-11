@@ -18,8 +18,8 @@ DOCDIR = $(PREFIX)/share/doc/emsys
 
 # Source files
 OBJECTS = main.o wcwidth.o unicode.o buffer.o region.o undo.o transform.o \
-          find.o pipe.o tab.o register.o fileio.o terminal.o display.o \
-          keymap.o edit.o prompt.o util.o
+          find.o pipe.o register.o fileio.o terminal.o display.o \
+          keymap.o edit.o prompt.o util.o completion.o history.o
 
 # Default target with git version detection
 all:

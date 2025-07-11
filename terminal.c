@@ -200,6 +200,10 @@ int editorReadKey(void) {
 			return REGEX_SEARCH_FORWARD;
 		} else if (seq[0] == CTRL('r')) {
 			return REGEX_SEARCH_BACKWARD;
+		} else if (seq[0] == 'p') {
+			return HISTORY_PREV;
+		} else if (seq[0] == 'n') {
+			return HISTORY_NEXT;
 		} else {
 			switch ((seq[0] & 0x1f) | 0x40) {
 			case 'B':

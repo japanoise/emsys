@@ -3,7 +3,6 @@
 #include "emsys.h"
 #include "fileio.h"
 #include "buffer.h"
-#include "tab.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>

@@ -49,11 +49,12 @@ void editorToggleTruncateLinesWrapper(struct editorConfig *ed,
 
 /* Window management functions */
 int windowFocusedIdx(void);
+int findBufferWindow(struct editorBuffer *buf);
 void editorSwitchWindow(void);
 void synchronizeBufferCursor(struct editorBuffer *buf,
 			     struct editorWindow *win);
 void editorCreateWindow(void);
-void editorDestroyWindow(void);
+void editorDestroyWindow(int window_idx);
 void editorDestroyOtherWindows(void);
 void editorWhatCursor(void);
 

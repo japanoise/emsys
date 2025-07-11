@@ -326,6 +326,11 @@ struct editorBuffer *newBuffer(void) {
 	ret->special_buffer = 0;
 	ret->undo = newUndo();
 	ret->redo = NULL;
+	ret->completion_state.last_completed_text = NULL;
+	ret->completion_state.completion_start_pos = 0;
+	ret->completion_state.successive_tabs = 0;
+	ret->completion_state.last_completion_count = 0;
+	ret->completion_state.preserve_message = 0;
 	ret->next = NULL;
 	ret->truncate_lines = 0;
 	ret->rectangle_mode = 0;
@@ -340,7 +345,9 @@ struct editorBuffer *newBuffer(void) {
 void destroyBuffer(struct editorBuffer *buf) {
 	clearUndosAndRedos(buf);
 	free(buf->filename);
+	free(buf->query);
 	free(buf->screen_line_start);
+	free(buf->completion_state.last_completed_text);
 	for (int i = 0; i < buf->numrows; i++) {
 		freeRow(&buf->row[i]);
 	}
