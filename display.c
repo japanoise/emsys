@@ -953,23 +953,22 @@ void editorDestroyOtherWindows(void) {
 }
 
 void editorWhatCursor(void) {
-	struct editorBuffer *bufr = E.buf;
 	int c = 0;
 
-	if (bufr->cy >= bufr->numrows) {
+	if (E.buf->cy >= E.buf->numrows) {
 		editorSetStatusMessage("End of buffer");
 		return;
-	} else if (bufr->row[bufr->cy].size <= bufr->cx) {
+	} else if (E.buf->row[E.buf->cy].size <= E.buf->cx) {
 		c = (uint8_t)'\n';
 	} else {
-		c = (uint8_t)bufr->row[bufr->cy].chars[bufr->cx];
+		c = (uint8_t)E.buf->row[E.buf->cy].chars[E.buf->cx];
 	}
 
 	int npoint = 0, point = 0;
-	for (int y = 0; y < bufr->numrows; y++) {
-		for (int x = 0; x <= bufr->row[y].size; x++) {
+	for (int y = 0; y < E.buf->numrows; y++) {
+		for (int x = 0; x <= E.buf->row[y].size; x++) {
 			npoint++;
-			if (x == bufr->cx && y == bufr->cy) {
+			if (x == E.buf->cx && y == E.buf->cy) {
 				point = npoint;
 			}
 		}

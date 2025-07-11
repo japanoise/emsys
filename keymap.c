@@ -143,14 +143,12 @@ void editorRecordKey(int c) {
 /* Command execution with prefix state machine */
 void executeCommand(int key) {
 	static enum PrefixState prefix = PREFIX_NONE;
-	struct editorBuffer *UNUSED(bufr) = E.buf;
-
 	/* Handle prefix state transitions and commands */
 	switch (key) {
 	case CTRL('x'):
 #ifdef EMSYS_CUA
 		/* CUA mode: if region marked, cut instead of prefix */
-		if (bufr->markx != -1 && bufr->marky != -1) {
+		if (E.buf->markx != -1 && E.buf->marky != -1) {
 			/* Let the regular processing handle the cut */
 			prefix = PREFIX_NONE;
 			editorProcessKeypress(CUT);
@@ -417,7 +415,6 @@ void editorProcessKeypress(int c) {
 		editorRecordKey(c);
 	}
 
-	struct editorBuffer *bufr = E.buf;
 	int windowIdx = windowFocusedIdx();
 	struct editorWindow *win = E.windows[windowIdx];
 
@@ -427,7 +424,7 @@ void editorProcessKeypress(int c) {
 #else
 		if (E.micro == REDO && c == CTRL('_')) {
 #endif //EMSYS_CUA
-			editorDoRedo(bufr, 1);
+			editorDoRedo(E.buf, 1);
 			return;
 		} else {
 			E.micro = 0;
@@ -472,7 +469,7 @@ void editorProcessKeypress(int c) {
 
 	// Handle PIPE_CMD
 	if (c == PIPE_CMD) {
-		editorPipeCmd(&E, bufr);
+		editorPipeCmd(&E, E.buf);
 		E.uarg = 0;
 		return;
 	}
@@ -482,15 +479,15 @@ void editorProcessKeypress(int c) {
 
 	switch (c) {
 	case '\r':
-		editorInsertNewline(bufr, uarg);
+		editorInsertNewline(E.buf, uarg);
 		break;
 	case BACKSPACE:
 	case CTRL('h'):
-		editorBackSpace(bufr, uarg);
+		editorBackSpace(E.buf, uarg);
 		break;
 	case DEL_KEY:
 	case CTRL('d'):
-		editorDelChar(bufr, uarg);
+		editorDelChar(E.buf, uarg);
 		break;
 	case CTRL('l'):
 		recenter(win);
@@ -531,8 +528,8 @@ void editorProcessKeypress(int c) {
 		editorPageDown(uarg);
 		break;
 	case BEG_OF_FILE:
-		bufr->cy = 0;
-		bufr->cx = 0;
+		E.buf->cy = 0;
+		E.buf->cx = 0;
 		break;
 	case CUSTOM_INFO_MESSAGE: {
 		int winIdx = windowFocusedIdx();
@@ -545,8 +542,8 @@ void editorProcessKeypress(int c) {
 			E.screenrows, win->rowoff);
 	} break;
 	case END_OF_FILE:
-		bufr->cy = bufr->numrows;
-		bufr->cx = 0;
+		E.buf->cy = E.buf->numrows;
+		E.buf->cx = 0;
 		break;
 	case HOME_KEY:
 	case CTRL('a'):
@@ -557,36 +554,36 @@ void editorProcessKeypress(int c) {
 		editorEndOfLine(uarg);
 		break;
 	case CTRL('s'):
-		editorFind(bufr);
+		editorFind(E.buf);
 		break;
 	case REGEX_SEARCH_FORWARD:
-		editorRegexFind(bufr);
+		editorRegexFind(E.buf);
 		break;
 	case REGEX_SEARCH_BACKWARD:
-		editorBackwardRegexFind(bufr);
+		editorBackwardRegexFind(E.buf);
 		break;
 	case UNICODE_ERROR:
 		editorSetStatusMessage("Bad UTF-8 sequence");
 		break;
 	case UNICODE:
-		editorInsertUnicode(bufr, uarg);
+		editorInsertUnicode(E.buf, uarg);
 		break;
 #ifdef EMSYS_CUA
 	case CUT:
-		editorKillRegion(&E, bufr);
+		editorKillRegion(&E, E.buf);
 		editorClearMark();
 		break;
 #endif //EMSYS_CUA
 	case SAVE:
-		editorSave(bufr);
+		editorSave(E.buf);
 		break;
 	case COPY:
-		editorCopyRegion(&E, bufr);
+		editorCopyRegion(&E, E.buf);
 		editorClearMark();
 		break;
 #ifdef EMSYS_CUA
 	case CTRL('C'):
-		editorCopyRegion(&E, bufr);
+		editorCopyRegion(&E, E.buf);
 		editorClearMark();
 		break;
 #endif //EMSYS_CUA
@@ -597,17 +594,17 @@ void editorProcessKeypress(int c) {
 #ifdef EMSYS_CUA
 	case CTRL('v'):
 #endif //EMSYS_CUA
-		editorYank(&E, bufr, uarg ? uarg : 1);
+		editorYank(&E, E.buf, uarg ? uarg : 1);
 		break;
 	case CTRL('w'):
-		editorKillRegion(&E, bufr);
+		editorKillRegion(&E, E.buf);
 		editorClearMark();
 		break;
 	case CTRL('_'):
 #ifdef EMSYS_CUA
 	case CTRL('z'):
 #endif //EMSYS_CUA
-		editorDoUndo(bufr, uarg);
+		editorDoUndo(E.buf, uarg);
 		break;
 	case CTRL('k'):
 		editorKillLine(uarg);
@@ -618,10 +615,10 @@ void editorProcessKeypress(int c) {
 		break;
 #endif
 	case CTRL('j'):
-		editorInsertNewlineAndIndent(bufr, uarg ? uarg : 1);
+		editorInsertNewlineAndIndent(E.buf, uarg ? uarg : 1);
 		break;
 	case CTRL('o'):
-		editorOpenLine(bufr, uarg ? uarg : 1);
+		editorOpenLine(E.buf, uarg ? uarg : 1);
 		break;
 	case CTRL('q'):;
 		int nread;
@@ -631,9 +628,9 @@ void editorProcessKeypress(int c) {
 		}
 		int count = uarg ? uarg : 1;
 		for (int i = 0; i < count; i++) {
-			editorUndoAppendChar(bufr, c);
+			editorUndoAppendChar(E.buf, c);
 		}
-		editorInsertChar(bufr, c, count);
+		editorInsertChar(E.buf, c, count);
 		break;
 	case FORWARD_WORD:
 		editorForwardWord(uarg);
@@ -648,8 +645,8 @@ void editorProcessKeypress(int c) {
 		editorBackPara(uarg);
 		break;
 	case REDO:
-		editorDoRedo(bufr, uarg);
-		if (bufr->redo != NULL) {
+		editorDoRedo(E.buf, uarg);
+		if (E.buf->redo != NULL) {
 			editorSetStatusMessage(
 				"Press C-_ or C-/ to redo again");
 			E.micro = REDO;
@@ -692,30 +689,30 @@ void editorProcessKeypress(int c) {
 		break;
 
 	case DELETE_WORD:
-		editorDeleteWord(bufr, uarg);
+		editorDeleteWord(E.buf, uarg);
 		break;
 	case BACKSPACE_WORD:
-		editorBackspaceWord(bufr, uarg);
+		editorBackspaceWord(E.buf, uarg);
 		break;
 
 	case UPCASE_WORD:
-		editorUpcaseWord(bufr, uarg ? uarg : 1);
+		editorUpcaseWord(E.buf, uarg ? uarg : 1);
 		break;
 
 	case DOWNCASE_WORD:
-		editorDowncaseWord(bufr, uarg ? uarg : 1);
+		editorDowncaseWord(E.buf, uarg ? uarg : 1);
 		break;
 
 	case CAPCASE_WORD:
-		editorCapitalCaseWord(bufr, uarg ? uarg : 1);
+		editorCapitalCaseWord(E.buf, uarg ? uarg : 1);
 		break;
 
 	case UPCASE_REGION:
-		editorTransformRegion(&E, bufr, transformerUpcase);
+		editorTransformRegion(&E, E.buf, transformerUpcase);
 		break;
 
 	case DOWNCASE_REGION:
-		editorTransformRegion(&E, bufr, transformerDowncase);
+		editorTransformRegion(&E, E.buf, transformerDowncase);
 		break;
 	case TOGGLE_TRUNCATE_LINES:
 		editorToggleTruncateLines();
@@ -726,23 +723,23 @@ void editorProcessKeypress(int c) {
 		break;
 
 	case TRANSPOSE_WORDS:
-		editorTransposeWords(bufr);
+		editorTransposeWords(E.buf);
 		break;
 
 	case CTRL('t'):
-		editorTransposeChars(bufr);
+		editorTransposeChars(E.buf);
 		break;
 
 	case EXEC_CMD:;
 		uint8_t *cmd =
-			editorPrompt(bufr, "cmd: %s", PROMPT_COMMAND, NULL);
+			editorPrompt(E.buf, "cmd: %s", PROMPT_COMMAND, NULL);
 		if (cmd != NULL) {
-			runCommand(cmd, &E, bufr);
+			runCommand(cmd, &E, E.buf);
 			free(cmd);
 		}
 		break;
 	case QUERY_REPLACE:
-		editorQueryReplace(&E, bufr);
+		editorQueryReplace(&E, E.buf);
 		break;
 
 	case GOTO_LINE:
@@ -750,7 +747,7 @@ void editorProcessKeypress(int c) {
 		break;
 
 	case INSERT_FILE:
-		editorInsertFile(&E, bufr);
+		editorInsertFile(&E, E.buf);
 		break;
 
 	case CTRL('x'):
@@ -768,18 +765,18 @@ void editorProcessKeypress(int c) {
 		break;
 
 	case BACKTAB:
-		editorUnindent(bufr, uarg);
+		editorUnindent(E.buf, uarg);
 		break;
 
 	case SWAP_MARK:
-		if (0 <= bufr->markx &&
-		    (0 <= bufr->marky && bufr->marky < bufr->numrows)) {
-			int swapx = bufr->cx;
-			int swapy = bufr->cy;
-			bufr->cx = bufr->markx;
-			bufr->cy = bufr->marky;
-			bufr->markx = swapx;
-			bufr->marky = swapy;
+		if (0 <= E.buf->markx &&
+		    (0 <= E.buf->marky && E.buf->marky < E.buf->numrows)) {
+			int swapx = E.buf->cx;
+			int swapy = E.buf->cy;
+			E.buf->cx = E.buf->markx;
+			E.buf->cy = E.buf->marky;
+			E.buf->markx = swapx;
+			E.buf->marky = swapy;
 		}
 		break;
 
@@ -796,42 +793,42 @@ void editorProcessKeypress(int c) {
 		editorNumberToRegister(&E, uarg);
 		break;
 	case REGION_REGISTER:
-		editorRegionToRegister(&E, bufr);
+		editorRegionToRegister(&E, E.buf);
 		break;
 	case INC_REGISTER:
-		editorIncrementRegister(&E, bufr);
+		editorIncrementRegister(&E, E.buf);
 		break;
 	case INSERT_REGISTER:
-		editorInsertRegister(&E, bufr);
+		editorInsertRegister(&E, E.buf);
 		break;
 	case VIEW_REGISTER:
-		editorViewRegister(&E, bufr);
+		editorViewRegister(&E, E.buf);
 		break;
 
 	case STRING_RECT:
-		editorStringRectangle(&E, bufr);
+		editorStringRectangle(&E, E.buf);
 		break;
 
 	case COPY_RECT:
-		editorCopyRectangle(&E, bufr);
+		editorCopyRectangle(&E, E.buf);
 		editorClearMark();
 		break;
 
 	case KILL_RECT:
-		editorKillRectangle(&E, bufr);
+		editorKillRectangle(&E, E.buf);
 		editorClearMark();
 		break;
 
 	case YANK_RECT:
-		editorYankRectangle(&E, bufr);
+		editorYankRectangle(&E, E.buf);
 		break;
 
 	case RECT_REGISTER:
-		editorRectRegister(&E, bufr);
+		editorRectRegister(&E, E.buf);
 		break;
 
 	case EXPAND:
-		editorCompleteWord(&E, bufr);
+		editorCompleteWord(&E, E.buf);
 		break;
 
 	case MACRO_RECORD:
@@ -874,24 +871,24 @@ void editorProcessKeypress(int c) {
 			// Handle TAB character
 			// In minibuffer, tab should NOT be processed here
 			// It's handled by the prompt function for completion
-			if (bufr == E.minibuf) {
+			if (E.buf == E.minibuf) {
 				// Do nothing - let prompt handle it
 				break;
 			}
 			int count = uarg ? uarg : 1;
 			for (int i = 0; i < count; i++) {
-				editorUndoAppendChar(bufr, '\t');
+				editorUndoAppendChar(E.buf, '\t');
 			}
-			editorInsertChar(bufr, '\t', count);
+			editorInsertChar(E.buf, '\t', count);
 		} else if (ISCTRL(c)) {
 			editorSetStatusMessage("Unknown command C-%c",
 					       c | 0x60);
 		} else {
 			int count = uarg ? uarg : 1;
 			for (int i = 0; i < count; i++) {
-				editorUndoAppendChar(bufr, c);
+				editorUndoAppendChar(E.buf, c);
 			}
-			editorInsertChar(bufr, c, count);
+			editorInsertChar(E.buf, c, count);
 		}
 		break;
 	}
