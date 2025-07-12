@@ -64,8 +64,7 @@ char *findCommonPrefix(char **strings, int count) {
 	}
 	
 	char *prefix = xmalloc(prefix_len + 1);
-	strncpy(prefix, strings[0], prefix_len);
-	prefix[prefix_len] = '\0';
+	emsys_strlcpy(prefix, strings[0], prefix_len + 1);
 	return prefix;
 }
 
@@ -89,8 +88,8 @@ void getFileCompletions(const char *prefix, struct completion_result *result) {
 		size_t home_len = strlen(home_dir);
 		size_t prefix_len = strlen(prefix);
 		char *expanded = xmalloc(home_len + prefix_len);
-		strcpy(expanded, home_dir);
-		strcat(expanded, prefix + 1);
+		emsys_strlcpy(expanded, home_dir, home_len + prefix_len);
+		emsys_strlcat(expanded, prefix + 1, home_len + prefix_len);
 		pattern_to_use = expanded;
 	}
 	
@@ -98,7 +97,7 @@ void getFileCompletions(const char *prefix, struct completion_result *result) {
 	/* Add * for globbing */
 	int len = strlen(pattern_to_use);
 	glob_pattern = xmalloc(len + 2);
-	strcpy(glob_pattern, pattern_to_use);
+	emsys_strlcpy(glob_pattern, pattern_to_use, len + 2);
 	glob_pattern[len] = '*';
 	glob_pattern[len + 1] = '\0';
 	
@@ -559,12 +558,11 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 				}
 				candidates[ncand] =
 					xmalloc(candidateLen + 1);
-				candidates[ncand][candidateLen] = 0;
-				strncpy(candidates[ncand],
+				emsys_strlcpy(candidates[ncand],
 					(char *)&scanrow
 						->chars[cursor - line +
 							pmatch.rm_so],
-					candidateLen);
+					candidateLen + 1);
 				ncand++;
 
 				/* Onward! */

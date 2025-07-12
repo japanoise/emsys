@@ -2,11 +2,17 @@
 # Test suite for emsys
 set -e
 
-echo "Building emsys..."
-make clean > /dev/null 2>&1
-make > /dev/null 2>&1
-
 echo "Running tests..."
+
+# Test 0: Check for missing newlines (must be first, before any builds)
+if ./tests/check-newlines.sh > /dev/null 2>&1; then
+    echo "✓ Source file newlines"
+else
+    echo "✗ Missing newlines in source files"
+    ./tests/check-newlines.sh
+    exit 1
+fi
+
 # Test 1: Version flag works
 ./emsys --version > /dev/null || exit 1
 echo "✓ Version check"
@@ -39,14 +45,6 @@ else
 fi
 rm -f test_core
 
-# Test 5: Check for missing newlines
-if ./tests/check-newlines.sh > /dev/null 2>&1; then
-    echo "✓ Source file newlines"
-else
-    echo "✗ Missing newlines in source files"
-    ./tests/check-newlines.sh
-    exit 1
-fi
 
 echo ""
 echo "All tests passed"
