@@ -43,14 +43,17 @@ void freeCompletionResult(struct completion_result *result) {
 }
 
 char *findCommonPrefix(char **strings, int count) {
-	if (count == 0) return NULL;
-	if (count == 1) return xstrdup(strings[0]);
-	
+	if (count == 0)
+		return NULL;
+	if (count == 1)
+		return xstrdup(strings[0]);
+
 	int prefix_len = 0;
 	while (1) {
 		char ch = strings[0][prefix_len];
-		if (ch == '\0') break;
-		
+		if (ch == '\0')
+			break;
+
 		int all_match = 1;
 		for (int i = 1; i < count; i++) {
 			if (strings[i][prefix_len] != ch) {
@@ -58,11 +61,12 @@ char *findCommonPrefix(char **strings, int count) {
 				break;
 			}
 		}
-		
-		if (!all_match) break;
+
+		if (!all_match)
+			break;
 		prefix_len++;
 	}
-	
+
 	char *prefix = xmalloc(prefix_len + 1);
 	emsys_strlcpy(prefix, strings[0], prefix_len + 1);
 	return prefix;
@@ -74,17 +78,17 @@ void getFileCompletions(const char *prefix, struct completion_result *result) {
 	result->n_matches = 0;
 	result->common_prefix = NULL;
 	result->prefix_len = strlen(prefix);
-	
+
 	char *glob_pattern = NULL;
 	const char *pattern_to_use = prefix;
-	
+
 	/* Manual tilde expansion */
 	if (*prefix == '~') {
 		char *home_dir = getenv("HOME");
 		if (!home_dir) {
 			return;
 		}
-		
+
 		size_t home_len = strlen(home_dir);
 		size_t prefix_len = strlen(prefix);
 		char *expanded = xmalloc(home_len + prefix_len);
@@ -92,7 +96,7 @@ void getFileCompletions(const char *prefix, struct completion_result *result) {
 		emsys_strlcat(expanded, prefix + 1, home_len + prefix_len);
 		pattern_to_use = expanded;
 	}
-	
+
 #ifndef EMSYS_NO_SIMPLE_GLOB
 	/* Add * for globbing */
 	int len = strlen(pattern_to_use);
@@ -100,31 +104,34 @@ void getFileCompletions(const char *prefix, struct completion_result *result) {
 	emsys_strlcpy(glob_pattern, pattern_to_use, len + 2);
 	glob_pattern[len] = '*';
 	glob_pattern[len + 1] = '\0';
-	
+
 	if (pattern_to_use != prefix) {
 		free((void *)pattern_to_use);
 	}
 	pattern_to_use = glob_pattern;
 #endif
-	
+
 	int glob_result = glob(pattern_to_use, GLOB_MARK, NULL, &globlist);
 	if (glob_result == 0) {
 		if (globlist.gl_pathc > 0) {
-			result->matches = xmalloc(globlist.gl_pathc * sizeof(char *));
+			result->matches =
+				xmalloc(globlist.gl_pathc * sizeof(char *));
 			result->n_matches = globlist.gl_pathc;
-			
+
 			for (size_t i = 0; i < globlist.gl_pathc; i++) {
-				result->matches[i] = xstrdup(globlist.gl_pathv[i]);
+				result->matches[i] =
+					xstrdup(globlist.gl_pathv[i]);
 			}
-			
-			result->common_prefix = findCommonPrefix(result->matches, result->n_matches);
+
+			result->common_prefix = findCommonPrefix(
+				result->matches, result->n_matches);
 		}
 		globfree(&globlist);
 	} else if (glob_result == GLOB_NOMATCH) {
 		/* No matches found */
 		result->n_matches = 0;
 	}
-	
+
 	if (glob_pattern) {
 		free(glob_pattern);
 	}
@@ -134,39 +141,44 @@ void getFileCompletions(const char *prefix, struct completion_result *result) {
 }
 
 void getBufferCompletions(struct editorConfig *ed, const char *prefix,
-                         struct editorBuffer *currentBuffer,
-                         struct completion_result *result) {
+			  struct editorBuffer *currentBuffer,
+			  struct completion_result *result) {
 	result->matches = NULL;
 	result->n_matches = 0;
 	result->common_prefix = NULL;
 	result->prefix_len = strlen(prefix);
-	
+
 	int capacity = 8;
 	result->matches = xmalloc(capacity * sizeof(char *));
-	
+
 	for (struct editorBuffer *b = ed->headbuf; b != NULL; b = b->next) {
-		if (b == currentBuffer) continue;
-		
+		if (b == currentBuffer)
+			continue;
+
 		/* Skip the *Completions* buffer */
-		if (b->filename && strcmp(b->filename, "*Completions*") == 0) continue;
-		
+		if (b->filename && strcmp(b->filename, "*Completions*") == 0)
+			continue;
+
 		char *name = b->filename ? b->filename : "*scratch*";
 		if (strncmp(name, prefix, strlen(prefix)) == 0) {
 			if (result->n_matches >= capacity) {
 				if (capacity > INT_MAX / 2 ||
-				    (size_t)capacity > SIZE_MAX / (2 * sizeof(char *))) {
+				    (size_t)capacity >
+					    SIZE_MAX / (2 * sizeof(char *))) {
 					die("buffer size overflow");
 				}
 				capacity *= 2;
-				result->matches = xrealloc(result->matches,
-				                          capacity * sizeof(char *));
+				result->matches =
+					xrealloc(result->matches,
+						 capacity * sizeof(char *));
 			}
 			result->matches[result->n_matches++] = xstrdup(name);
 		}
 	}
-	
+
 	if (result->n_matches > 0) {
-		result->common_prefix = findCommonPrefix(result->matches, result->n_matches);
+		result->common_prefix =
+			findCommonPrefix(result->matches, result->n_matches);
 	} else {
 		free(result->matches);
 		result->matches = NULL;
@@ -174,15 +186,15 @@ void getBufferCompletions(struct editorConfig *ed, const char *prefix,
 }
 
 void getCommandCompletions(struct editorConfig *ed, const char *prefix,
-                          struct completion_result *result) {
+			   struct completion_result *result) {
 	result->matches = NULL;
 	result->n_matches = 0;
 	result->common_prefix = NULL;
 	result->prefix_len = strlen(prefix);
-	
+
 	int capacity = 8;
 	result->matches = xmalloc(capacity * sizeof(char *));
-	
+
 	/* Convert prefix to lowercase for case-insensitive matching */
 	int prefix_len = strlen(prefix);
 	char *lower_prefix = xmalloc(prefix_len + 1);
@@ -193,38 +205,43 @@ void getCommandCompletions(struct editorConfig *ed, const char *prefix,
 		}
 		lower_prefix[i] = c;
 	}
-	
+
 	for (int i = 0; i < ed->cmd_count; i++) {
 		if (strncmp(ed->cmd[i].key, lower_prefix, prefix_len) == 0) {
 			if (result->n_matches >= capacity) {
 				if (capacity > INT_MAX / 2 ||
-				    (size_t)capacity > SIZE_MAX / (2 * sizeof(char *))) {
+				    (size_t)capacity >
+					    SIZE_MAX / (2 * sizeof(char *))) {
 					die("buffer size overflow");
 				}
 				capacity *= 2;
-				result->matches = xrealloc(result->matches,
-				                          capacity * sizeof(char *));
+				result->matches =
+					xrealloc(result->matches,
+						 capacity * sizeof(char *));
 			}
-			result->matches[result->n_matches++] = xstrdup(ed->cmd[i].key);
+			result->matches[result->n_matches++] =
+				xstrdup(ed->cmd[i].key);
 		}
 	}
-	
+
 	free(lower_prefix);
-	
+
 	if (result->n_matches > 0) {
-		result->common_prefix = findCommonPrefix(result->matches, result->n_matches);
+		result->common_prefix =
+			findCommonPrefix(result->matches, result->n_matches);
 	} else {
 		free(result->matches);
 		result->matches = NULL;
 	}
 }
 
-static void replaceMinibufferText(struct editorBuffer *minibuf, const char *text) {
+static void replaceMinibufferText(struct editorBuffer *minibuf,
+				  const char *text) {
 	/* Clear current content */
 	while (minibuf->numrows > 0) {
 		editorDelRow(minibuf, 0);
 	}
-	
+
 	/* Insert new text */
 	editorInsertRow(minibuf, 0, (char *)text, strlen(text));
 	minibuf->cx = strlen(text);
@@ -238,7 +255,7 @@ static struct editorBuffer *findOrCreateBuffer(const char *name) {
 			return b;
 		}
 	}
-	
+
 	/* Create new buffer */
 	struct editorBuffer *new_buf = newBuffer();
 	new_buf->filename = xstrdup(name);
@@ -254,20 +271,19 @@ static void clearBuffer(struct editorBuffer *buf) {
 	}
 }
 
-
 static void showCompletionsBuffer(char **matches, int n_matches) {
-	
 	/* Find or create completions buffer */
 	struct editorBuffer *comp_buf = findOrCreateBuffer("*Completions*");
 	clearBuffer(comp_buf);
 	comp_buf->read_only = 1;
-	
+
 	/* Add header */
 	char header[100];
-	snprintf(header, sizeof(header), "Possible completions (%d):", n_matches);
+	snprintf(header, sizeof(header),
+		 "Possible completions (%d):", n_matches);
 	editorInsertRow(comp_buf, 0, header, strlen(header));
 	editorInsertRow(comp_buf, 1, "", 0);
-	
+
 	/* Find max width */
 	int max_width = 0;
 	for (int i = 0; i < n_matches; i++) {
@@ -276,39 +292,42 @@ static void showCompletionsBuffer(char **matches, int n_matches) {
 			max_width = width;
 		}
 	}
-	
+
 	/* Calculate columns */
 	int term_width = E.screencols;
 	int col_width = max_width + 2;
 	int columns = term_width / col_width;
-	if (columns < 1) columns = 1;
-	
+	if (columns < 1)
+		columns = 1;
+
 	/* Format matches in columns */
 	int rows = (n_matches + columns - 1) / columns;
 	for (int row = 0; row < rows; row++) {
-		char line[1024] = {0};
+		char line[1024] = { 0 };
 		int line_pos = 0;
-		
+
 		for (int col = 0; col < columns; col++) {
 			int idx = row + col * rows;
-			if (idx >= n_matches) break;
-			
-			int written = snprintf(line + line_pos, sizeof(line) - line_pos,
-			                      "%-*s", col_width, matches[idx]);
+			if (idx >= n_matches)
+				break;
+
+			int written = snprintf(line + line_pos,
+					       sizeof(line) - line_pos, "%-*s",
+					       col_width, matches[idx]);
 			if (written > 0) {
 				line_pos += written;
 			}
 		}
-		
+
 		/* Trim trailing spaces */
 		while (line_pos > 0 && line[line_pos - 1] == ' ') {
 			line_pos--;
 		}
 		line[line_pos] = '\0';
-		
+
 		editorInsertRow(comp_buf, comp_buf->numrows, line, line_pos);
 	}
-	
+
 	/* Display in window if not already visible */
 	int comp_window = findBufferWindow(comp_buf);
 	if (comp_window == -1) {
@@ -317,51 +336,50 @@ static void showCompletionsBuffer(char **matches, int n_matches) {
 			/* Create new window for completions */
 			int new_window_idx = E.nwindows;
 			editorCreateWindow();
-			
+
 			/* Set the new window to show completions buffer */
 			E.windows[new_window_idx]->buf = comp_buf;
 			E.windows[new_window_idx]->focused = 0;
-			
+
 			/* Keep focus on the first window */
 			for (int i = 0; i < E.nwindows; i++) {
 				E.windows[i]->focused = (i == 0);
 			}
-			
+
 			comp_window = new_window_idx;
-			
 		}
 	} else {
 	}
-	
-	
+
 	/* Adjust window sizes for completions display */
 	if (E.nwindows >= 2 && comp_window >= 0) {
 		/* Calculate desired height for completions window */
 		int comp_height = comp_buf->numrows + 2; /* +2 for padding */
-		
+
 		/* Calculate total available height */
-		int total_height = E.screenrows - minibuffer_height - 
-		                   (statusbar_height * E.nwindows);
-		
+		int total_height = E.screenrows - minibuffer_height -
+				   (statusbar_height * E.nwindows);
+
 		/* Calculate minimum space needed for non-completion windows */
 		int non_comp_windows = E.nwindows - 1;
-		int min_space_for_others = non_comp_windows * 3; /* 3 lines minimum each */
-		
+		int min_space_for_others =
+			non_comp_windows * 3; /* 3 lines minimum each */
+
 		/* Maximum height for completions is what's left after ensuring minimums */
 		int max_comp_height = total_height - min_space_for_others;
 		if (comp_height > max_comp_height) {
 			comp_height = max_comp_height;
 		}
-		
+
 		/* Ensure completions window itself gets at least 3 lines */
 		if (comp_height < 3) {
 			comp_height = 3;
 		}
-		
+
 		/* Distribute remaining space to other windows */
 		int remaining_height = total_height - comp_height;
 		int height_per_window = remaining_height / non_comp_windows;
-		
+
 		/* Set window heights */
 		for (int i = 0; i < E.nwindows; i++) {
 			if (i == comp_window) {
@@ -371,45 +389,46 @@ static void showCompletionsBuffer(char **matches, int n_matches) {
 			}
 		}
 	}
-	
+
 	refreshScreen();
 }
 
 void closeCompletionsBuffer(void) {
 	struct editorBuffer *comp_buf = NULL;
 	struct editorBuffer *prev_buf = NULL;
-	
+
 	/* Find the completions buffer and its predecessor */
-	for (struct editorBuffer *b = E.headbuf; b != NULL; prev_buf = b, b = b->next) {
+	for (struct editorBuffer *b = E.headbuf; b != NULL;
+	     prev_buf = b, b = b->next) {
 		if (b->filename && strcmp(b->filename, "*Completions*") == 0) {
 			comp_buf = b;
 			break;
 		}
 	}
-	
+
 	if (comp_buf) {
 		int comp_window = findBufferWindow(comp_buf);
 		if (comp_window >= 0 && E.nwindows > 1) {
 			editorDestroyWindow(comp_window);
 		}
-		
+
 		/* Remove the buffer from the buffer list */
 		if (prev_buf) {
 			prev_buf->next = comp_buf->next;
 		} else {
 			E.headbuf = comp_buf->next;
 		}
-		
+
 		/* Update E.buf if it pointed to the completions buffer */
 		if (E.buf == comp_buf) {
 			E.buf = comp_buf->next ? comp_buf->next : E.headbuf;
 		}
-		
+
 		/* Update lastVisitedBuffer if it pointed to completions buffer */
 		if (E.lastVisitedBuffer == comp_buf) {
 			E.lastVisitedBuffer = NULL;
 		}
-		
+
 		/* Destroy the buffer */
 		destroyBuffer(comp_buf);
 	}
@@ -490,7 +509,8 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 	regex_t regex;
 	int reti = regcomp(&regex, regexWord, REG_EXTENDED | REG_NEWLINE);
 	if (reti) {
-		editorSetStatusMessage("Could not compile regex: %s", regexWord);
+		editorSetStatusMessage("Could not compile regex: %s",
+				       regexWord);
 		return;
 	}
 
@@ -539,15 +559,14 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 					/* Out of space, add more. */
 					if (scand == 0) {
 						scand = 32;
-						candidates =
-							xmalloc(sizeof(char *) *
-								scand);
+						candidates = xmalloc(
+							sizeof(char *) * scand);
 					} else {
 						if (scand > INT_MAX / 2 ||
 						    (size_t)scand >
 							    SIZE_MAX /
-								    (2 * sizeof(
-									     char *))) {
+								    (2 *
+								     sizeof(char *))) {
 							die("buffer size overflow");
 						}
 						scand *= 2;
@@ -556,12 +575,11 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 							sizeof(char *) * scand);
 					}
 				}
-				candidates[ncand] =
-					xmalloc(candidateLen + 1);
-				emsys_strlcpy(candidates[ncand],
-					(char *)&scanrow
-						->chars[cursor - line +
-							pmatch.rm_so],
+				candidates[ncand] = xmalloc(candidateLen + 1);
+				emsys_strlcpy(
+					candidates[ncand],
+					(char *)&scanrow->chars[cursor - line +
+								pmatch.rm_so],
 					candidateLen + 1);
 				ncand++;
 
@@ -570,20 +588,51 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 			}
 
 			/* Also add keywords if they match. */
-			const char *keywords[] = {
-				"auto",	    "break",	"case",	   "char",
-				"const",    "continue", "default", "do",
-				"double",   "else",	"enum",	   "extern",
-				"float",    "for",	"goto",	   "if",
-				"inline",   "int",	"long",	   "register",
-				"restrict", "return",	"short",   "signed",
-				"sizeof",   "static",	"struct",  "switch",
-				"typedef",  "union",	"unsigned", "void",
-				"volatile", "while",	"_Alignas", "_Alignof",
-				"_Atomic",  "_Bool",	"_Complex", "_Generic",
-				"_Imaginary", "_Noreturn", "_Static_assert",
-				"_Thread_local", NULL
-			};
+			const char *keywords[] = { "auto",
+						   "break",
+						   "case",
+						   "char",
+						   "const",
+						   "continue",
+						   "default",
+						   "do",
+						   "double",
+						   "else",
+						   "enum",
+						   "extern",
+						   "float",
+						   "for",
+						   "goto",
+						   "if",
+						   "inline",
+						   "int",
+						   "long",
+						   "register",
+						   "restrict",
+						   "return",
+						   "short",
+						   "signed",
+						   "sizeof",
+						   "static",
+						   "struct",
+						   "switch",
+						   "typedef",
+						   "union",
+						   "unsigned",
+						   "void",
+						   "volatile",
+						   "while",
+						   "_Alignas",
+						   "_Alignof",
+						   "_Atomic",
+						   "_Bool",
+						   "_Complex",
+						   "_Generic",
+						   "_Imaginary",
+						   "_Noreturn",
+						   "_Static_assert",
+						   "_Thread_local",
+						   NULL };
 
 			/* This is pretty dumb. We should be able to
 			 * reduce the number of regex invocations to one,
@@ -603,11 +652,12 @@ void editorCompleteWord(struct editorConfig *ed, struct editorBuffer *bufr) {
 								sizeof(char *) *
 								scand);
 						} else {
-							if (scand > INT_MAX / 2 ||
+							if (scand > INT_MAX /
+									    2 ||
 							    (size_t)scand >
 								    SIZE_MAX /
-									    (2 * sizeof(
-										     char *))) {
+									    (2 *
+									     sizeof(char *))) {
 								die("buffer size overflow");
 							}
 							scand *= 2;
@@ -684,37 +734,38 @@ COMPLETE_WORD_CLEANUP:
 	free(candidates);
 }
 
-void handleMinibufferCompletion(struct editorBuffer *minibuf, enum promptType type) {
+void handleMinibufferCompletion(struct editorBuffer *minibuf,
+				enum promptType type) {
 	/* Get current buffer text */
-	char *current_text = minibuf->numrows > 0 ? 
-	                    (char *)minibuf->row[0].chars : "";
-	
-	
+	char *current_text =
+		minibuf->numrows > 0 ? (char *)minibuf->row[0].chars : "";
+
 	/* Check if text changed since last completion */
 	if (minibuf->completion_state.last_completed_text == NULL ||
-	    strcmp(current_text, minibuf->completion_state.last_completed_text) != 0) {
+	    strcmp(current_text,
+		   minibuf->completion_state.last_completed_text) != 0) {
 		/* Text changed - reset completion state */
 		resetCompletionState(&minibuf->completion_state);
 	}
-	
+
 	/* Get matches based on type */
 	struct completion_result result;
 	switch (type) {
-		case PROMPT_FILES:
-			getFileCompletions(current_text, &result);
-			break;
-		case PROMPT_BASIC:
-			getBufferCompletions(&E, current_text, E.edbuf, &result);
-			break;
-		case PROMPT_COMMAND:
-			getCommandCompletions(&E, current_text, &result);
-			break;
-		case PROMPT_SEARCH:
-			/* For search, we can provide buffer completions */
-			getBufferCompletions(&E, current_text, E.edbuf, &result);
-			break;
+	case PROMPT_FILES:
+		getFileCompletions(current_text, &result);
+		break;
+	case PROMPT_BASIC:
+		getBufferCompletions(&E, current_text, E.edbuf, &result);
+		break;
+	case PROMPT_COMMAND:
+		getCommandCompletions(&E, current_text, &result);
+		break;
+	case PROMPT_SEARCH:
+		/* For search, we can provide buffer completions */
+		getBufferCompletions(&E, current_text, E.edbuf, &result);
+		break;
 	}
-	
+
 	/* Handle based on number of matches */
 	if (result.n_matches == 0) {
 		editorSetStatusMessage("[No match]");
@@ -725,27 +776,30 @@ void handleMinibufferCompletion(struct editorBuffer *minibuf, enum promptType ty
 		closeCompletionsBuffer();
 	} else {
 		/* Multiple matches */
-		if (result.common_prefix && strlen(result.common_prefix) > strlen(current_text)) {
+		if (result.common_prefix &&
+		    strlen(result.common_prefix) > strlen(current_text)) {
 			/* Can extend to common prefix */
 			replaceMinibufferText(minibuf, result.common_prefix);
 			closeCompletionsBuffer();
 		} else {
 			/* Already at common prefix (or no common prefix found) */
 			if (minibuf->completion_state.successive_tabs > 0) {
-				showCompletionsBuffer(result.matches, result.n_matches);
+				showCompletionsBuffer(result.matches,
+						      result.n_matches);
 			} else {
-				editorSetStatusMessage("[Complete, but not unique]");
+				editorSetStatusMessage(
+					"[Complete, but not unique]");
 				minibuf->completion_state.preserve_message = 1;
 			}
 		}
 	}
-	
+
 	/* Update state BEFORE cleanup */
 	minibuf->completion_state.successive_tabs++;
 	free(minibuf->completion_state.last_completed_text);
 	minibuf->completion_state.last_completed_text = xstrdup(
 		minibuf->numrows > 0 ? (char *)minibuf->row[0].chars : "");
-	
+
 	/* Cleanup */
 	freeCompletionResult(&result);
 }

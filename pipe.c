@@ -190,8 +190,8 @@ void editorPipeCmd(struct editorConfig *ed, struct editorBuffer *bufr) {
 #include "display.h"
 
 void editorPipeCmd(struct editorConfig *ed, struct editorBuffer *bufr) {
-	(void)ed;    /* unused parameter */
-	(void)bufr;  /* unused parameter */
+	(void)ed;   /* unused parameter */
+	(void)bufr; /* unused parameter */
 	editorSetStatusMessage("Pipe command not available on this platform");
 }
 

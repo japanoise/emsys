@@ -15,7 +15,6 @@
 #define EMSYS_VERSION "unknown"
 #endif
 
-
 #define ESC "\033"
 #define CSI ESC "["
 #define CRLF "\r\n"
@@ -199,13 +198,13 @@ struct editorConfig {
 	struct editorBuffer *lastVisitedBuffer;
 	int uarg; /* Universal argument: 0 = off, non-zero = active with that value */
 	int macro_depth; /* Current macro execution depth to prevent infinite recursion */
-	
+
 	struct editorHistory file_history;
 	struct editorHistory command_history;
 	struct editorHistory shell_history;
 	struct editorHistory search_history;
 	struct editorHistory kill_history;
-	int kill_ring_pos;  /* Current position in kill ring for M-y */
+	int kill_ring_pos; /* Current position in kill ring for M-y */
 };
 
 /*** prototypes ***/

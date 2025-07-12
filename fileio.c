@@ -71,7 +71,7 @@ void editorOpen(struct editorBuffer *bufr, char *filename) {
 			linelen--;
 		editorInsertRow(bufr, bufr->numrows, line, linelen);
 	}
-	
+
 	free(line);
 	fclose(fp);
 	bufr->dirty = 0;

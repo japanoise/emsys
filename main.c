@@ -83,7 +83,7 @@ void initEditor(void) {
 	setupCommands(&E);
 	E.lastVisitedBuffer = NULL;
 	E.macro_depth = 0;
-	
+
 	initHistory(&E.file_history);
 	initHistory(&E.command_history);
 	initHistory(&E.shell_history);
@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
 
 	enableRawMode();
 	initEditor();
-	
+
 	E.headbuf = newBuffer();
 	E.buf = E.headbuf;
 	if (argc >= 2) {
@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
 
 	for (;;) {
 		refreshScreen();
-		
+
 		int c = editorReadKey();
 		if (c == MACRO_RECORD) {
 			if (E.recording) {
@@ -186,9 +186,9 @@ int main(int argc, char *argv[]) {
 			executeCommand(c);
 		}
 	}
-	
+
 	/* cleanup */
 	free(E.kill);
-	
+
 	return 0;
 }

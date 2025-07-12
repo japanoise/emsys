@@ -16,18 +16,18 @@ void addHistory(struct editorHistory *hist, const char *str) {
 	if (!str || strlen(str) == 0) {
 		return;
 	}
-	
+
 	/* Don't add duplicates of the most recent entry */
 	if (hist->tail && strcmp(hist->tail->str, str) == 0) {
 		return;
 	}
-	
+
 	/* Create new entry */
 	struct historyEntry *entry = xmalloc(sizeof(struct historyEntry));
 	entry->str = xstrdup(str);
 	entry->next = NULL;
 	entry->prev = hist->tail;
-	
+
 	/* Add to list */
 	if (hist->tail) {
 		hist->tail->next = entry;
@@ -36,7 +36,7 @@ void addHistory(struct editorHistory *hist, const char *str) {
 	}
 	hist->tail = entry;
 	hist->count++;
-	
+
 	/* Remove oldest entries if we exceed the limit */
 	while (hist->count > HISTORY_MAX_ENTRIES) {
 		struct historyEntry *old = hist->head;
@@ -48,19 +48,18 @@ void addHistory(struct editorHistory *hist, const char *str) {
 		free(old);
 		hist->count--;
 	}
-	
 }
 
 char *getHistoryAt(struct editorHistory *hist, int index) {
 	if (index < 0 || index >= hist->count) {
 		return NULL;
 	}
-	
+
 	struct historyEntry *entry = hist->tail;
 	for (int i = hist->count - 1; i > index && entry; i--) {
 		entry = entry->prev;
 	}
-	
+
 	return entry ? entry->str : NULL;
 }
 

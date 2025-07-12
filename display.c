@@ -817,14 +817,14 @@ void drawMinibuffer(struct abuf *ab) {
 void refreshScreen(void) {
 	struct abuf ab = ABUF_INIT;
 	abAppend(&ab, "\x1b[?25l", 6); // Hide cursor
-	abAppend(&ab, "\x1b[H", 3); // Move cursor to top-left corner
+	abAppend(&ab, "\x1b[H", 3);    // Move cursor to top-left corner
 
 	int focusedIdx = windowFocusedIdx();
 
 	int cumulative_height = 0;
 	int total_height = E.screenrows - minibuffer_height -
 			   (statusbar_height * E.nwindows);
-	
+
 	/* skip if heights already set */
 	int heights_set = 1;
 	for (int i = 0; i < E.nwindows; i++) {
@@ -833,11 +833,11 @@ void refreshScreen(void) {
 			break;
 		}
 	}
-	
+
 	if (!heights_set) {
 		int window_height = total_height / E.nwindows;
 		int remaining_height = total_height % E.nwindows;
-		
+
 		for (int i = 0; i < E.nwindows; i++) {
 			struct editorWindow *win = E.windows[i];
 			win->height = window_height;
@@ -885,9 +885,9 @@ void refreshScreen(void) {
 	abAppend(&ab, buf, strlen(buf));
 
 	abAppend(&ab, "\x1b[?25h", 6); // Show cursor
-	
+
 	write(STDOUT_FILENO, ab.b, ab.len);
-	
+
 	abFree(&ab);
 }
 
@@ -937,14 +937,14 @@ void editorDestroyWindow(int window_idx) {
 		editorSetStatusMessage("Can't kill last window");
 		return;
 	}
-	
+
 	int focused_idx = windowFocusedIdx();
-	
+
 	/* switch focus before destroying current window */
 	if (window_idx == focused_idx) {
 		editorSwitchWindow();
 	}
-	
+
 	free(E.windows[window_idx]);
 	struct editorWindow **windows =
 		xmalloc(sizeof(struct editorWindow *) * (--E.nwindows));
@@ -957,7 +957,7 @@ void editorDestroyWindow(int window_idx) {
 	}
 	free(E.windows);
 	E.windows = windows;
-	
+
 	/* reset heights */
 	for (int i = 0; i < E.nwindows; i++) {
 		E.windows[i]->height = 0;

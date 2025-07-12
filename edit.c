@@ -19,11 +19,12 @@
 extern struct editorConfig E;
 
 static void addToKillRing(const char *text) {
-	if (!text || strlen(text) == 0) return;
-	
+	if (!text || strlen(text) == 0)
+		return;
+
 	addHistory(&E.kill_history, text);
-	E.kill_ring_pos = -1;  /* Reset position for M-y */
-	
+	E.kill_ring_pos = -1; /* Reset position for M-y */
+
 	/* Update E.kill to point to the new kill */
 	free(E.kill);
 	E.kill = xstrdup((uint8_t *)text);
@@ -32,7 +33,6 @@ static void addToKillRing(const char *text) {
 /* Character insertion */
 
 void editorInsertChar(struct editorBuffer *bufr, int c, int count) {
-	
 	if (count <= 0)
 		count = 1;
 
@@ -710,15 +710,16 @@ void editorPageUp(int count) {
 
 	for (int n = 0; n < times; n++) {
 		int scroll_lines = win->height - page_overlap;
-		if (scroll_lines < 1) scroll_lines = 1;
-		
+		if (scroll_lines < 1)
+			scroll_lines = 1;
+
 		if (E.buf->truncate_lines) {
 			/* Move view up by scroll_lines */
 			win->rowoff -= scroll_lines;
 			if (win->rowoff < 0) {
 				win->rowoff = 0;
 			}
-			
+
 			/* Ensure cursor is within visible window */
 			if (E.buf->cy >= win->rowoff + win->height) {
 				/* Cursor is below window - move it to bottom of window */
@@ -729,32 +730,45 @@ void editorPageUp(int count) {
 			/* In wrapped mode, need to handle variable line heights */
 			int lines_scrolled = 0;
 			int new_rowoff = win->rowoff;
-			
+
 			/* Scroll up by the desired number of screen lines */
-			while (lines_scrolled < scroll_lines && new_rowoff > 0) {
+			while (lines_scrolled < scroll_lines &&
+			       new_rowoff > 0) {
 				new_rowoff--;
-				int line_height = (calculateLineWidth(&E.buf->row[new_rowoff]) / E.screencols) + 1;
+				int line_height =
+					(calculateLineWidth(
+						 &E.buf->row[new_rowoff]) /
+					 E.screencols) +
+					1;
 				lines_scrolled += line_height;
 			}
 			win->rowoff = new_rowoff;
-			
+
 			/* Ensure cursor is visible - calculate screen position */
-			int cursor_screen_line = getScreenLineForRow(E.buf, E.buf->cy);
-			int window_start_screen_line = getScreenLineForRow(E.buf, win->rowoff);
-			
-			if (cursor_screen_line >= window_start_screen_line + win->height) {
+			int cursor_screen_line =
+				getScreenLineForRow(E.buf, E.buf->cy);
+			int window_start_screen_line =
+				getScreenLineForRow(E.buf, win->rowoff);
+
+			if (cursor_screen_line >=
+			    window_start_screen_line + win->height) {
 				/* Cursor is below window - move it up to be within window */
 				while (E.buf->cy > 0) {
-					cursor_screen_line = getScreenLineForRow(E.buf, E.buf->cy);
-					if (cursor_screen_line < window_start_screen_line + win->height)
+					cursor_screen_line =
+						getScreenLineForRow(E.buf,
+								    E.buf->cy);
+					if (cursor_screen_line <
+					    window_start_screen_line +
+						    win->height)
 						break;
 					E.buf->cy--;
 				}
 			}
 		}
-		
+
 		/* Ensure cursor column is valid for new row */
-		if (E.buf->cy < E.buf->numrows && E.buf->cx > E.buf->row[E.buf->cy].size) {
+		if (E.buf->cy < E.buf->numrows &&
+		    E.buf->cx > E.buf->row[E.buf->cy].size) {
 			E.buf->cx = E.buf->row[E.buf->cy].size;
 		}
 	}
@@ -766,18 +780,20 @@ void editorPageDown(int count) {
 
 	for (int n = 0; n < times; n++) {
 		int scroll_lines = win->height - page_overlap;
-		if (scroll_lines < 1) scroll_lines = 1;
-		
+		if (scroll_lines < 1)
+			scroll_lines = 1;
+
 		if (E.buf->truncate_lines) {
 			/* Move view down by scroll_lines */
 			win->rowoff += scroll_lines;
-			
+
 			/* Don't scroll past end of file */
 			if (win->rowoff + win->height > E.buf->numrows) {
 				win->rowoff = E.buf->numrows - win->height;
-				if (win->rowoff < 0) win->rowoff = 0;
+				if (win->rowoff < 0)
+					win->rowoff = 0;
 			}
-			
+
 			/* Ensure cursor is within visible window */
 			if (E.buf->cy < win->rowoff) {
 				/* Cursor is above window - move it to top of window */
@@ -788,32 +804,40 @@ void editorPageDown(int count) {
 			/* In wrapped mode, need to handle variable line heights */
 			int lines_scrolled = 0;
 			int new_rowoff = win->rowoff;
-			
+
 			/* Scroll down by the desired number of screen lines */
-			while (lines_scrolled < scroll_lines && new_rowoff < E.buf->numrows) {
-				int line_height = (calculateLineWidth(&E.buf->row[new_rowoff]) / E.screencols) + 1;
+			while (lines_scrolled < scroll_lines &&
+			       new_rowoff < E.buf->numrows) {
+				int line_height =
+					(calculateLineWidth(
+						 &E.buf->row[new_rowoff]) /
+					 E.screencols) +
+					1;
 				lines_scrolled += line_height;
 				new_rowoff++;
 			}
-			
+
 			/* Don't scroll too far */
 			if (new_rowoff > E.buf->numrows) {
 				new_rowoff = E.buf->numrows;
 			}
 			win->rowoff = new_rowoff;
-			
+
 			/* Ensure cursor is visible - calculate screen position */
-			int cursor_screen_line = getScreenLineForRow(E.buf, E.buf->cy);
-			int window_start_screen_line = getScreenLineForRow(E.buf, win->rowoff);
-			
+			int cursor_screen_line =
+				getScreenLineForRow(E.buf, E.buf->cy);
+			int window_start_screen_line =
+				getScreenLineForRow(E.buf, win->rowoff);
+
 			if (cursor_screen_line < window_start_screen_line) {
 				/* Cursor is above window - move it down to be within window */
 				E.buf->cy = win->rowoff;
 			}
 		}
-		
+
 		/* Ensure cursor column is valid for new row */
-		if (E.buf->cy < E.buf->numrows && E.buf->cx > E.buf->row[E.buf->cy].size) {
+		if (E.buf->cy < E.buf->numrows &&
+		    E.buf->cx > E.buf->row[E.buf->cy].size) {
 			E.buf->cx = E.buf->row[E.buf->cy].size;
 		}
 	}
