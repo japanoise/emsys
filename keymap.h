@@ -94,6 +94,7 @@ enum editorKey {
 	INSERT_FILE,
 	HISTORY_PREV,
 	HISTORY_NEXT,
+	YANK_POP,
 };
 
 struct editorBuffer;

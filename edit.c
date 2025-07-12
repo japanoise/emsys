@@ -13,9 +13,21 @@
 #include "region.h"
 #include "prompt.h"
 #include "terminal.h"
+#include "history.h"
 #include "util.h"
 
 extern struct editorConfig E;
+
+static void addToKillRing(const char *text) {
+	if (!text || strlen(text) == 0) return;
+	
+	addHistory(&E.kill_history, text);
+	E.kill_ring_pos = -1;  /* Reset position for M-y */
+	
+	/* Update E.kill to point to the new kill */
+	free(E.kill);
+	E.kill = xstrdup((uint8_t *)text);
+}
 
 /* Character insertion */
 
@@ -613,10 +625,11 @@ void editorKillLine(int count) {
 		} else {
 			// Copy to kill ring
 			int kill_len = row->size - E.buf->cx;
-			free(E.kill);
-			E.kill = xmalloc(kill_len + 1);
-			memcpy(E.kill, &row->chars[E.buf->cx], kill_len);
-			E.kill[kill_len] = '\0';
+			char *killed_text = xmalloc(kill_len + 1);
+			memcpy(killed_text, &row->chars[E.buf->cx], kill_len);
+			killed_text[kill_len] = '\0';
+			addToKillRing(killed_text);
+			free(killed_text);
 
 			clearRedos(E.buf);
 			struct editorUndo *new = newUndo();
@@ -655,10 +668,11 @@ void editorKillLineBackwards(void) {
 	erow *row = &E.buf->row[E.buf->cy];
 
 	// Copy to kill ring
-	free(E.kill);
-	E.kill = xmalloc(E.buf->cx + 1);
-	memcpy(E.kill, row->chars, E.buf->cx);
-	E.kill[E.buf->cx] = '\0';
+	char *killed_text = xmalloc(E.buf->cx + 1);
+	memcpy(killed_text, row->chars, E.buf->cx);
+	killed_text[E.buf->cx] = '\0';
+	addToKillRing(killed_text);
+	free(killed_text);
 
 	clearRedos(E.buf);
 	struct editorUndo *new = newUndo();

@@ -8,10 +8,21 @@
 #include "buffer.h"
 #include "undo.h"
 #include "display.h"
+#include "history.h"
 #include "prompt.h"
 #include "util.h"
 
 extern struct editorConfig E;
+
+static void addToKillRing(const char *text) {
+	if (!text || strlen(text) == 0) return;
+	
+	addHistory(&E.kill_history, text);
+	E.kill_ring_pos = -1;
+	
+	free(E.kill);
+	E.kill = xstrdup((uint8_t *)text);
+}
 
 void editorSetMark(void) {
 	E.buf->markx = E.buf->cx;
@@ -164,6 +175,8 @@ void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 		}
 	}
 	ed->kill[killpos] = 0;
+	
+	addToKillRing((char *)ed->kill);
 
 	buf->cx = origCx;
 	buf->cy = origCy;
@@ -220,6 +233,44 @@ void editorYank(struct editorConfig *ed, struct editorBuffer *buf, int count) {
 
 	buf->dirty = 1;
 	editorUpdateBuffer(buf);
+	
+	/* Set kill ring position to most recent */
+	ed->kill_ring_pos = ed->kill_history.count > 0 ? ed->kill_history.count - 1 : 0;
+}
+
+void editorYankPop(struct editorConfig *ed, struct editorBuffer *buf) {
+	if (ed->kill_history.count == 0) {
+		editorSetStatusMessage("Kill ring is empty");
+		return;
+	}
+	
+	if (ed->kill_ring_pos < 0) {
+		editorSetStatusMessage("Previous command was not a yank");
+		return;
+	}
+	
+	if (buf->undo == NULL || buf->undo->delete != 0) {
+		editorSetStatusMessage("Previous command was not a yank");
+		return;
+	}
+	
+	editorDoUndo(buf, 1);
+	
+	ed->kill_ring_pos--;
+	if (ed->kill_ring_pos < 0) {
+		ed->kill_ring_pos = ed->kill_history.count - 1;
+	}
+	
+	char *kill_text = getHistoryAt(&ed->kill_history, ed->kill_ring_pos);
+	if (kill_text) {
+		free(ed->kill);
+		ed->kill = xstrdup((uint8_t *)kill_text);
+		int saved_pos = ed->kill_ring_pos;
+		editorYank(ed, buf, 1);
+		ed->kill_ring_pos = saved_pos;
+	} else {
+		editorSetStatusMessage("No more kill ring entries to yank!");
+	}
 }
 
 void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
