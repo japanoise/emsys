@@ -711,6 +711,10 @@ void handleMinibufferCompletion(struct editorBuffer *minibuf, enum promptType ty
 		case PROMPT_COMMAND:
 			getCommandCompletions(&E, current_text, &result);
 			break;
+		case PROMPT_SEARCH:
+			/* For search, we can provide buffer completions */
+			getBufferCompletions(&E, current_text, E.edbuf, &result);
+			break;
 	}
 	
 	/* Handle based on number of matches */

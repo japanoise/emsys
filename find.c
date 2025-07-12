@@ -16,6 +16,8 @@
 #include "prompt.h"
 #include "unused.h"
 #include "util.h"
+#include "history.h"
+#include "buffer.h"
 
 extern struct editorConfig E;
 static int regex_mode = 0;
@@ -148,6 +150,10 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 		direction = 1;
 	}
 
+	if (!query || strlen((char *)query) == 0) {
+		return;
+	}
+	
 	if (last_match == -1)
 		direction = 1;
 	int current = last_match;
@@ -216,7 +222,7 @@ void editorFind(struct editorBuffer *bufr) {
 	//	int saved_rowoff = bufr->rowoff;
 
 	uint8_t *query = editorPrompt(bufr, "Search (C-g to cancel): %s",
-				      PROMPT_BASIC, editorFindCallback);
+				      PROMPT_SEARCH, editorFindCallback);
 
 	free(bufr->query);
 	bufr->query = NULL;
@@ -235,7 +241,7 @@ void editorRegexFind(struct editorBuffer *bufr) {
 	int saved_cy = bufr->cy;
 
 	uint8_t *query = editorPrompt(bufr, "Regex search (C-g to cancel): %s",
-				      PROMPT_BASIC, editorFindCallback);
+				      PROMPT_SEARCH, editorFindCallback);
 
 	free(bufr->query);
 	bufr->query = NULL;

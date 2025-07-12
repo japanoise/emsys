@@ -9,7 +9,6 @@ extern struct editorConfig E;
 void initHistory(struct editorHistory *hist) {
 	hist->head = NULL;
 	hist->tail = NULL;
-	hist->current = NULL;
 	hist->count = 0;
 }
 
@@ -50,37 +49,19 @@ void addHistory(struct editorHistory *hist, const char *str) {
 		hist->count--;
 	}
 	
-	/* Reset current position */
-	hist->current = NULL;
 }
 
-char *getPrevHistory(struct editorHistory *hist) {
-	if (!hist->head) {
+char *getHistoryAt(struct editorHistory *hist, int index) {
+	if (index < 0 || index >= hist->count) {
 		return NULL;
 	}
 	
-	if (!hist->current) {
-		/* Start from the most recent */
-		hist->current = hist->tail;
-	} else if (hist->current->prev) {
-		/* Move to previous */
-		hist->current = hist->current->prev;
+	struct historyEntry *entry = hist->tail;
+	for (int i = hist->count - 1; i > index && entry; i--) {
+		entry = entry->prev;
 	}
 	
-	return hist->current ? hist->current->str : NULL;
-}
-
-char *getNextHistory(struct editorHistory *hist) {
-	if (!hist->current) {
-		return NULL;
-	}
-	
-	hist->current = hist->current->next;
-	return hist->current ? hist->current->str : NULL;
-}
-
-void resetHistoryPosition(struct editorHistory *hist) {
-	hist->current = NULL;
+	return entry ? entry->str : NULL;
 }
 
 void freeHistory(struct editorHistory *hist) {
@@ -92,4 +73,11 @@ void freeHistory(struct editorHistory *hist) {
 		entry = next;
 	}
 	initHistory(hist);
+}
+
+char *getLastHistory(struct editorHistory *hist) {
+	if (hist->tail) {
+		return hist->tail->str;
+	}
+	return NULL;
 }
