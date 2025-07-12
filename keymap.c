@@ -678,7 +678,8 @@ void editorProcessKeypress(int c) {
 
 	case OTHER_WINDOW:
 		if (E.buf == E.minibuf) {
-			editorSetStatusMessage("Command attempted to use minibuffer while in minibuffer");
+			editorSetStatusMessage(
+				"Command attempted to use minibuffer while in minibuffer");
 		} else {
 			editorSwitchWindow();
 		}
@@ -686,7 +687,8 @@ void editorProcessKeypress(int c) {
 
 	case CREATE_WINDOW:
 		if (E.buf == E.minibuf) {
-			editorSetStatusMessage("Command attempted to use minibuffer while in minibuffer");
+			editorSetStatusMessage(
+				"Command attempted to use minibuffer while in minibuffer");
 		} else {
 			editorCreateWindow();
 		}
@@ -694,7 +696,8 @@ void editorProcessKeypress(int c) {
 
 	case DESTROY_WINDOW:
 		if (E.buf == E.minibuf) {
-			editorSetStatusMessage("Command attempted to use minibuffer while in minibuffer");
+			editorSetStatusMessage(
+				"Command attempted to use minibuffer while in minibuffer");
 		} else {
 			editorDestroyWindow(windowFocusedIdx());
 		}
@@ -702,7 +705,8 @@ void editorProcessKeypress(int c) {
 
 	case DESTROY_OTHER_WINDOWS:
 		if (E.buf == E.minibuf) {
-			editorSetStatusMessage("Command attempted to use minibuffer while in minibuffer");
+			editorSetStatusMessage(
+				"Command attempted to use minibuffer while in minibuffer");
 		} else {
 			editorDestroyOtherWindows();
 		}

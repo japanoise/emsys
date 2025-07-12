@@ -129,7 +129,7 @@ char *str_replace(char *orig, char *rep, char *with) {
 void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 	static int last_match = -1;
 	static int direction = 1;
-	
+
 	if (bufr->query != query) {
 		free(bufr->query);
 		bufr->query = query ? xstrdup((char *)query) : NULL;
@@ -153,7 +153,7 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 	if (!query || strlen((char *)query) == 0) {
 		return;
 	}
-	
+
 	if (last_match == -1)
 		direction = 1;
 	int current = last_match;
@@ -167,8 +167,9 @@ void editorFindCallback(struct editorBuffer *bufr, uint8_t *query, int key) {
 				match = regexSearch(&(row->chars[bufr->cx + 1]),
 						    query);
 			} else {
-				match = strstr((char *)&(row->chars[bufr->cx + 1]),
-					       (char *)query);
+				match = strstr(
+					(char *)&(row->chars[bufr->cx + 1]),
+					(char *)query);
 			}
 		}
 		if (match) {
@@ -292,7 +293,8 @@ static int nextOccur(struct editorBuffer *buf, uint8_t *needle, int ocheck) {
 	}
 	while (buf->cy < buf->numrows) {
 		erow *row = &buf->row[buf->cy];
-		uint8_t *match = strstr((char *)&(row->chars[buf->cx]), (char *)needle);
+		uint8_t *match =
+			strstr((char *)&(row->chars[buf->cx]), (char *)needle);
 		if (match) {
 			if (!(buf->cx == ox && buf->cy == oy)) {
 				buf->cx = match - row->chars;

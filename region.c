@@ -15,11 +15,12 @@
 extern struct editorConfig E;
 
 static void addToKillRing(const char *text) {
-	if (!text || strlen(text) == 0) return;
-	
+	if (!text || strlen(text) == 0)
+		return;
+
 	addHistory(&E.kill_history, text);
 	E.kill_ring_pos = -1;
-	
+
 	free(E.kill);
 	E.kill = xstrdup((uint8_t *)text);
 }
@@ -175,7 +176,7 @@ void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf) {
 		}
 	}
 	ed->kill[killpos] = 0;
-	
+
 	addToKillRing((char *)ed->kill);
 
 	buf->cx = origCx;
@@ -233,9 +234,10 @@ void editorYank(struct editorConfig *ed, struct editorBuffer *buf, int count) {
 
 	buf->dirty = 1;
 	editorUpdateBuffer(buf);
-	
+
 	/* Set kill ring position to most recent */
-	ed->kill_ring_pos = ed->kill_history.count > 0 ? ed->kill_history.count - 1 : 0;
+	ed->kill_ring_pos =
+		ed->kill_history.count > 0 ? ed->kill_history.count - 1 : 0;
 }
 
 void editorYankPop(struct editorConfig *ed, struct editorBuffer *buf) {
@@ -243,24 +245,24 @@ void editorYankPop(struct editorConfig *ed, struct editorBuffer *buf) {
 		editorSetStatusMessage("Kill ring is empty");
 		return;
 	}
-	
+
 	if (ed->kill_ring_pos < 0) {
 		editorSetStatusMessage("Previous command was not a yank");
 		return;
 	}
-	
+
 	if (buf->undo == NULL || buf->undo->delete != 0) {
 		editorSetStatusMessage("Previous command was not a yank");
 		return;
 	}
-	
+
 	editorDoUndo(buf, 1);
-	
+
 	ed->kill_ring_pos--;
 	if (ed->kill_ring_pos < 0) {
 		ed->kill_ring_pos = ed->kill_history.count - 1;
 	}
-	
+
 	char *kill_text = getHistoryAt(&ed->kill_history, ed->kill_ring_pos);
 	if (kill_text) {
 		free(ed->kill);
@@ -399,16 +401,21 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 					buf->markx - buf->cx);
 			} else if (i == buf->cy) {
 				emsys_strlcat((char *)new->data,
-				       (char *)&row->chars[buf->cx], new->datasize);
+					      (char *)&row->chars[buf->cx],
+					      new->datasize);
 			} else if (i == buf->marky) {
 				strncat((char *)new->data, (char *)row->chars,
 					buf->markx);
 			} else {
-				emsys_strlcat((char *)new->data, (char *)row->chars, new->datasize);
+				emsys_strlcat((char *)new->data,
+					      (char *)row->chars,
+					      new->datasize);
 			}
 			continue;
 		} else if (i == buf->cy && match_idx < buf->cx) {
-			emsys_strlcat((char *)new->data, (char *)&row->chars[buf->cx], new->datasize);
+			emsys_strlcat((char *)new->data,
+				      (char *)&row->chars[buf->cx],
+				      new->datasize);
 			continue;
 		} else if (i == buf->marky &&
 			   match_idx + match_length > buf->markx) {
@@ -437,13 +444,16 @@ void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
 			strncat((char *)new->data, (char *)&row->chars[buf->cx],
 				buf->markx - buf->cx);
 		} else if (i == buf->cy) {
-			emsys_strlcat((char *)new->data, (char *)&row->chars[buf->cx], new->datasize);
+			emsys_strlcat((char *)new->data,
+				      (char *)&row->chars[buf->cx],
+				      new->datasize);
 		} else if (i == buf->marky) {
 			buf->markx += extra;
 			strncat((char *)new->data, (char *)row->chars,
 				buf->markx);
 		} else {
-			emsys_strlcat((char *)new->data, (char *)row->chars, new->datasize);
+			emsys_strlcat((char *)new->data, (char *)row->chars,
+				      new->datasize);
 		}
 	}
 	/* Now take care of insert undo */
@@ -585,7 +595,8 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	if (boty == topy) {
 		emsys_strlcat((char *)new->data, (char *)string, new->datasize);
 	} else {
-		emsys_strlcat((char *)new->data, (char *)&row->chars[topx], new->datasize);
+		emsys_strlcat((char *)new->data, (char *)&row->chars[topx],
+			      new->datasize);
 	}
 
 	for (int i = topy + 1; i < boty; i++) {
@@ -608,7 +619,8 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		memcpy(&row->chars[topx], string, slen);
 		row->size += extra;
 		row->chars[row->size] = 0;
-		emsys_strlcat((char *)new->data, (char *)row->chars, new->datasize);
+		emsys_strlcat((char *)new->data, (char *)row->chars,
+			      new->datasize);
 	}
 
 	/* Finally, end line */
@@ -808,8 +820,10 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 			row->size -= (row->size - (botx - ed->rx));
 			row->chars[row->size] = 0;
 			if (boty != topy) {
-				emsys_strlcat((char *)new->data,
-				       (char *)&row->chars[botx - ed->rx], new->datasize);
+				emsys_strlcat(
+					(char *)new->data,
+					(char *)&row->chars[botx - ed->rx],
+					new->datasize);
 			}
 		}
 	} else {
@@ -819,7 +833,8 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		row->size -= ed->rx;
 		row->chars[row->size] = 0;
 		if (boty != topy) {
-			emsys_strlcat((char *)new->data, (char *)&row->chars[topx], new->datasize);
+			emsys_strlcat((char *)new->data,
+				      (char *)&row->chars[topx], new->datasize);
 		}
 	}
 	idx++;
@@ -847,7 +862,8 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 			row->chars[row->size] = 0;
 		}
 
-		emsys_strlcat((char *)new->data, (char *)row->chars, new->datasize);
+		emsys_strlcat((char *)new->data, (char *)row->chars,
+			      new->datasize);
 		idx++;
 	}
 
@@ -1000,7 +1016,8 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 	if (boty == topy) {
 		emsys_strlcat((char *)new->data, string, new->datasize);
 	} else {
-		emsys_strlcat((char *)new->data, (char *)&row->chars[topx], new->datasize);
+		emsys_strlcat((char *)new->data, (char *)&row->chars[topx],
+			      new->datasize);
 	}
 	idx++;
 
@@ -1025,7 +1042,8 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 		memcpy(&row->chars[topx], string, ed->rx);
 		row->size += ed->rx;
 		row->chars[row->size] = 0;
-		emsys_strlcat((char *)new->data, (char *)row->chars, new->datasize);
+		emsys_strlcat((char *)new->data, (char *)row->chars,
+			      new->datasize);
 		idx++;
 	}
 

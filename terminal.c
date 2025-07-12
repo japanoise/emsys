@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <termios.h>
 #ifdef __sun
-#include <sys/types.h>  /* This might be needed first */
+#include <sys/types.h> /* This might be needed first */
 #include <sys/termios.h>
 #endif
 #include <sys/ioctl.h>
@@ -245,7 +245,8 @@ ESC_UNKNOWN:;
 		char buf[8];
 		for (int i = 0; seq[i]; i++) {
 			if (seq[i] < ' ') {
-				snprintf(buf, sizeof(buf), "C-%c ", seq[i] + '`');
+				snprintf(buf, sizeof(buf), "C-%c ",
+					 seq[i] + '`');
 			} else {
 				snprintf(buf, sizeof(buf), "%c ", seq[i]);
 			}

@@ -12,7 +12,7 @@
 #include "region.h"
 #include "util.h"
 
-#define MKOUTPUT(in, l, o)  \
+#define MKOUTPUT(in, l, o)          \
 	int l = strlen((char *)in); \
 	uint8_t *o = xmalloc(l + 1)
 
