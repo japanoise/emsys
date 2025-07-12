@@ -24,7 +24,7 @@ OBJECTS = main.o wcwidth.o unicode.o buffer.o region.o undo.o transform.o \
 # Default target with git version detection
 all:
 	@VERSION="`git describe --tags --always --dirty 2>/dev/null || echo $(VERSION)`"; \
-	make VERSION="$$VERSION" $(PROGNAME)
+	$(MAKE) VERSION="$$VERSION" $(PROGNAME)
 
 # Link the executable
 $(PROGNAME): $(OBJECTS)
@@ -73,13 +73,15 @@ check: test
 
 # Sorry Dave
 hal:
-	make clean
-	make CFLAGS="$(CFLAGS) -D_POSIX_C_SOURCE=200112L -Werror" $(PROGNAME)
-	make test
+	$(MAKE) format
+	$(MAKE) clean
+	for f in *.c; do clang-tidy $$f -- -I. ; done
+	$(MAKE) CFLAGS="$(CFLAGS) -D_POSIX_C_SOURCE=200112L -Werror" $(PROGNAME)
+	$(MAKE) test
 
 # Development targets
 debug:
-	make CFLAGS="$(CFLAGS) -g -O0" $(PROGNAME)
+	$(MAKE) CFLAGS="$(CFLAGS) -g -O0" $(PROGNAME)
 
 
 format:
@@ -87,21 +89,21 @@ format:
 
 # Platform-specific variants
 android:
-	make CC=clang CFLAGS="$(CFLAGS) -fPIC -fPIE -DEMSYS_DISABLE_PIPE" LDFLAGS="-pie" $(PROGNAME)
+	$(MAKE) CC=clang CFLAGS="$(CFLAGS) -fPIC -fPIE -DEMSYS_DISABLE_PIPE" LDFLAGS="-pie" $(PROGNAME)
 
 
 msys2:
-	make CFLAGS="$(CFLAGS) -D_GNU_SOURCE" $(PROGNAME)
+	$(MAKE) CFLAGS="$(CFLAGS) -D_GNU_SOURCE" $(PROGNAME)
 
 minimal:
-	make CFLAGS="$(CFLAGS) -DEMSYS_DISABLE_PIPE -Os" $(PROGNAME)
+	$(MAKE) CFLAGS="$(CFLAGS) -DEMSYS_DISABLE_PIPE -Os" $(PROGNAME)
 
 solaris:
-	VERSION="$(VERSION)" make CC=cc CFLAGS="-xc99 -D__EXTENSIONS__ -O2 -errtags=yes -erroff=E_ARG_INCOMPATIBLE_WITH_ARG_L" $(PROGNAME)
+	VERSION="$(VERSION)" $(MAKE) CC=cc CFLAGS="-xc99 -D__EXTENSIONS__ -O2 -errtags=yes -erroff=E_ARG_INCOMPATIBLE_WITH_ARG_L" $(PROGNAME)
 
 
 darwin:
-	make CC=clang CFLAGS="$(CFLAGS) -D_DARWIN_C_SOURCE" $(PROGNAME)
+	$(MAKE) CC=clang CFLAGS="$(CFLAGS) -D_DARWIN_C_SOURCE" $(PROGNAME)
 
 
 
