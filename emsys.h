@@ -204,6 +204,8 @@ struct editorConfig {
 	struct editorHistory command_history;
 	struct editorHistory shell_history;
 	struct editorHistory search_history;
+	struct editorHistory kill_history;
+	int kill_ring_pos;  /* Current position in kill ring for M-y */
 };
 
 /*** prototypes ***/

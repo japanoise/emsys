@@ -234,6 +234,8 @@ int editorReadKey(void) {
 				return COPY;
 			case 'X':
 				return EXEC_CMD;
+			case 'Y':
+				return YANK_POP;
 			}
 		}
 

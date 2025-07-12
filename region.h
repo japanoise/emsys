@@ -21,6 +21,8 @@ void editorCopyRegion(struct editorConfig *ed, struct editorBuffer *buf);
 
 void editorYank(struct editorConfig *ed, struct editorBuffer *buf, int count);
 
+void editorYankPop(struct editorConfig *ed, struct editorBuffer *buf);
+
 void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
 			   uint8_t *(*transformer)(uint8_t *));
 

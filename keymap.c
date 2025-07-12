@@ -415,6 +415,14 @@ void editorProcessKeypress(int c) {
 		editorRecordKey(c);
 	}
 
+	if (c != CTRL('y') && c != YANK_POP
+#ifdef EMSYS_CUA
+	    && c != CTRL('v')
+#endif
+	) {
+		E.kill_ring_pos = -1;
+	}
+
 	int windowIdx = windowFocusedIdx();
 	struct editorWindow *win = E.windows[windowIdx];
 
@@ -595,6 +603,9 @@ void editorProcessKeypress(int c) {
 	case CTRL('v'):
 #endif //EMSYS_CUA
 		editorYank(&E, E.buf, uarg ? uarg : 1);
+		break;
+	case YANK_POP:
+		editorYankPop(&E, E.buf);
 		break;
 	case CTRL('w'):
 		editorKillRegion(&E, E.buf);
