@@ -87,6 +87,7 @@ void initEditor(void) {
 	initHistory(&E.file_history);
 	initHistory(&E.command_history);
 	initHistory(&E.shell_history);
+	initHistory(&E.search_history);
 
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1)
 		die("getWindowSize");

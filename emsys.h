@@ -25,6 +25,7 @@ enum promptType {
 	PROMPT_BASIC,
 	PROMPT_FILES,
 	PROMPT_COMMAND,
+	PROMPT_SEARCH,
 };
 /*** data ***/
 
@@ -163,7 +164,6 @@ struct historyEntry {
 struct editorHistory {
 	struct historyEntry *head;
 	struct historyEntry *tail;
-	struct historyEntry *current;
 	int count;
 };
 
@@ -203,6 +203,7 @@ struct editorConfig {
 	struct editorHistory file_history;
 	struct editorHistory command_history;
 	struct editorHistory shell_history;
+	struct editorHistory search_history;
 };
 
 /*** prototypes ***/

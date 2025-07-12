@@ -22,11 +22,8 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 		      void (*callback)(struct editorBuffer *, uint8_t *, int)) {
 	
 	uint8_t *result = NULL;
+	int history_pos = -1;
 
-	/* Save current buffer context */
-	struct editorBuffer *saved_edbuf = E.edbuf;
-
-	/* Clear minibuffer */
 	while (E.minibuf->numrows > 0) {
 		editorDelRow(E.minibuf, 0);
 	}
@@ -34,7 +31,7 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 	E.minibuf->cx = 0;
 	E.minibuf->cy = 0;
 
-	/* Switch to minibuffer */
+	/* Save editor buffer and switch to minibuffer */
 	E.edbuf = E.buf;
 	E.buf = E.minibuf;
 
@@ -56,6 +53,8 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 		/* Read key */
 		int c = editorReadKey();
 		editorRecordKey(c);
+		
+		int callback_key = c;
 
 		/* Handle special minibuffer keys */
 		switch (c) {
@@ -78,6 +77,24 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 			handleMinibufferCompletion(E.minibuf, t);
 			break;
 
+		case CTRL('s'):
+			/* C-s C-s: populate empty search with last search */
+			if (t == PROMPT_SEARCH && E.minibuf->numrows > 0 && 
+			    E.minibuf->row[0].size == 0) {
+				char *last_search = getLastHistory(&E.search_history);
+				if (last_search) {
+					while (E.minibuf->numrows > 0) {
+						editorDelRow(E.minibuf, 0);
+					}
+					editorInsertRow(E.minibuf, 0, last_search, strlen(last_search));
+					E.minibuf->cx = strlen(last_search);
+					E.minibuf->cy = 0;
+				} else {
+					editorSetStatusMessage("[No previous search]");
+				}
+			}
+			break;
+
 		case HISTORY_PREV:
 		case HISTORY_NEXT:
 		{
@@ -94,21 +111,42 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 			case PROMPT_BASIC:
 				hist = &E.shell_history;
 				break;
+			case PROMPT_SEARCH:
+				hist = &E.search_history;
+				break;
 			}
 			
-			if (hist) {
+			if (hist && hist->count > 0) {
 				if (c == HISTORY_PREV) {
-					history_str = getPrevHistory(hist);
+					if (history_pos == -1) {
+						history_pos = hist->count - 1;
+					} else if (history_pos > 0) {
+						history_pos--;
+					}
 				} else {
-					history_str = getNextHistory(hist);
+					if (history_pos >= 0 && history_pos < hist->count - 1) {
+						history_pos++;
+					} else {
+						history_pos = -1;
+					}
 				}
 				
-				if (history_str) {
+				if (history_pos >= 0) {
+					history_str = getHistoryAt(hist, history_pos);
+					if (history_str) {
+						while (E.minibuf->numrows > 0) {
+							editorDelRow(E.minibuf, 0);
+						}
+						editorInsertRow(E.minibuf, 0, history_str, strlen(history_str));
+						E.minibuf->cx = strlen(history_str);
+						E.minibuf->cy = 0;
+					}
+				} else {
 					while (E.minibuf->numrows > 0) {
 						editorDelRow(E.minibuf, 0);
 					}
-					editorInsertRow(E.minibuf, 0, history_str, strlen(history_str));
-					E.minibuf->cx = strlen(history_str);
+					editorInsertRow(E.minibuf, 0, "", 0);
+					E.minibuf->cx = 0;
 					E.minibuf->cy = 0;
 				}
 			}
@@ -157,7 +195,7 @@ uint8_t *editorPrompt(struct editorBuffer *bufr, uint8_t *prompt,
 			char *text = E.minibuf->numrows > 0 ?
 					     (char *)E.minibuf->row[0].chars :
 					     "";
-			callback(bufr, (uint8_t *)text, c);
+			callback(bufr, (uint8_t *)text, callback_key);
 		}
 	}
 
@@ -173,6 +211,9 @@ done:
 			break;
 		case PROMPT_BASIC:
 			hist = &E.shell_history;
+			break;
+		case PROMPT_SEARCH:
+			hist = &E.search_history;
 			break;
 		}
 		if (hist) {
@@ -194,9 +235,7 @@ done:
 		destroyBuffer(comp_buf);
 	}
 	
-	/* Restore previous buffer */
-	E.buf = saved_edbuf;
-	E.edbuf = saved_edbuf;
+	E.buf = E.edbuf;
 
 	editorSetStatusMessage("");
 	

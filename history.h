@@ -5,9 +5,8 @@
 
 void initHistory(struct editorHistory *hist);
 void addHistory(struct editorHistory *hist, const char *str);
-char *getPrevHistory(struct editorHistory *hist);
-char *getNextHistory(struct editorHistory *hist);
-void resetHistoryPosition(struct editorHistory *hist);
+char *getHistoryAt(struct editorHistory *hist, int index);
 void freeHistory(struct editorHistory *hist);
+char *getLastHistory(struct editorHistory *hist);
 
 #endif
