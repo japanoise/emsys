@@ -35,7 +35,13 @@ test -x ./emsys || exit 1
 echo "✓ Binary executable"
 
 # Test 4: Compile and run core tests
-cc -std=c99 -o test_core tests/test_core.c unicode.o wcwidth.o util.o || exit 1
+# Check if object files were built with sanitizers by looking for ASAN symbols
+if nm unicode.o 2>/dev/null | grep -q "__asan_"; then
+    echo "✓ Detected sanitizer build, using sanitizer flags for test"
+    cc -std=c99 -fsanitize=address,undefined -o test_core tests/test_core.c unicode.o wcwidth.o util.o || exit 1
+else
+    cc -std=c99 -o test_core tests/test_core.c unicode.o wcwidth.o util.o || exit 1
+fi
 if ./test_core | grep -q "FAIL"; then
     echo "✗ Core tests failed"
     ./test_core
