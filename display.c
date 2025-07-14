@@ -903,7 +903,13 @@ void cursorBottomLine(int curs) {
 
 void cursorBottomLineLong(long curs) {
 	char cbuf[32];
-	snprintf(cbuf, sizeof(cbuf), CSI "%d;%ldH", E.screenrows, curs);
+	/* Calculate actual minibuffer row position */
+	int minibuf_row = 0;
+	for (int i = 0; i < E.nwindows; i++) {
+		minibuf_row += E.windows[i]->height + statusbar_height;
+	}
+	minibuf_row++; /* minibuffer is after all windows/status bars */
+	snprintf(cbuf, sizeof(cbuf), CSI "%d;%ldH", minibuf_row, curs);
 	write(STDOUT_FILENO, cbuf, strlen(cbuf));
 }
 
