@@ -476,6 +476,8 @@ void drawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 	struct editorBuffer *buf = win->buf;
 	int y;
 	int filerow = win->rowoff;
+	
+	
 
 	for (y = 0; y < screenrows; y++) {
 		if (filerow >= buf->numrows) {
@@ -849,6 +851,7 @@ void refreshScreen(void) {
 
 	for (int i = 0; i < E.nwindows; i++) {
 		struct editorWindow *win = E.windows[i];
+		
 
 		if (win->focused)
 			scroll();
@@ -928,9 +931,11 @@ void editorCreateWindow(void) {
 	E.windows[E.nwindows - 1]->cy = E.buf->cy;
 	E.windows[E.nwindows - 1]->rowoff = 0;
 	E.windows[E.nwindows - 1]->coloff = 0;
-	E.windows[E.nwindows - 1]->height =
-		(E.screenrows - minibuffer_height) / E.nwindows -
-		statusbar_height;
+	
+	// Force all windows to recalculate heights
+	for (int i = 0; i < E.nwindows; i++) {
+		E.windows[i]->height = 0;
+	}
 }
 
 void editorDestroyWindow(int window_idx) {
