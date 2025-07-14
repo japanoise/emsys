@@ -476,8 +476,6 @@ void drawRows(struct editorWindow *win, struct abuf *ab, int screenrows,
 	struct editorBuffer *buf = win->buf;
 	int y;
 	int filerow = win->rowoff;
-	
-	
 
 	for (y = 0; y < screenrows; y++) {
 		if (filerow >= buf->numrows) {
@@ -737,16 +735,17 @@ void drawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
 		}
 		status[len++] = '"';
 		len += snprintf(&status[len], sizeof(status) - len,
-			       "sx %d sy %d ex %d ey %d cx %d cy %d",
-			       DEBUG_UNDO->startx, DEBUG_UNDO->starty,
-			       DEBUG_UNDO->endx, DEBUG_UNDO->endy, bufr->cx,
-			       bufr->cy);
+				"sx %d sy %d ex %d ey %d cx %d cy %d",
+				DEBUG_UNDO->startx, DEBUG_UNDO->starty,
+				DEBUG_UNDO->endx, DEBUG_UNDO->endy, bufr->cx,
+				bufr->cy);
 	}
 #endif
 #ifdef EMSYS_DEBUG_MACROS
 	/* This can get quite wide, you may want to boost the size of status */
 	for (int i = 0; i < E.macro.nkeys; i++) {
-		len += snprintf(&status[len], sizeof(status) - len, "%d: %d ", i, E.macro.keys[i]);
+		len += snprintf(&status[len], sizeof(status) - len, "%d: %d ",
+				i, E.macro.keys[i]);
 	}
 #endif
 
@@ -851,7 +850,6 @@ void refreshScreen(void) {
 
 	for (int i = 0; i < E.nwindows; i++) {
 		struct editorWindow *win = E.windows[i];
-		
 
 		if (win->focused)
 			scroll();
@@ -937,7 +935,7 @@ void editorCreateWindow(void) {
 	E.windows[E.nwindows - 1]->cy = E.buf->cy;
 	E.windows[E.nwindows - 1]->rowoff = 0;
 	E.windows[E.nwindows - 1]->coloff = 0;
-	
+
 	// Force all windows to recalculate heights
 	for (int i = 0; i < E.nwindows; i++) {
 		E.windows[i]->height = 0;
@@ -1006,17 +1004,19 @@ void editorWhatCursor(void) {
 		line_len = row->size;
 		for (int j = 0; j < E.buf->cx && j < row->size; j++) {
 			if (row->chars[j] == '\t') {
-				rx = (rx + EMSYS_TAB_STOP) & ~(EMSYS_TAB_STOP - 1);
+				rx = (rx + EMSYS_TAB_STOP) &
+				     ~(EMSYS_TAB_STOP - 1);
 			} else {
 				int w = mk_wcwidth(row->chars[j]);
 				rx += (w > 0) ? w : 1;
 			}
 		}
 	}
-	
+
 	/* Get character at cursor */
 	char ch[8] = "EOL";
-	if (E.buf->cy < E.buf->numrows && E.buf->cx < E.buf->row[E.buf->cy].size) {
+	if (E.buf->cy < E.buf->numrows &&
+	    E.buf->cx < E.buf->row[E.buf->cy].size) {
 		uint8_t c = E.buf->row[E.buf->cy].chars[E.buf->cx];
 		if (c < 32) {
 			snprintf(ch, sizeof(ch), "^%c", c + 64);
@@ -1028,12 +1028,12 @@ void editorWhatCursor(void) {
 			snprintf(ch, sizeof(ch), "\\x%02X", c);
 		}
 	}
-	
+
 	int screen_y = E.buf->cy - E.windows[0]->rowoff + 1;
-	editorSetStatusMessage("Line,col (buffer:%d,%d screen:%d,%d) Char='%s' LineLen=%d Window=%dx%d", 
-			       E.buf->cy + 1, E.buf->cx, screen_y, rx,
-			       ch, line_len,
-			       E.screencols, E.screenrows);
+	editorSetStatusMessage(
+		"Line,col (buffer:%d,%d screen:%d,%d) Char='%s' LineLen=%d Window=%dx%d",
+		E.buf->cy + 1, E.buf->cx, screen_y, rx, ch, line_len,
+		E.screencols, E.screenrows);
 }
 
 void recenter(struct editorWindow *win) {
