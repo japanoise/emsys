@@ -733,7 +733,7 @@ void drawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
 				status[len] = '#';
 		}
 		status[len++] = '"';
-		len += sprintf(&status[len],
+		len += snprintf(&status[len], sizeof(status) - len,
 			       "sx %d sy %d ex %d ey %d cx %d cy %d",
 			       DEBUG_UNDO->startx, DEBUG_UNDO->starty,
 			       DEBUG_UNDO->endx, DEBUG_UNDO->endy, bufr->cx,
@@ -743,7 +743,7 @@ void drawStatusBar(struct editorWindow *win, struct abuf *ab, int line) {
 #ifdef EMSYS_DEBUG_MACROS
 	/* This can get quite wide, you may want to boost the size of status */
 	for (int i = 0; i < E.macro.nkeys; i++) {
-		len += sprintf(&status[len], "%d: %d ", i, E.macro.keys[i]);
+		len += snprintf(&status[len], sizeof(status) - len, "%d: %d ", i, E.macro.keys[i]);
 	}
 #endif
 
