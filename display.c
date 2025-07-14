@@ -6,6 +6,7 @@
 #include "region.h"
 #include "buffer.h"
 #include "util.h"
+#include "wcwidth.h"
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -986,41 +987,42 @@ void editorDestroyOtherWindows(void) {
 }
 
 void editorWhatCursor(void) {
-	int c = 0;
-
-	if (E.buf->cy >= E.buf->numrows) {
-		editorSetStatusMessage("End of buffer");
-		return;
-	} else if (E.buf->row[E.buf->cy].size <= E.buf->cx) {
-		c = (uint8_t)'\n';
-	} else {
-		c = (uint8_t)E.buf->row[E.buf->cy].chars[E.buf->cx];
-	}
-
-	int npoint = 0, point = 0;
-	for (int y = 0; y < E.buf->numrows; y++) {
-		for (int x = 0; x <= E.buf->row[y].size; x++) {
-			npoint++;
-			if (x == E.buf->cx && y == E.buf->cy) {
-				point = npoint;
+	/* Calculate rendered column position (accounting for tabs and Unicode) */
+	int rx = 0;
+	int line_len = 0;
+	if (E.buf->cy < E.buf->numrows) {
+		struct erow *row = &E.buf->row[E.buf->cy];
+		line_len = row->size;
+		for (int j = 0; j < E.buf->cx && j < row->size; j++) {
+			if (row->chars[j] == '\t') {
+				rx = (rx + EMSYS_TAB_STOP) & ~(EMSYS_TAB_STOP - 1);
+			} else {
+				int w = mk_wcwidth(row->chars[j]);
+				rx += (w > 0) ? w : 1;
 			}
 		}
 	}
-	int perc = npoint > 0 ? ((point - 1) * 100) / npoint : 0;
-
-	if (c == 127) {
-		editorSetStatusMessage("char: ^? (%d #o%03o #x%02X)"
-				       " point=%d of %d (%d%%)",
-				       c, c, c, point, npoint, perc);
-	} else if (c < ' ') {
-		editorSetStatusMessage("char: ^%c (%d #o%03o #x%02X)"
-				       " point=%d of %d (%d%%)",
-				       c + 0x40, c, c, c, point, npoint, perc);
-	} else {
-		editorSetStatusMessage("char: %c (%d #o%03o #x%02X)"
-				       " point=%d of %d (%d%%)",
-				       c, c, c, c, point, npoint, perc);
+	
+	/* Get character at cursor */
+	char ch[8] = "EOL";
+	if (E.buf->cy < E.buf->numrows && E.buf->cx < E.buf->row[E.buf->cy].size) {
+		uint8_t c = E.buf->row[E.buf->cy].chars[E.buf->cx];
+		if (c < 32) {
+			snprintf(ch, sizeof(ch), "^%c", c + 64);
+		} else if (c == 127) {
+			snprintf(ch, sizeof(ch), "^?");
+		} else if (c < 128) {
+			snprintf(ch, sizeof(ch), "%c", c);
+		} else {
+			snprintf(ch, sizeof(ch), "\\x%02X", c);
+		}
 	}
+	
+	int screen_y = E.buf->cy - E.windows[0]->rowoff + 1;
+	editorSetStatusMessage("Line,col (buffer:%d,%d screen:%d,%d) Char='%s' LineLen=%d Window=%dx%d", 
+			       E.buf->cy + 1, E.buf->cx, screen_y, rx,
+			       ch, line_len,
+			       E.screencols, E.screenrows);
 }
 
 void recenter(struct editorWindow *win) {
