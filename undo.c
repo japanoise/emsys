@@ -19,6 +19,7 @@ void editorDoUndo(struct editorBuffer *buf, int count) {
 			return;
 		}
 		int paired = buf->undo->paired;
+		buf->dirty = 1;
 
 		if (buf->undo->delete) {
 			buf->cx = buf->undo->startx;
@@ -105,6 +106,7 @@ void editorDoRedo(struct editorBuffer *buf, int count) {
 			editorSetStatusMessage("No further redo information.");
 			return;
 		}
+		buf->dirty = 1;
 
 		if (buf->redo->delete) {
 			struct erow *row = &buf->row[buf->redo->starty];

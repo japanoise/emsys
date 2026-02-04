@@ -134,11 +134,8 @@ void editorSave(struct editorBuffer *bufr) {
 				free(buf);
 				bufr->dirty = 0;
 
-				// Clear undo/redo on successful save
-				clearUndosAndRedos(bufr);
-
 				editorSetStatusMessage(
-					"Wrote %d bytes to %s (undo history cleared)",
+					"Wrote %d bytes to %s",
 					len, bufr->filename);
 				return;
 			}
