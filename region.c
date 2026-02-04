@@ -36,9 +36,13 @@ void editorSetMark(void) {
 	}
 }
 
-void editorClearMark(void) {
+static void editorClearMarkQuiet(void) {
 	E.buf->markx = -1;
 	E.buf->marky = -1;
+}
+
+void editorClearMark(void) {
+	editorClearMarkQuiet();
 	editorSetStatusMessage("Mark Cleared");
 }
 
@@ -650,6 +654,7 @@ void editorStringRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	buf->dirty = 1;
 	editorUpdateBuffer(buf);
+	editorClearMarkQuiet();
 	ed->kill = okill;
 }
 
@@ -735,6 +740,8 @@ void editorCopyRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 				(char *)&row->chars[botx - ed->rx], ed->rx);
 		}
 	}
+
+	editorClearMarkQuiet();
 }
 
 void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
@@ -897,6 +904,7 @@ void editorKillRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	buf->dirty = 1;
 	editorUpdateBuffer(buf);
+	editorClearMarkQuiet();
 	ed->kill = okill;
 }
 
@@ -1075,5 +1083,6 @@ void editorYankRectangle(struct editorConfig *ed, struct editorBuffer *buf) {
 
 	buf->dirty = 1;
 	editorUpdateBuffer(buf);
+	editorClearMarkQuiet();
 	ed->kill = okill;
 }
