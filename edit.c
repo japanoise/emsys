@@ -750,6 +750,15 @@ void editorPageUp(int count) {
 			int window_start_screen_line =
 				getScreenLineForRow(E.buf, win->rowoff);
 
+			/* If not in a short buffer & cursor is off
+			   the end of the file, move it up &
+			   recalculate its position */
+			if (window_start_screen_line > 0 && E.buf->numrows > 0
+			    && E.buf->cy >= E.buf->numrows) {
+				E.buf->cy = E.buf->numrows - 1;
+				cursor_screen_line = getScreenLineForRow(E.buf, E.buf->cy);
+			}
+
 			if (cursor_screen_line >=
 			    window_start_screen_line + win->height) {
 				/* Cursor is below window - move it up to be within window */
