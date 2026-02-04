@@ -155,9 +155,12 @@ void executeCommand(int key) {
 			return;
 		}
 #endif
-		prefix = PREFIX_CTRL_X;
-		showPrefix("C-x ");
-		return;
+		if (prefix == PREFIX_NONE) {
+			prefix = PREFIX_CTRL_X;
+			showPrefix("C-x ");
+			return;
+		}
+		break;
 
 	case CTRL('g'):
 		/* Cancel prefix */
