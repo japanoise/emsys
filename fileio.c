@@ -134,9 +134,8 @@ void editorSave(struct editorBuffer *bufr) {
 				free(buf);
 				bufr->dirty = 0;
 
-				editorSetStatusMessage(
-					"Wrote %d bytes to %s",
-					len, bufr->filename);
+				editorSetStatusMessage("Wrote %d bytes to %s",
+						       len, bufr->filename);
 				return;
 			}
 		}

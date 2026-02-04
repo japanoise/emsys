@@ -753,10 +753,11 @@ void editorPageUp(int count) {
 			/* If not in a short buffer & cursor is off
 			   the end of the file, move it up &
 			   recalculate its position */
-			if (window_start_screen_line > 0 && E.buf->numrows > 0
-			    && E.buf->cy >= E.buf->numrows) {
+			if (window_start_screen_line > 0 &&
+			    E.buf->numrows > 0 && E.buf->cy >= E.buf->numrows) {
 				E.buf->cy = E.buf->numrows - 1;
-				cursor_screen_line = getScreenLineForRow(E.buf, E.buf->cy);
+				cursor_screen_line =
+					getScreenLineForRow(E.buf, E.buf->cy);
 			}
 
 			if (cursor_screen_line >=
