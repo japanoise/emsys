@@ -21,8 +21,9 @@ static void addToKillRing(const char *text) {
 	addHistory(&E.kill_history, text);
 	E.kill_ring_pos = -1;
 
-	free(E.kill);
+	char *oldKill = E.kill;
 	E.kill = xstrdup((uint8_t *)text);
+	free(oldKill);
 }
 
 void editorSetMark(void) {
