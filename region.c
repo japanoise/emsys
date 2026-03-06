@@ -302,6 +302,7 @@ void editorTransformRegion(struct editorConfig *ed, struct editorBuffer *buf,
 
 	free(ed->kill);
 	ed->kill = okill;
+	editorClearMarkQuiet();
 }
 
 void editorReplaceRegex(struct editorConfig *ed, struct editorBuffer *buf) {
